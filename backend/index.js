@@ -31,3 +31,7 @@ app.listen(5000, () => {
 const testRoutes = require("./routes/testRoutes");
 
 app.use("/api/test", testRoutes);
+
+const startupRoutes = require("./routes/startupRoutes");
+
+app.use("/api/startups", startupRoutes);
