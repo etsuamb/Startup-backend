@@ -1,10 +1,23 @@
 const jwt = require("jsonwebtoken");
 
-const JWT_SECRET = "your_secret_key";
+const JWT_SECRET = process.env.JWT_SECRET || "your_secret_key";
 
 // 🔐 Authenticate user (check token)
 exports.authenticate = (req, res, next) => {
-  const token = req.headers["authorization"];
+  const authHeader =
+    req.headers["authorization"] ||
+    req.headers["Authorization"] ||
+    req.headers["x-access-token"];
+
+  if (!authHeader) {
+    return res.status(401).send("Access denied. No token.");
+  }
+
+  let token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  token = token
+    .replace(/^"(.+)"$/, "$1")
+    .replace(/^'(.+)'$/, "$1")
+    .trim();
 
   if (!token) {
     return res.status(401).send("Access denied. No token.");
@@ -15,7 +28,7 @@ exports.authenticate = (req, res, next) => {
     req.user = decoded; // contains user_id + role
     next();
   } catch (err) {
-    res.status(400).send("Invalid token");
+    res.status(401).send("Invalid token");
   }
 };
 

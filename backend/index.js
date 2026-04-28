@@ -35,3 +35,15 @@ app.use("/api/test", testRoutes);
 const startupRoutes = require("./routes/startupRoutes");
 
 app.use("/api/startups", startupRoutes);
+const projectRoutes = require("./routes/projectRoutes");
+
+app.use("/api/projects", projectRoutes);
+
+const investmentRoutes = require("./routes/investmentRoutes");
+
+app.use("/api/investments", investmentRoutes);
+
+const investorRoutes = require("./routes/investorRoutes");
+
+app.use("/api/investors", investorRoutes);
+
