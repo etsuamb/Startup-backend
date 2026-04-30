@@ -1,0 +1,242 @@
+CREATE TABLE IF NOT EXISTS users (
+    user_id SERIAL PRIMARY KEY,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'Admin', 'Startup', 'Investor', 'Mentor')),
+    phone_number VARCHAR(20) UNIQUE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    is_approved BOOLEAN NOT NULL DEFAULT FALSE,
+    approved_by INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
+    approved_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS admins (
+    admin_id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL UNIQUE REFERENCES users(user_id) ON DELETE CASCADE,
+    privilege_level SMALLINT NOT NULL DEFAULT 1 CHECK (privilege_level BETWEEN 1 AND 10),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS startups (
+    startup_id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL UNIQUE REFERENCES users(user_id) ON DELETE CASCADE,
+    startup_name VARCHAR(255) NOT NULL,
+    industry VARCHAR(120),
+    description TEXT,
+    business_stage VARCHAR(50),
+    founded_year INTEGER CHECK (founded_year BETWEEN 1900 AND 2100),
+    team_size INTEGER CHECK (team_size >= 0),
+    location VARCHAR(150),
+    website VARCHAR(255),
+    funding_needed DECIMAL(14,2) CHECK (funding_needed >= 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS investors (
+    investor_id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL UNIQUE REFERENCES users(user_id) ON DELETE CASCADE,
+    investor_type VARCHAR(50) NOT NULL,
+    organization_name VARCHAR(255),
+    investment_budget DECIMAL(14,2) CHECK (investment_budget >= 0),
+    preferred_industry VARCHAR(120),
+    investment_stage VARCHAR(50),
+    country VARCHAR(100),
+    portfolio_size INTEGER CHECK (portfolio_size >= 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS mentors (
+    mentor_id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL UNIQUE REFERENCES users(user_id) ON DELETE CASCADE,
+    headline VARCHAR(255),
+    expertise TEXT,
+    years_experience INTEGER CHECK (years_experience >= 0),
+    hourly_rate DECIMAL(10,2) CHECK (hourly_rate >= 0),
+    country VARCHAR(100),
+    bio TEXT,
+    availability JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS projects (
+    project_id SERIAL PRIMARY KEY,
+    startup_id INTEGER NOT NULL REFERENCES startups(startup_id) ON DELETE CASCADE,
+    project_title VARCHAR(255) NOT NULL,
+    description TEXT,
+    funding_goal DECIMAL(14,2) NOT NULL CHECK (funding_goal >= 0),
+    amount_raised DECIMAL(14,2) NOT NULL DEFAULT 0 CHECK (amount_raised >= 0),
+    status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('draft', 'active', 'funded', 'completed', 'cancelled')),
+    start_date DATE,
+    end_date DATE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CHECK (end_date IS NULL OR start_date IS NULL OR end_date >= start_date)
+);
+
+CREATE TABLE IF NOT EXISTS documents (
+    document_id SERIAL PRIMARY KEY,
+    startup_id INTEGER REFERENCES startups(startup_id) ON DELETE CASCADE,
+    file_name VARCHAR(255) NOT NULL,
+    file_path TEXT NOT NULL UNIQUE,
+    file_type VARCHAR(100),
+    file_size_bytes BIGINT CHECK (file_size_bytes >= 0),
+    description TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS mentor_documents (
+    mentor_document_id SERIAL PRIMARY KEY,
+    mentor_id INTEGER NOT NULL REFERENCES mentors(mentor_id) ON DELETE CASCADE,
+    document_type VARCHAR(50) NOT NULL CHECK (document_type IN ('cv','certification','other')),
+    file_name VARCHAR(255) NOT NULL,
+    file_path TEXT NOT NULL UNIQUE,
+    file_type VARCHAR(100),
+    file_size_bytes BIGINT CHECK (file_size_bytes >= 0),
+    description TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS investment_requests (
+    investment_request_id SERIAL PRIMARY KEY,
+    startup_id INTEGER NOT NULL REFERENCES startups(startup_id) ON DELETE CASCADE,
+    investor_id INTEGER NOT NULL REFERENCES investors(investor_id) ON DELETE CASCADE,
+    project_id INTEGER NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+    requested_amount DECIMAL(14,2) NOT NULL CHECK (requested_amount > 0),
+    proposal_message TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'withdrawn')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS investments (
+    investment_id SERIAL PRIMARY KEY,
+    investment_request_id INTEGER NOT NULL UNIQUE REFERENCES investment_requests(investment_request_id) ON DELETE CASCADE,
+    amount DECIMAL(14,2) NOT NULL CHECK (amount > 0),
+    equity_percentage DECIMAL(5,2) CHECK (equity_percentage >= 0 AND equity_percentage <= 100),
+    agreement_file_path TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'completed' CHECK (status IN ('pending', 'completed', 'cancelled', 'failed')),
+    closed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS mentorship_requests (
+    mentorship_request_id SERIAL PRIMARY KEY,
+    startup_id INTEGER NOT NULL REFERENCES startups(startup_id) ON DELETE CASCADE,
+    mentor_id INTEGER NOT NULL REFERENCES mentors(mentor_id) ON DELETE CASCADE,
+    subject VARCHAR(255) NOT NULL,
+    message TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'cancelled')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS mentorship_sessions (
+    mentorship_session_id SERIAL PRIMARY KEY,
+    mentorship_request_id INTEGER NOT NULL REFERENCES mentorship_requests(mentorship_request_id) ON DELETE CASCADE,
+    scheduled_at TIMESTAMPTZ NOT NULL,
+    duration_minutes INTEGER NOT NULL CHECK (duration_minutes > 0),
+    meeting_link TEXT,
+    notes TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'completed', 'cancelled', 'no_show')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS mentorship_reports (
+    report_id SERIAL PRIMARY KEY,
+    mentorship_request_id INTEGER NOT NULL REFERENCES mentorship_requests(mentorship_request_id) ON DELETE CASCADE,
+    mentorship_session_id INTEGER NOT NULL UNIQUE REFERENCES mentorship_sessions(mentorship_session_id) ON DELETE CASCADE,
+    startup_id INTEGER NOT NULL REFERENCES startups(startup_id) ON DELETE CASCADE,
+    mentor_id INTEGER NOT NULL REFERENCES mentors(mentor_id) ON DELETE CASCADE,
+    report_title VARCHAR(255) NOT NULL,
+    summary TEXT NOT NULL,
+    action_items JSONB,
+    next_steps JSONB,
+    progress_rating SMALLINT CHECK (progress_rating BETWEEN 1 AND 5),
+    startup_feedback TEXT,
+    mentor_notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS mentorship_resources (
+    resource_id SERIAL PRIMARY KEY,
+    mentorship_request_id INTEGER NOT NULL REFERENCES mentorship_requests(mentorship_request_id) ON DELETE CASCADE,
+    mentorship_session_id INTEGER REFERENCES mentorship_sessions(mentorship_session_id) ON DELETE CASCADE,
+    startup_id INTEGER NOT NULL REFERENCES startups(startup_id) ON DELETE CASCADE,
+    mentor_id INTEGER NOT NULL REFERENCES mentors(mentor_id) ON DELETE CASCADE,
+    resource_title VARCHAR(255) NOT NULL,
+    resource_description TEXT,
+    resource_type VARCHAR(50) NOT NULL CHECK (resource_type IN ('file', 'link', 'note')),
+    file_name VARCHAR(255),
+    file_path TEXT UNIQUE,
+    file_type VARCHAR(100),
+    file_size_bytes BIGINT CHECK (file_size_bytes >= 0),
+    external_url TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS payments (
+    payment_id SERIAL PRIMARY KEY,
+    from_user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    to_user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    amount DECIMAL(14,2) NOT NULL CHECK (amount > 0),
+    currency CHAR(3) NOT NULL DEFAULT 'USD',
+    payment_method VARCHAR(50),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed', 'refunded')),
+    reference_type VARCHAR(50),
+    reference_id INTEGER,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CHECK (from_user_id <> to_user_id)
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+    message_id SERIAL PRIMARY KEY,
+    sender_user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    receiver_user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    subject VARCHAR(255),
+    body TEXT NOT NULL,
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CHECK (sender_user_id <> receiver_user_id)
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+    notification_id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    notification_type VARCHAR(50) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    reference_type VARCHAR(50),
+    reference_id INTEGER,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS reviews (
+    review_id SERIAL PRIMARY KEY,
+    startup_id INTEGER NOT NULL REFERENCES startups(startup_id) ON DELETE CASCADE,
+    mentor_id INTEGER NOT NULL REFERENCES mentors(mentor_id) ON DELETE CASCADE,
+    rating SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    comment TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+    audit_log_id SERIAL PRIMARY KEY,
+    actor_user_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
+    action VARCHAR(100) NOT NULL,
+    entity_type VARCHAR(100) NOT NULL,
+    entity_id INTEGER,
+    details TEXT,
+    ip_address INET,
+    metadata JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Refresh / session tokens for logout / rotation
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    token TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    revoked BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

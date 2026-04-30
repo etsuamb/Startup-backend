@@ -1,24 +1,27 @@
 const router = require("express").Router();
 
 const {
-  authenticate,
-  authorizeRoles,
+	authenticate,
+	authorizeRoles,
+	requireApproval,
 } = require("../middleware/authMiddleware");
 
 const projectController = require("../controllers/projectController");
 
 router.post(
-  "/create",
-  authenticate,
-  authorizeRoles("Startup"),
-  projectController.createProject,
+	"/create",
+	authenticate,
+	requireApproval,
+	authorizeRoles("Startup"),
+	projectController.createProject,
 );
 
 router.get(
-  "/all",
-  authenticate,
-  authorizeRoles("Investor"),
-  projectController.getAllProjects,
+	"/all",
+	authenticate,
+	requireApproval,
+	authorizeRoles("Investor"),
+	projectController.getAllProjects,
 );
 
 module.exports = router;
