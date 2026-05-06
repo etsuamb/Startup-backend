@@ -34,6 +34,22 @@ router.delete(
 	adminController.deleteDocumentAdmin,
 );
 
+// List documents with optional filters: type, startup_id, mentor_id
+router.get(
+	"/documents",
+	authenticate,
+	authorizeRoles("Admin"),
+	adminController.listDocuments,
+);
+
+// Delete a message (content moderation)
+router.delete(
+	"/messages/:id",
+	authenticate,
+	authorizeRoles("Admin"),
+	adminController.deleteMessage,
+);
+
 router.delete(
 	"/projects/:projectId",
 	authenticate,

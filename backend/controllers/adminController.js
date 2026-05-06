@@ -900,6 +900,182 @@ exports.listPayments = async (req, res) => {
 	}
 };
 
+// PUT /api/admin/users/:userId/status
+exports.updateUserStatus = async (req, res) => {
+	const { userId } = req.params;
+	const { status } = req.body || {};
+	const admin = req.user;
+	try {
+		const allowed = ["active", "suspended", "deleted"];
+		if (!allowed.includes(status))
+			return res.status(400).json({ error: "Invalid status" });
+
+		// update status and keep is_active for compatibility
+		const isActive = status === "active";
+		const r = await pool.query(
+			"UPDATE users SET status = $1, is_active = $2 WHERE user_id = $3 RETURNING user_id, email, status, is_active",
+			[status, isActive, userId],
+		);
+		if (!r.rowCount) return res.status(404).json({ message: "User not found" });
+
+		await pool.query(
+			`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata)
+			 VALUES ($1,$2,$3,$4,$5,$6)`,
+			[
+				admin.user_id,
+				"update_user_status",
+				"users",
+				userId,
+				`status=${status}`,
+				null,
+			],
+		);
+
+		return res.json({ message: "User status updated", user: r.rows[0] });
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
+// GET /api/admin/reports
+exports.listReports = async (req, res) => {
+	const {
+		status,
+		target_type,
+		limit = 50,
+		offset = 0,
+		sort_by = "created_at",
+		sort_order = "DESC",
+	} = req.query;
+	try {
+		const where = [];
+		const params = [];
+		if (status) {
+			params.push(status);
+			where.push(`status = $${params.length}`);
+		}
+		if (target_type) {
+			params.push(target_type);
+			where.push(`target_type = $${params.length}`);
+		}
+		params.push(limit);
+		params.push(offset);
+		const allowedSortFields = ["created_at", "status", "report_id"];
+		const sortBy = allowedSortFields.includes(sort_by) ? sort_by : "created_at";
+		const sortDir = ["ASC", "DESC"].includes(sort_order.toUpperCase())
+			? sort_order.toUpperCase()
+			: "DESC";
+		const whereClause = where.length ? ` WHERE ${where.join(" AND ")}` : "";
+		const q = `SELECT * FROM reports ${whereClause} ORDER BY ${sortBy} ${sortDir} LIMIT $${params.length - 1} OFFSET $${params.length}`;
+		const r = await pool.query(q, params);
+		return res.json({ reports: r.rows });
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
+// PUT /api/admin/reports/:reportId
+exports.updateReportStatus = async (req, res) => {
+	const { reportId } = req.params;
+	const { status, action_taken } = req.body || {};
+	const admin = req.user;
+	try {
+		const allowed = ["pending", "reviewed", "actioned"];
+		if (!allowed.includes(status))
+			return res.status(400).json({ error: "Invalid status" });
+		const r = await pool.query(
+			"UPDATE reports SET status = $1, metadata = COALESCE(metadata, '{}'::jsonb) || $2::jsonb WHERE report_id = $3 RETURNING *",
+			[
+				status,
+				JSON.stringify({
+					action_taken: action_taken || null,
+					reviewed_by: admin.user_id,
+				}),
+				reportId,
+			],
+		);
+		if (!r.rowCount)
+			return res.status(404).json({ message: "Report not found" });
+
+		await pool.query(
+			`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata) VALUES ($1,$2,$3,$4,$5,$6)`,
+			[admin.user_id, "update_report", "reports", reportId, status, null],
+		);
+
+		return res.json({ message: "Report updated", report: r.rows[0] });
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
+// GET /api/admin/documents  -> list documents with filters and sorting
+exports.listDocuments = async (req, res) => {
+	const {
+		type,
+		startup_id,
+		mentor_id,
+		limit = 50,
+		offset = 0,
+		sort_by = "created_at",
+		sort_order = "DESC",
+	} = req.query;
+	try {
+		const where = [];
+		const params = [];
+		if (type) {
+			params.push(type);
+			where.push(`file_type = $${params.length}`);
+		}
+		if (startup_id) {
+			params.push(startup_id);
+			where.push(`startup_id = $${params.length}`);
+		}
+		if (mentor_id) {
+			params.push(mentor_id);
+			where.push(`mentor_id = $${params.length}`);
+		}
+		params.push(limit);
+		params.push(offset);
+		const allowedSortFields = [
+			"created_at",
+			"file_type",
+			"file_size_bytes",
+			"file_name",
+		];
+		const sortBy = allowedSortFields.includes(sort_by) ? sort_by : "created_at";
+		const sortDir = ["ASC", "DESC"].includes(sort_order.toUpperCase())
+			? sort_order.toUpperCase()
+			: "DESC";
+		const whereClause = where.length ? ` WHERE ${where.join(" AND ")}` : "";
+		const q = `SELECT document_id, startup_id, file_name, file_type, file_size_bytes, created_at FROM documents ${whereClause} ORDER BY ${sortBy} ${sortDir} LIMIT $${params.length - 1} OFFSET $${params.length}`;
+		const r = await pool.query(q, params);
+		return res.json({ documents: r.rows });
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
+// DELETE /api/admin/messages/:id
+exports.deleteMessage = async (req, res) => {
+	const { id } = req.params;
+	const admin = req.user;
+	try {
+		const r = await pool.query(
+			"DELETE FROM messages WHERE message_id = $1 RETURNING *",
+			[id],
+		);
+		if (!r.rowCount)
+			return res.status(404).json({ message: "Message not found" });
+		await pool.query(
+			`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata) VALUES ($1,$2,$3,$4,$5,$6)`,
+			[admin.user_id, "delete_message", "messages", id, null, null],
+		);
+		return res.json({ message: "Message deleted", deleted: r.rows[0] });
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
 // Maintenance endpoints (limited safe ops)
 // GET /api/admin/maintenance/status
 exports.maintenanceStatus = async (_req, res) => {
@@ -1351,6 +1527,104 @@ exports.listInvestments = async (req, res) => {
 			[limit, offset],
 		);
 		return res.json({ investments: r.rows });
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
+// POST /api/reports - Create a user report/flag
+exports.createReport = async (req, res) => {
+	const { target_id, target_type, reason } = req.body || {};
+	const user = req.user;
+	try {
+		if (!target_type || !reason) {
+			return res
+				.status(400)
+				.json({ error: "target_type and reason are required" });
+		}
+
+		const allowedTypes = ["user", "content", "message", "profile"];
+		if (!allowedTypes.includes(target_type)) {
+			return res.status(400).json({ error: "Invalid target_type" });
+		}
+
+		// Check for duplicate recent reports (rate limiting)
+		const recentCount = await pool.query(
+			`SELECT COUNT(*) as cnt FROM reports 
+			 WHERE user_id = $1 AND created_at > NOW() - INTERVAL '1 hour'`,
+			[user.user_id],
+		);
+
+		if (recentCount.rows[0].cnt > 10) {
+			return res.status(429).json({
+				error: "Too many reports. Please try again later.",
+			});
+		}
+
+		const r = await pool.query(
+			`INSERT INTO reports (user_id, target_id, target_type, reason, status, metadata)
+			 VALUES ($1, $2, $3, $4, 'pending', $5)
+			 RETURNING report_id, user_id, target_id, target_type, reason, status, created_at`,
+			[
+				user.user_id,
+				target_id || null,
+				target_type,
+				reason,
+				JSON.stringify({}),
+			],
+		);
+
+		// Notify admins of new report
+		const admins = await pool.query(
+			"SELECT user_id FROM users WHERE role = 'Admin' AND is_active = true",
+		);
+		for (const admin of admins.rows) {
+			await pool.query(
+				`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id)
+				 VALUES ($1, $2, $3, $4, $5, $6)`,
+				[
+					admin.user_id,
+					"moderation",
+					"New Report Submitted",
+					`New ${target_type} report submitted by user ${user.user_id}`,
+					"reports",
+					r.rows[0].report_id,
+				],
+			);
+		}
+
+		return res.status(201).json({
+			message: "Report submitted",
+			report: r.rows[0],
+		});
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
+// GET /api/reports/my - Get user's own reports
+exports.getUserReports = async (req, res) => {
+	const { limit = 50, offset = 0, status } = req.query;
+	const user = req.user;
+	try {
+		const params = [user.user_id];
+		let whereClause = "user_id = $1";
+
+		if (status) {
+			params.push(status);
+			whereClause += ` AND status = $${params.length}`;
+		}
+
+		const r = await pool.query(
+			`SELECT report_id, target_id, target_type, reason, status, created_at
+			 FROM reports
+			 WHERE ${whereClause}
+			 ORDER BY created_at DESC
+			 LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+			[...params, limit, offset],
+		);
+
+		return res.json({ reports: r.rows });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}

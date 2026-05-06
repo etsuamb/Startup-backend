@@ -41,4 +41,20 @@ router.post(
 	adminController.scheduleReport,
 );
 
+// Admin: list user-submitted reports (flags)
+router.get(
+	"/reports",
+	authenticate,
+	authorizeRoles("Admin"),
+	adminController.listReports,
+);
+
+// Admin: update report status (reviewed/actioned)
+router.put(
+	"/reports/:reportId",
+	authenticate,
+	authorizeRoles("Admin"),
+	adminController.updateReportStatus,
+);
+
 module.exports = router;

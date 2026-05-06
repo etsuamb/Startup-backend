@@ -21,6 +21,7 @@
     "test-investor-parity": "node scripts/test_investor_parity.js",
     "test-full-auth-profile-flow": "node scripts/test_full_auth_profile_flow.js",
     "test-mentorship-extras": "node scripts/test_mentorship_extras.js",
+    "test-reports-api": "node scripts/test_reports_api.js",
     "test-socket": "node scripts/socket_integration_test.js",
     "test-socket-verbose": "node scripts/socket_verbose_probe.js",
     "test-video-sessions": "node scripts/test_video_sessions.js",

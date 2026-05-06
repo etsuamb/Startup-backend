@@ -62,4 +62,11 @@ router.post(
 	adminController.createAdmin,
 );
 
+router.put(
+	"/users/:userId/status",
+	authenticate,
+	authorizeRoles("Admin"),
+	adminController.updateUserStatus,
+);
+
 module.exports = router;
