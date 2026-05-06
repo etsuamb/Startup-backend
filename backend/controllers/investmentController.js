@@ -361,6 +361,11 @@ exports.recordInvestmentPayment = async (req, res) => {
 
 		await client.query("BEGIN");
 
+		const previousInvestment = await client.query(
+			"SELECT status, amount FROM investments WHERE investment_request_id = $1",
+			[requestId],
+		);
+
 		const investment = await client.query(
 			`INSERT INTO investments (investment_request_id, amount, status, closed_at)
 			 VALUES ($1,$2,$3,CASE WHEN $3 = 'completed' THEN NOW() ELSE NULL END)
@@ -388,7 +393,11 @@ exports.recordInvestmentPayment = async (req, res) => {
 			],
 		);
 
-		if (status === "completed") {
+		const wasAlreadyCompleted =
+			previousInvestment.rowCount &&
+			previousInvestment.rows[0].status === "completed";
+
+		if (status === "completed" && !wasAlreadyCompleted) {
 			await client.query(
 				`UPDATE projects
 				 SET amount_raised = amount_raised + $1,

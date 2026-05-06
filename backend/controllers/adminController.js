@@ -813,10 +813,88 @@ exports.reportsOverview = async (req, res) => {
 				 (SELECT COUNT(*)::int FROM projects) AS projects,
 				 (SELECT COUNT(*)::int FROM investment_requests) AS investment_requests,
 				 (SELECT COUNT(*)::int FROM investments) AS investments,
-				 (SELECT COUNT(*)::int FROM payments) AS payments
+				 (SELECT COUNT(*)::int FROM payments) AS payments,
+				 (SELECT COUNT(*)::int FROM video_sessions) AS sessions
 			 `,
 		);
 		return res.json({ overview: counts.rows[0] });
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
+// GET /api/admin/sessions
+// List all video sessions with optional filters (host, participant, status)
+exports.listSessions = async (req, res) => {
+	const {
+		host_id,
+		participant_id,
+		status,
+		limit = 100,
+		offset = 0,
+	} = req.query;
+	try {
+		const where = [];
+		const params = [];
+		if (host_id) {
+			params.push(host_id);
+			where.push(`host_id = $${params.length}`);
+		}
+		if (participant_id) {
+			params.push(participant_id);
+			where.push(`participant_id = $${params.length}`);
+		}
+		if (status) {
+			params.push(status);
+			where.push(`status = $${params.length}`);
+		}
+		const whereClause = where.length > 0 ? ` WHERE ${where.join(" AND ")}` : "";
+		params.push(limit);
+		params.push(offset);
+		const q = `SELECT vs.*, u1.email AS host_email, u2.email AS participant_email FROM video_sessions vs LEFT JOIN users u1 ON u1.user_id = vs.host_id LEFT JOIN users u2 ON u2.user_id = vs.participant_id${whereClause} ORDER BY vs.scheduled_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`;
+		const r = await pool.query(q, params);
+		return res.json({ sessions: r.rows });
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
+// GET /api/admin/payments
+// List all payments with optional filters (user, status, date range)
+exports.listPayments = async (req, res) => {
+	const {
+		user_id,
+		status,
+		from_date,
+		to_date,
+		limit = 100,
+		offset = 0,
+	} = req.query;
+	try {
+		const where = [];
+		const params = [];
+		if (user_id) {
+			params.push(user_id);
+			where.push(`user_id = $${params.length}`);
+		}
+		if (status) {
+			params.push(status);
+			where.push(`status = $${params.length}`);
+		}
+		if (from_date) {
+			params.push(from_date);
+			where.push(`created_at >= $${params.length}`);
+		}
+		if (to_date) {
+			params.push(to_date);
+			where.push(`created_at <= $${params.length}`);
+		}
+		const whereClause = where.length > 0 ? ` WHERE ${where.join(" AND ")}` : "";
+		params.push(limit);
+		params.push(offset);
+		const q = `SELECT p.*, u.email AS user_email, u.first_name, u.last_name FROM payments p LEFT JOIN users u ON u.user_id = p.user_id${whereClause} ORDER BY p.created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`;
+		const r = await pool.query(q, params);
+		return res.json({ payments: r.rows });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}

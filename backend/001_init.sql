@@ -125,6 +125,43 @@ CREATE TABLE IF NOT EXISTS investments (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS investor_feedback (
+    feedback_id SERIAL PRIMARY KEY,
+    investment_request_id INTEGER NOT NULL REFERENCES investment_requests(investment_request_id) ON DELETE CASCADE,
+    startup_id INTEGER NOT NULL REFERENCES startups(startup_id) ON DELETE CASCADE,
+    investor_id INTEGER NOT NULL REFERENCES investors(investor_id) ON DELETE CASCADE,
+    rating SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    comment TEXT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (investment_request_id, investor_id)
+);
+
+CREATE TABLE IF NOT EXISTS conversations (
+    conversation_id SERIAL PRIMARY KEY,
+    user1_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    user2_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    conversation_type VARCHAR(50) NOT NULL DEFAULT 'direct' CHECK (conversation_type IN ('direct', 'mentor_chat', 'investment_chat')),
+    last_message_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CHECK (user1_id <> user2_id),
+    UNIQUE (user1_id, user2_id, conversation_type)
+);
+
+CREATE TABLE IF NOT EXISTS video_sessions (
+    id SERIAL PRIMARY KEY,
+    conversation_id INTEGER REFERENCES conversations(conversation_id) ON DELETE SET NULL,
+    meeting_link TEXT,
+    meeting_id TEXT,
+    provider TEXT NOT NULL DEFAULT 'local',
+    scheduled_at TIMESTAMPTZ,
+    duration INTEGER NOT NULL DEFAULT 60 CHECK (duration > 0),
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','scheduled','started','ended','cancelled','failed')),
+    created_by_user_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS mentorship_requests (
     mentorship_request_id SERIAL PRIMARY KEY,
     startup_id INTEGER NOT NULL REFERENCES startups(startup_id) ON DELETE CASCADE,
@@ -205,18 +242,6 @@ CREATE TABLE IF NOT EXISTS payments (
     reference_id INTEGER,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CHECK (from_user_id <> to_user_id)
-);
-
-CREATE TABLE IF NOT EXISTS conversations (
-    conversation_id SERIAL PRIMARY KEY,
-    user1_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    user2_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    conversation_type VARCHAR(50) NOT NULL DEFAULT 'direct' CHECK (conversation_type IN ('direct', 'mentor_chat', 'investment_chat')),
-    last_message_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CHECK (user1_id <> user2_id),
-    UNIQUE (user1_id, user2_id, conversation_type)
 );
 
 CREATE TABLE IF NOT EXISTS messages (

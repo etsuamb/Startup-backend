@@ -216,12 +216,20 @@ exports.updateStartupProfile = async (req, res) => {
 			funding_needed,
 		} = req.body || {};
 
-		// Basic required validation
-		if (!startup_name || typeof startup_name !== "string") {
-			return res.status(400).json({
-				error:
-					"'startup_name' is required. Send either JSON (application/json) or form-data fields with startup_name.",
-			});
+		// For PUT requests, allow partial updates - don't require startup_name if not provided
+		// Only validate startup_name if it is provided
+		if (
+			startup_name !== undefined &&
+			startup_name !== null &&
+			startup_name !== ""
+		) {
+			if (typeof startup_name !== "string") {
+				return res.status(400).json({
+					error: "'startup_name' must be a string",
+				});
+			}
+		} else {
+			startup_name = undefined; // Don't update this field if not provided
 		}
 
 		// Validate typed fields (same rules as create)
@@ -238,7 +246,7 @@ exports.updateStartupProfile = async (req, res) => {
 			}
 			founded_year = fy;
 		} else {
-			founded_year = null;
+			founded_year = undefined; // Don't update this field if not provided
 		}
 
 		if (team_size !== undefined && team_size !== null && team_size !== "") {
@@ -250,7 +258,7 @@ exports.updateStartupProfile = async (req, res) => {
 			}
 			team_size = ts;
 		} else {
-			team_size = null;
+			team_size = undefined; // Don't update this field if not provided
 		}
 
 		if (
@@ -266,7 +274,7 @@ exports.updateStartupProfile = async (req, res) => {
 			}
 			funding_needed = fn;
 		} else {
-			funding_needed = null;
+			funding_needed = undefined; // Don't update this field if not provided
 		}
 
 		if (website !== undefined && website !== null && website !== "") {
@@ -290,33 +298,68 @@ exports.updateStartupProfile = async (req, res) => {
 			return res.status(404).json({ error: "Startup profile not found" });
 		}
 
-		const updateRes = await pool.query(
-			`UPDATE startups SET
-				startup_name = $1,
-				industry = $2,
-				description = $3,
-				business_stage = $4,
-				founded_year = $5,
-				team_size = $6,
-				location = $7,
-				website = $8,
-				funding_needed = $9
-			WHERE user_id = $10
-			RETURNING *
-			`,
-			[
-				startup_name,
-				industry,
-				description,
-				business_stage,
-				founded_year,
-				team_size,
-				location,
-				website,
-				funding_needed,
-				userId,
-			],
-		);
+		// Build dynamic UPDATE query - only update fields that were provided
+		const updateFields = [];
+		const updateValues = [];
+		let paramIndex = 1;
+
+		if (startup_name !== undefined) {
+			updateFields.push(`startup_name = $${paramIndex++}`);
+			updateValues.push(startup_name);
+		}
+		if (industry !== undefined && industry !== null && industry !== "") {
+			updateFields.push(`industry = $${paramIndex++}`);
+			updateValues.push(industry);
+		}
+		if (
+			description !== undefined &&
+			description !== null &&
+			description !== ""
+		) {
+			updateFields.push(`description = $${paramIndex++}`);
+			updateValues.push(description);
+		}
+		if (
+			business_stage !== undefined &&
+			business_stage !== null &&
+			business_stage !== ""
+		) {
+			updateFields.push(`business_stage = $${paramIndex++}`);
+			updateValues.push(business_stage);
+		}
+		if (founded_year !== undefined) {
+			updateFields.push(`founded_year = $${paramIndex++}`);
+			updateValues.push(founded_year);
+		}
+		if (team_size !== undefined) {
+			updateFields.push(`team_size = $${paramIndex++}`);
+			updateValues.push(team_size);
+		}
+		if (location !== undefined && location !== null && location !== "") {
+			updateFields.push(`location = $${paramIndex++}`);
+			updateValues.push(location);
+		}
+		if (website !== undefined && website !== null && website !== "") {
+			updateFields.push(`website = $${paramIndex++}`);
+			updateValues.push(website);
+		}
+		if (funding_needed !== undefined) {
+			updateFields.push(`funding_needed = $${paramIndex++}`);
+			updateValues.push(funding_needed);
+		}
+
+		// If no fields to update, return error
+		if (updateFields.length === 0) {
+			return res
+				.status(400)
+				.json({ error: "No valid fields provided for update" });
+		}
+
+		// Add WHERE clause with user_id parameter
+		updateValues.push(userId);
+
+		const updateQuery = `UPDATE startups SET ${updateFields.join(", ")} WHERE user_id = $${paramIndex} RETURNING *`;
+		const updateRes = await pool.query(updateQuery, updateValues);
 
 		const startup = updateRes.rows[0];
 		const uploadedFiles = [];
@@ -358,10 +401,9 @@ exports.updateStartupProfile = async (req, res) => {
 };
 
 async function getStartupByUserId(userId) {
-	const result = await pool.query(
-		"SELECT * FROM startups WHERE user_id = $1",
-		[userId],
-	);
+	const result = await pool.query("SELECT * FROM startups WHERE user_id = $1", [
+		userId,
+	]);
 	return result.rowCount ? result.rows[0] : null;
 }
 
@@ -476,10 +518,10 @@ exports.getRecommendations = async (req, res) => {
 					(
 						CASE WHEN i.preferred_industry IS NOT NULL
 						      AND $1::text IS NOT NULL
-						      AND i.preferred_industry ILIKE $1 THEN 45 ELSE 0 END
+						      AND i.preferred_industry ILIKE '%' || $1 || '%' THEN 45 ELSE 0 END
 						+ CASE WHEN i.investment_stage IS NOT NULL
 						      AND $2::text IS NOT NULL
-						      AND i.investment_stage ILIKE $2 THEN 30 ELSE 0 END
+						      AND i.investment_stage ILIKE '%' || $2 || '%' THEN 30 ELSE 0 END
 						+ CASE WHEN i.investment_budget IS NOT NULL
 						      AND $3::numeric IS NOT NULL
 						      AND i.investment_budget >= $3 THEN 25 ELSE 0 END

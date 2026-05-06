@@ -48,6 +48,9 @@ router.get(
 	mentorController.getAllMentors,
 );
 
+// Discovery endpoint (same as /all)
+router.get("/", authenticate, requireApproval, mentorController.getAllMentors);
+
 // Get mentor detail including documents
 router.get(
 	"/:mentorId",

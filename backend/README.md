@@ -142,6 +142,43 @@ Useful scripts:
 - `npm run migrate-mentorship-scheduling` - applies the schedule schema upgrade
 - `npm run test-scheduling-system` - smoke tests availability, booking, confirm, reschedule, cancel, and reminders
 
+## Startup and investment integration endpoints
+
+These endpoints cover the main startup-investor workflow from the project documentation.
+
+Projects:
+
+- `POST /api/projects/create` - startup creates a project
+- `GET /api/projects/mine` - startup lists its own projects
+- `GET /api/projects/all` - approved users discover active projects with optional filters
+- `GET /api/projects/:projectId` - approved users view project/startup detail
+- `PUT /api/projects/:projectId` - startup updates project progress, amount raised, dates, or status
+
+Startup discovery:
+
+- `GET /api/startups/discover?type=all&q=&industry=&stage=&country=` - startup searches investors and mentors
+- `GET /api/startups/recommendations` - startup gets rule-based investor and mentor matches
+- `GET /api/startups/dashboard` - startup sees project, investment, mentorship, payment, and feedback status
+
+Investor discovery:
+
+- `GET /api/investors/startups` - investor searches approved startups
+- `GET /api/investors/startups/recommendations` - investor gets rule-based startup matches
+- `GET /api/investors/startups/:startupId` - investor views startup detail, projects, docs, and feedback
+- `GET /api/investors/portfolio` - investor views committed/completed investment portfolio
+
+Investment workflow:
+
+- `POST /api/investments/request` - investor sends a funding offer for a project
+- `GET /api/investments/requests` - startup or investor lists their investment requests
+- `PUT /api/investments/requests/:requestId/respond` - startup approves/rejects, investor withdraws
+- `POST /api/investments/requests/:requestId/payments` - investor records payment status
+- `GET /api/investments/payments` - startup or investor tracks investment payments
+- `POST /api/investments/requests/:requestId/feedback` - investor submits feedback for a startup
+- `GET /api/investments/feedback` - startup views investor feedback
+
+Run `npm run migrate-investment-workflow` after pulling these changes on an existing database.
+
 ## Troubleshooting
 - If requests fail with `Invalid URI "http:///..."`, import the Postman collection in `backend/` (it uses absolute `http://localhost:3000` URLs).
 - If you see DB column errors, ensure you ran the migration SQL or the migration script against the correct database.

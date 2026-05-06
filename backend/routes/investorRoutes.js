@@ -1,5 +1,8 @@
 const router = require("express").Router();
 
+const multer = require("multer");
+const upload = multer({ dest: "uploads/" });
+
 const {
 	authenticate,
 	authorizeRoles,
@@ -20,6 +23,10 @@ router.post(
 	authenticate,
 	/* profile creation allowed before approval */
 	authorizeRoles("Investor"),
+	upload.fields([
+		{ name: "profile_picture", maxCount: 1 },
+		{ name: "portfolio", maxCount: 10 },
+	]),
 	investorController.createInvestorProfile,
 );
 
@@ -27,7 +34,26 @@ router.put(
 	"/profile",
 	authenticate,
 	authorizeRoles("Investor"),
+	upload.fields([
+		{ name: "profile_picture", maxCount: 1 },
+		{ name: "portfolio", maxCount: 10 },
+	]),
 	investorController.updateInvestorProfile,
+);
+
+router.delete(
+	"/documents/:documentId",
+	authenticate,
+	authorizeRoles("Investor"),
+	investorController.deleteInvestorDocument,
+);
+
+router.put(
+	"/documents/:documentId",
+	authenticate,
+	authorizeRoles("Investor"),
+	upload.fields([{ name: "document", maxCount: 1 }]),
+	investorController.updateInvestorDocument,
 );
 
 router.get(

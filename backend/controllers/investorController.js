@@ -1,24 +1,45 @@
 const pool = require("../config/db");
+const fs = require("fs");
+const path = require("path");
 const { normalizeMultipartBody } = require("../utils/requestBody");
+const {
+	validateInvestorProfile,
+	validateNumber,
+	validateArray,
+	errorResponse,
+	successResponse,
+} = require("../utils/validation");
 
 exports.getMyInvestorProfile = async (req, res) => {
 	try {
 		const userId = req.user.user_id;
-		const result = await pool.query(
-			`SELECT i.*, u.user_id, u.first_name, u.last_name, u.email
-			 FROM investors i
-			 JOIN users u ON u.user_id = i.user_id
-			 WHERE i.user_id = $1`,
-			[userId],
-		);
+		const [investorResult, documentsResult] = await Promise.all([
+			pool.query(
+				`SELECT i.*, u.user_id, u.first_name, u.last_name, u.email
+				 FROM investors i
+				 JOIN users u ON u.user_id = i.user_id
+				 WHERE i.user_id = $1`,
+				[userId],
+			),
+			pool.query(
+				`SELECT investor_document_id, document_type, file_name, file_path, file_type, file_size_bytes, description, created_at
+				 FROM investor_documents
+				 WHERE investor_id = (SELECT investor_id FROM investors WHERE user_id = $1)
+				 ORDER BY created_at DESC`,
+				[userId],
+			),
+		]);
 
-		if (!result.rowCount) {
-			return res.status(404).json({ error: "Investor profile not found" });
+		if (!investorResult.rowCount) {
+			return res.status(404).json(errorResponse("Investor profile not found"));
 		}
 
-		return res.status(200).json(result.rows[0]);
+		const investor = investorResult.rows[0];
+		investor.documents = documentsResult.rows;
+
+		return res.status(200).json(investor);
 	} catch (err) {
-		return res.status(500).json({ error: err.message });
+		return res.status(500).json(errorResponse(err.message));
 	}
 };
 
@@ -32,10 +53,21 @@ exports.createInvestorProfile = async (req, res) => {
 			[userId],
 		);
 		if (existing.rowCount > 0) {
-			return res.status(409).json({
-				error:
-					"Investor profile already exists for this user. Use PUT /api/investors/profile to update.",
-			});
+			return res
+				.status(409)
+				.json(
+					errorResponse(
+						"Investor profile already exists for this user. Use PUT /api/investors/profile to update.",
+					),
+				);
+		}
+
+		// Validate profile data
+		const validation = validateInvestorProfile(req.body);
+		if (!validation.valid) {
+			return res
+				.status(400)
+				.json(errorResponse("Validation failed", validation.errors));
 		}
 
 		const {
@@ -46,77 +78,115 @@ exports.createInvestorProfile = async (req, res) => {
 			investment_stage,
 			country,
 			portfolio_size,
-		} = req.body || {};
+			bio,
+			investment_focus,
+			funding_range_min,
+			funding_range_max,
+		} = validation.validatedData;
 
-		if (!investor_type || typeof investor_type !== "string") {
-			return res.status(400).json({
-				error: "'investor_type' is required",
-			});
+		// Handle profile picture upload
+		let profilePicturePath = null;
+		if (req.files && req.files.profile_picture) {
+			const file = req.files.profile_picture[0];
+			profilePicturePath = file.path;
 		}
 
-		let budgetValue = null;
-		if (
-			investment_budget !== undefined &&
-			investment_budget !== null &&
-			investment_budget !== ""
-		) {
-			const parsedBudget = Number(investment_budget);
-			if (Number.isNaN(parsedBudget) || parsedBudget < 0) {
-				return res
-					.status(400)
-					.json({ error: "'investment_budget' must be a non-negative number" });
-			}
-			budgetValue = parsedBudget;
-		}
-
-		let portfolioValue = null;
-		if (
-			portfolio_size !== undefined &&
-			portfolio_size !== null &&
-			portfolio_size !== ""
-		) {
-			const parsedPortfolio = Number(portfolio_size);
-			if (!Number.isInteger(parsedPortfolio) || parsedPortfolio < 0) {
-				return res.status(400).json({
-					error: "'portfolio_size' must be a non-negative integer",
-				});
-			}
-			portfolioValue = parsedPortfolio;
-		}
-
+		// Create investor profile
 		const result = await pool.query(
-			`
-INSERT INTO investors(
- user_id,
- investor_type,
- organization_name,
- investment_budget,
- preferred_industry,
- investment_stage,
- country,
- portfolio_size
-)
-VALUES($1,$2,$3,$4,$5,$6,$7,$8)
-RETURNING *
-`,
+			`INSERT INTO investors(
+				user_id,
+				investor_type,
+				organization_name,
+				investment_budget,
+				preferred_industry,
+				investment_stage,
+				country,
+				portfolio_size,
+				bio,
+				profile_picture,
+				investment_focus,
+				funding_range_min,
+				funding_range_max
+			)
+			VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+			RETURNING *`,
 			[
 				userId,
 				investor_type,
 				organization_name,
-				budgetValue,
+				investment_budget,
 				preferred_industry,
 				investment_stage,
 				country,
-				portfolioValue,
+				portfolio_size,
+				bio,
+				profilePicturePath,
+				JSON.stringify(investment_focus || []),
+				funding_range_min,
+				funding_range_max,
 			],
 		);
 
-		return res.status(201).json({
-			message: "Investor profile created",
-			investor: result.rows[0],
-		});
+		const investor = result.rows[0];
+		const investorId = investor.investor_id;
+
+		// Parse numeric fields from DECIMAL database type
+		if (investor.investment_budget !== null) {
+			investor.investment_budget = Number(investor.investment_budget);
+		}
+		if (investor.funding_range_min !== null) {
+			investor.funding_range_min = Number(investor.funding_range_min);
+		}
+		if (investor.funding_range_max !== null) {
+			investor.funding_range_max = Number(investor.funding_range_max);
+		}
+		if (investor.portfolio_size !== null) {
+			investor.portfolio_size = Number(investor.portfolio_size);
+		}
+
+		// Handle portfolio/document uploads
+		if (req.files && req.files.portfolio) {
+			for (const file of req.files.portfolio) {
+				await pool.query(
+					`INSERT INTO investor_documents(
+						investor_id,
+						document_type,
+						file_name,
+						file_path,
+						file_type,
+						file_size_bytes
+					)
+					VALUES($1,$2,$3,$4,$5,$6)`,
+					[
+						investorId,
+						"portfolio",
+						file.originalname,
+						file.path,
+						file.mimetype,
+						file.size,
+					],
+				);
+			}
+		}
+
+		// Fetch documents list
+		const documents = await pool.query(
+			`SELECT investor_document_id, document_type, file_name, file_path, file_type, file_size_bytes, created_at
+			 FROM investor_documents
+			 WHERE investor_id = $1
+			 ORDER BY created_at DESC`,
+			[investorId],
+		);
+
+		investor.documents = documents.rows;
+
+		return res
+			.status(201)
+			.json(
+				successResponse({ investor }, "Investor profile created successfully"),
+			);
 	} catch (err) {
-		return res.status(500).json({ error: err.message });
+		return res.status(500).json(errorResponse(err.message));
 	}
 };
 
@@ -130,9 +200,10 @@ exports.updateInvestorProfile = async (req, res) => {
 			[userId],
 		);
 		if (!existing.rowCount) {
-			return res.status(404).json({ error: "Investor profile not found" });
+			return res.status(404).json(errorResponse("Investor profile not found"));
 		}
 
+		// Extract fields
 		const {
 			investor_type,
 			organization_name,
@@ -141,73 +212,222 @@ exports.updateInvestorProfile = async (req, res) => {
 			investment_stage,
 			country,
 			portfolio_size,
+			bio,
+			investment_focus,
+			funding_range_min,
+			funding_range_max,
 		} = req.body || {};
 
-		let budgetValue = null;
+		// Validate profile data - for PUT, allow partial updates
+		const errors = [];
+
+		if (
+			investor_type !== undefined &&
+			investor_type !== null &&
+			investor_type !== ""
+		) {
+			if (typeof investor_type !== "string") {
+				errors.push("'investor_type' must be a string");
+			}
+		}
+
 		if (
 			investment_budget !== undefined &&
 			investment_budget !== null &&
 			investment_budget !== ""
 		) {
-			const parsedBudget = Number(investment_budget);
-			if (Number.isNaN(parsedBudget) || parsedBudget < 0) {
-				return res
-					.status(400)
-					.json({ error: "'investment_budget' must be a non-negative number" });
+			const budgetValidation = validateNumber(
+				investment_budget,
+				"investment_budget",
+			);
+			if (!budgetValidation.valid) {
+				errors.push(budgetValidation.error);
 			}
-			budgetValue = parsedBudget;
 		}
 
-		let portfolioValue = null;
 		if (
 			portfolio_size !== undefined &&
 			portfolio_size !== null &&
 			portfolio_size !== ""
 		) {
-			const parsedPortfolio = Number(portfolio_size);
-			if (!Number.isInteger(parsedPortfolio) || parsedPortfolio < 0) {
-				return res.status(400).json({
-					error: "'portfolio_size' must be a non-negative integer",
-				});
+			const portfolioValidation = validateNumber(
+				portfolio_size,
+				"portfolio_size",
+				true,
+			);
+			if (!portfolioValidation.valid) {
+				errors.push(portfolioValidation.error);
 			}
-			portfolioValue = parsedPortfolio;
 		}
 
-		const updated = await pool.query(
-			`UPDATE investors SET
-        investor_type = COALESCE($1, investor_type),
-        organization_name = COALESCE($2, organization_name),
-        investment_budget = COALESCE($3, investment_budget),
-        preferred_industry = COALESCE($4, preferred_industry),
-        investment_stage = COALESCE($5, investment_stage),
-        country = COALESCE($6, country),
-        portfolio_size = COALESCE($7, portfolio_size)
-       WHERE user_id = $8
-       RETURNING *`,
-			[
-				investor_type,
-				organization_name,
-				budgetValue,
-				preferred_industry,
-				investment_stage,
-				country,
-				portfolioValue,
-				userId,
-			],
+		if (
+			funding_range_min !== undefined &&
+			funding_range_min !== null &&
+			funding_range_min !== ""
+		) {
+			const minValidation = validateNumber(
+				funding_range_min,
+				"funding_range_min",
+			);
+			if (!minValidation.valid) {
+				errors.push(minValidation.error);
+			}
+		}
+
+		if (
+			funding_range_max !== undefined &&
+			funding_range_max !== null &&
+			funding_range_max !== ""
+		) {
+			const maxValidation = validateNumber(
+				funding_range_max,
+				"funding_range_max",
+			);
+			if (!maxValidation.valid) {
+				errors.push(maxValidation.error);
+			}
+		}
+
+		if (errors.length > 0) {
+			return res.status(400).json(errorResponse("Validation failed", errors));
+		}
+
+		// Handle profile picture upload
+		let profilePicturePath = null;
+		if (req.files && req.files.profile_picture) {
+			const file = req.files.profile_picture[0];
+			profilePicturePath = file.path;
+		}
+
+		// Build update query with only provided fields
+		const updateFields = [];
+		const updateValues = [];
+		let paramCount = 1;
+
+		if (investor_type !== undefined) {
+			updateFields.push(`investor_type = $${paramCount++}`);
+			updateValues.push(investor_type);
+		}
+		if (organization_name !== undefined) {
+			updateFields.push(`organization_name = $${paramCount++}`);
+			updateValues.push(organization_name);
+		}
+		if (investment_budget !== undefined) {
+			updateFields.push(`investment_budget = $${paramCount++}`);
+			updateValues.push(investment_budget);
+		}
+		if (preferred_industry !== undefined) {
+			updateFields.push(`preferred_industry = $${paramCount++}`);
+			updateValues.push(preferred_industry);
+		}
+		if (investment_stage !== undefined) {
+			updateFields.push(`investment_stage = $${paramCount++}`);
+			updateValues.push(investment_stage);
+		}
+		if (country !== undefined) {
+			updateFields.push(`country = $${paramCount++}`);
+			updateValues.push(country);
+		}
+		if (portfolio_size !== undefined) {
+			updateFields.push(`portfolio_size = $${paramCount++}`);
+			updateValues.push(portfolio_size);
+		}
+		if (bio !== undefined) {
+			updateFields.push(`bio = $${paramCount++}`);
+			updateValues.push(bio);
+		}
+		if (profilePicturePath !== null) {
+			updateFields.push(`profile_picture = $${paramCount++}`);
+			updateValues.push(profilePicturePath);
+		}
+		if (investment_focus !== undefined) {
+			updateFields.push(`investment_focus = $${paramCount++}`);
+			updateValues.push(JSON.stringify(investment_focus || []));
+		}
+		if (funding_range_min !== undefined) {
+			updateFields.push(`funding_range_min = $${paramCount++}`);
+			updateValues.push(funding_range_min);
+		}
+		if (funding_range_max !== undefined) {
+			updateFields.push(`funding_range_max = $${paramCount++}`);
+			updateValues.push(funding_range_max);
+		}
+
+		if (updateFields.length === 0) {
+			return res.status(400).json(errorResponse("No fields to update"));
+		}
+
+		updateValues.push(userId);
+		const updateQuery = `UPDATE investors SET ${updateFields.join(", ")} WHERE user_id = $${paramCount} RETURNING *`;
+
+		const updated = await pool.query(updateQuery, updateValues);
+
+		const investorId = updated.rows[0].investor_id;
+		const investor = updated.rows[0];
+
+		// Parse numeric fields from DECIMAL database type
+		if (investor.investment_budget !== null) {
+			investor.investment_budget = Number(investor.investment_budget);
+		}
+		if (investor.funding_range_min !== null) {
+			investor.funding_range_min = Number(investor.funding_range_min);
+		}
+		if (investor.funding_range_max !== null) {
+			investor.funding_range_max = Number(investor.funding_range_max);
+		}
+		if (investor.portfolio_size !== null) {
+			investor.portfolio_size = Number(investor.portfolio_size);
+		}
+
+		// Handle new portfolio/document uploads
+		if (req.files && req.files.portfolio) {
+			for (const file of req.files.portfolio) {
+				await pool.query(
+					`INSERT INTO investor_documents(
+						investor_id,
+						document_type,
+						file_name,
+						file_path,
+						file_type,
+						file_size_bytes
+					)
+					VALUES($1,$2,$3,$4,$5,$6)`,
+					[
+						investorId,
+						"portfolio",
+						file.originalname,
+						file.path,
+						file.mimetype,
+						file.size,
+					],
+				);
+			}
+		}
+
+		// Fetch documents list
+		const documents = await pool.query(
+			`SELECT investor_document_id, document_type, file_name, file_path, file_type, file_size_bytes, created_at
+			 FROM investor_documents
+			 WHERE investor_id = $1
+			 ORDER BY created_at DESC`,
+			[investorId],
 		);
 
-		return res.status(200).json({
-			message: "Investor profile updated",
-			investor: updated.rows[0],
-		});
+		investor.documents = documents.rows;
+
+		return res
+			.status(200)
+			.json(
+				successResponse({ investor }, "Investor profile updated successfully"),
+			);
 	} catch (err) {
-		return res.status(500).json({ error: err.message });
+		return res.status(500).json(errorResponse(err.message));
 	}
 };
 
 exports.getAllInvestors = async (req, res) => {
 	try {
-		const { industry, min_budget, max_budget, stage, country } =
+		const { industry, min_budget, max_budget, stage, country, focus } =
 			req.query || {};
 
 		const filters = [];
@@ -218,69 +438,176 @@ exports.getAllInvestors = async (req, res) => {
 		filters.push("u.is_approved = true");
 
 		if (industry) {
-			values.push(industry);
+			values.push(`%${industry}%`);
 			filters.push(`i.preferred_industry ILIKE $${values.length}`);
 		}
 
 		if (stage) {
-			values.push(stage);
+			values.push(`%${stage}%`);
 			filters.push(`i.investment_stage ILIKE $${values.length}`);
 		}
 
 		if (country) {
-			values.push(country);
+			values.push(`%${country}%`);
 			filters.push(`i.country ILIKE $${values.length}`);
 		}
 
 		if (min_budget !== undefined && min_budget !== "") {
-			const parsedMin = Number(min_budget);
-			if (Number.isNaN(parsedMin) || parsedMin < 0) {
-				return res
-					.status(400)
-					.json({ error: "'min_budget' must be a non-negative number" });
+			const parsedMin = validateNumber(min_budget, "min_budget");
+			if (!parsedMin.valid) {
+				return res.status(400).json(errorResponse(parsedMin.error));
 			}
-			values.push(parsedMin);
+			values.push(parsedMin.parsedValue);
 			filters.push(`i.investment_budget >= $${values.length}`);
 		}
 
 		if (max_budget !== undefined && max_budget !== "") {
-			const parsedMax = Number(max_budget);
-			if (Number.isNaN(parsedMax) || parsedMax < 0) {
-				return res
-					.status(400)
-					.json({ error: "'max_budget' must be a non-negative number" });
+			const parsedMax = validateNumber(max_budget, "max_budget");
+			if (!parsedMax.valid) {
+				return res.status(400).json(errorResponse(parsedMax.error));
 			}
-			values.push(parsedMax);
+			values.push(parsedMax.parsedValue);
 			filters.push(`i.investment_budget <= $${values.length}`);
+		}
+
+		// Filter by investment focus (any match in JSONB array)
+		if (focus) {
+			values.push(focus);
+			filters.push(
+				`i.investment_focus @> jsonb_build_array($${values.length}::text)`,
+			);
 		}
 
 		const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
 
 		const result = await pool.query(
 			`SELECT
-        i.investor_id,
-        i.investor_type,
-        i.organization_name,
-        i.investment_budget,
-        i.preferred_industry,
-        i.investment_stage,
-        i.country,
-        i.portfolio_size,
-        i.created_at,
-        u.user_id,
-        u.first_name,
-        u.last_name,
-        u.email
+				i.investor_id,
+				i.investor_type,
+				i.organization_name,
+				i.investment_budget,
+				i.preferred_industry,
+				i.investment_stage,
+				i.country,
+				i.portfolio_size,
+				i.bio,
+				i.profile_picture,
+				i.investment_focus,
+				i.funding_range_min,
+				i.funding_range_max,
+				i.verification_status,
+				i.created_at,
+				u.user_id,
+				u.first_name,
+				u.last_name,
+				u.email
 			 FROM investors i
 			 JOIN users u ON u.user_id = i.user_id
-       ${whereClause}
-       ORDER BY i.created_at DESC`,
+			 ${whereClause}
+			 ORDER BY i.created_at DESC`,
 			values,
 		);
 
 		return res.status(200).json(result.rows);
 	} catch (err) {
-		return res.status(500).json({ error: err.message });
+		return res.status(500).json(errorResponse(err.message));
+	}
+};
+
+exports.deleteInvestorDocument = async (req, res) => {
+	try {
+		const userId = req.user.user_id;
+		const { documentId } = req.params;
+
+		// Verify document belongs to investor
+		const docResult = await pool.query(
+			`SELECT id.*, i.user_id 
+			 FROM investor_documents id
+			 JOIN investors i ON i.investor_id = id.investor_id
+			 WHERE id.investor_document_id = $1`,
+			[documentId],
+		);
+
+		if (!docResult.rowCount) {
+			return res.status(404).json(errorResponse("Document not found"));
+		}
+
+		if (docResult.rows[0].user_id !== userId) {
+			return res
+				.status(403)
+				.json(errorResponse("Unauthorized to delete this document"));
+		}
+
+		const filePath = docResult.rows[0].file_path;
+
+		// Delete file from disk
+		if (filePath && fs.existsSync(filePath)) {
+			fs.unlinkSync(filePath);
+		}
+
+		// Delete from database
+		await pool.query(
+			"DELETE FROM investor_documents WHERE investor_document_id = $1",
+			[documentId],
+		);
+
+		return res
+			.status(200)
+			.json(successResponse({}, "Document deleted successfully"));
+	} catch (err) {
+		return res.status(500).json(errorResponse(err.message));
+	}
+};
+
+exports.updateInvestorDocument = async (req, res) => {
+	try {
+		const userId = req.user.user_id;
+		const { documentId } = req.params;
+
+		if (!req.files || !req.files.document) {
+			return res.status(400).json(errorResponse("No document file provided"));
+		}
+
+		// Verify document belongs to investor
+		const docResult = await pool.query(
+			`SELECT id.*, i.user_id 
+			 FROM investor_documents id
+			 JOIN investors i ON i.investor_id = id.investor_id
+			 WHERE id.investor_document_id = $1`,
+			[documentId],
+		);
+
+		if (!docResult.rowCount) {
+			return res.status(404).json(errorResponse("Document not found"));
+		}
+
+		if (docResult.rows[0].user_id !== userId) {
+			return res
+				.status(403)
+				.json(errorResponse("Unauthorized to update this document"));
+		}
+
+		// Delete old file
+		const oldFilePath = docResult.rows[0].file_path;
+		if (oldFilePath && fs.existsSync(oldFilePath)) {
+			fs.unlinkSync(oldFilePath);
+		}
+
+		// Upload new file
+		const file = req.files.document[0];
+		const updated = await pool.query(
+			`UPDATE investor_documents 
+			 SET file_name = $1, file_path = $2, file_type = $3, file_size_bytes = $4
+			 WHERE investor_document_id = $5
+			 RETURNING *`,
+			[file.originalname, file.path, file.mimetype, file.size, documentId],
+		);
+
+		return res
+			.status(200)
+			.json(successResponse(updated.rows[0], "Document updated successfully"));
+	} catch (err) {
+		return res.status(500).json(errorResponse(err.message));
 	}
 };
 
@@ -443,9 +770,9 @@ exports.getStartupRecommendations = async (req, res) => {
 				u.email,
 				(
 					CASE WHEN investor.preferred_industry IS NOT NULL
-					      AND s.industry ILIKE investor.preferred_industry THEN 40 ELSE 0 END
+					      AND s.industry ILIKE '%' || investor.preferred_industry || '%' THEN 40 ELSE 0 END
 					+ CASE WHEN investor.investment_stage IS NOT NULL
-					      AND s.business_stage ILIKE investor.investment_stage THEN 30 ELSE 0 END
+					      AND s.business_stage ILIKE '%' || investor.investment_stage || '%' THEN 30 ELSE 0 END
 					+ CASE WHEN investor.investment_budget IS NOT NULL
 					      AND COALESCE(s.funding_needed, 0) <= investor.investment_budget THEN 20 ELSE 0 END
 					+ CASE WHEN investor.country IS NOT NULL
