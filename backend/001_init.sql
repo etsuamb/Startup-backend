@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
     is_approved BOOLEAN NOT NULL DEFAULT FALSE,
     approved_by INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
     approved_at TIMESTAMPTZ,
+    last_seen_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -53,10 +54,14 @@ CREATE TABLE IF NOT EXISTS mentors (
     user_id INTEGER NOT NULL UNIQUE REFERENCES users(user_id) ON DELETE CASCADE,
     headline VARCHAR(255),
     expertise TEXT,
+    skills JSONB,
+    industries JSONB,
     years_experience INTEGER CHECK (years_experience >= 0),
     hourly_rate DECIMAL(10,2) CHECK (hourly_rate >= 0),
     country VARCHAR(100),
     bio TEXT,
+    profile_picture TEXT,
+    verification_status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (verification_status IN ('pending', 'approved', 'rejected')),
     availability JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -133,11 +138,25 @@ CREATE TABLE IF NOT EXISTS mentorship_requests (
 CREATE TABLE IF NOT EXISTS mentorship_sessions (
     mentorship_session_id SERIAL PRIMARY KEY,
     mentorship_request_id INTEGER NOT NULL REFERENCES mentorship_requests(mentorship_request_id) ON DELETE CASCADE,
+    mentor_id INTEGER REFERENCES mentors(mentor_id) ON DELETE CASCADE,
+    startup_id INTEGER REFERENCES startups(startup_id) ON DELETE CASCADE,
+    session_date DATE,
+    start_time TIME,
+    end_time TIME,
     scheduled_at TIMESTAMPTZ NOT NULL,
+    session_start_at TIMESTAMPTZ,
+    session_end_at TIMESTAMPTZ,
     duration_minutes INTEGER NOT NULL CHECK (duration_minutes > 0),
     meeting_link TEXT,
+    conversation_id INTEGER REFERENCES conversations(conversation_id) ON DELETE SET NULL,
+    video_session_id INTEGER REFERENCES video_sessions(id) ON DELETE SET NULL,
+    booked_by_user_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
     notes TEXT,
-    status VARCHAR(20) NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'completed', 'cancelled', 'no_show')),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'completed', 'cancelled', 'scheduled', 'no_show')),
+    confirmed_at TIMESTAMPTZ,
+    reminder_24h_sent_at TIMESTAMPTZ,
+    reminder_1h_sent_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -188,12 +207,37 @@ CREATE TABLE IF NOT EXISTS payments (
     CHECK (from_user_id <> to_user_id)
 );
 
+CREATE TABLE IF NOT EXISTS conversations (
+    conversation_id SERIAL PRIMARY KEY,
+    user1_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    user2_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    conversation_type VARCHAR(50) NOT NULL DEFAULT 'direct' CHECK (conversation_type IN ('direct', 'mentor_chat', 'investment_chat')),
+    last_message_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CHECK (user1_id <> user2_id),
+    UNIQUE (user1_id, user2_id, conversation_type)
+);
+
 CREATE TABLE IF NOT EXISTS messages (
     message_id SERIAL PRIMARY KEY,
+    conversation_id INTEGER REFERENCES conversations(conversation_id) ON DELETE CASCADE,
     sender_user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     receiver_user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    message_type VARCHAR(30) NOT NULL DEFAULT 'text' CHECK (message_type IN ('text', 'image', 'file', 'system')),
     subject VARCHAR(255),
+    message TEXT,
+    attachment_name VARCHAR(255),
+    attachment_path TEXT,
+    attachment_mime VARCHAR(150),
+    attachment_size BIGINT,
+    edited_at TIMESTAMPTZ,
+    edited_by_user_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
     body TEXT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'sent' CHECK (status IN ('sent', 'delivered', 'seen')),
+    delivered_at TIMESTAMPTZ,
+    seen_at TIMESTAMPTZ,
+    deleted_at TIMESTAMPTZ,
     is_read BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CHECK (sender_user_id <> receiver_user_id)

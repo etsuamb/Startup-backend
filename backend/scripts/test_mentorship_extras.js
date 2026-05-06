@@ -3,6 +3,9 @@ const path = require("path");
 
 const baseUrl = "http://localhost:3000";
 const sampleFilePath = path.join(__dirname, "demo_pitch_deck.txt");
+const startupPassword = process.env.STARTUP_PASSWORD || "Demo123!";
+const mentorPassword = process.env.MENTOR_PASSWORD || "Demo123!";
+const adminPassword = process.env.ADMIN_PASSWORD || "Demo123!";
 
 async function login(email, password) {
 	const res = await fetch(`${baseUrl}/api/auth/login`, {
@@ -43,9 +46,18 @@ async function jsonRequest(url, method, token, body) {
 }
 
 async function main() {
-	const startupToken = await login("startup@startupconnect.test", "Demo123!");
-	const mentorToken = await login("mentor@startupconnect.test", "Demo123!");
-	const adminToken = await login("admin@startupconnect.test", "Demo123!");
+	const startupToken = await login(
+		"startup@startupconnect.test",
+		startupPassword,
+	);
+	const mentorToken = await login("mentor@startupconnect.test", mentorPassword);
+	let adminToken;
+	try {
+		adminToken = await login("admin@startupconnect.test", adminPassword);
+	} catch (e) {
+		// Fallback for environments where reset_admin_password.js set AdminPass123!
+		adminToken = await login("admin@startupconnect.test", "AdminPass123!");
+	}
 
 	const mentorsRes = await fetch(`${baseUrl}/api/mentors/all`, {
 		headers: { Authorization: `Bearer ${startupToken}` },
@@ -166,7 +178,7 @@ async function main() {
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						email: "startup@startupconnect.test",
-						password: "Demo123!",
+						password: startupPassword,
 					}),
 				})
 			).json()

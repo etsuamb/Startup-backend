@@ -7,13 +7,6 @@ const {
 } = require("../middleware/authMiddleware");
 const mentorController = require("../controllers/mentorController");
 
-router.post(
-	"/profile",
-	authenticate,
-	authorizeRoles("Mentor"),
-	mentorController.createMentorProfile,
-);
-
 const multer = require("multer");
 const upload = multer({ dest: "uploads/" });
 
@@ -42,6 +35,13 @@ router.put(
 );
 
 router.get(
+	"/profile",
+	authenticate,
+	authorizeRoles("Mentor"),
+	mentorController.getMyProfile,
+);
+
+router.get(
 	"/all",
 	authenticate,
 	requireApproval,
@@ -54,6 +54,23 @@ router.get(
 	authenticate,
 	requireApproval,
 	mentorController.getMentorById,
+);
+
+// Delete a mentor document (owner only)
+router.delete(
+	"/documents/:documentId",
+	authenticate,
+	authorizeRoles("Mentor"),
+	mentorController.deleteMentorDocument,
+);
+
+// Replace a mentor document (owner only)
+router.put(
+	"/documents/:documentId/replace",
+	authenticate,
+	authorizeRoles("Mentor"),
+	upload.single("file"),
+	mentorController.replaceMentorDocument,
 );
 
 module.exports = router;

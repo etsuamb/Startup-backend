@@ -77,6 +77,70 @@ npm run dev   # or `node index.js`
 - `node scripts/run_migration.js` — applies `001_init.sql` and creates `uploads/` if missing.
 - `node scripts/reset_admin_password.js` — creates or resets the seeded admin password.
 - `node scripts/check_postman_collection.js` — validates the Postman collection contents.
+- `npm run test-mentorship-flow` — end-to-end mentorship request/session smoke test.
+- `npm run test-mentorship-extras` — exercises chat, resources, payments, and admin overview paths.
+- `npm run test-socket` — starts from the seeded demo users, then verifies realtime delivery, presence, typing, and unread counts.
+- `npm run test-video-sessions` — exercises session creation, chat linkage, reschedule, cancel, and Zoom webhook signature verification.
+
+## Realtime client events
+Clients can listen for the socket events below after authenticating with the same JWT used for HTTP requests:
+
+```js
+socket.on("presence:init", ({ users }) => {
+	console.log("pair presence", users);
+});
+
+socket.on("message:new", (message) => {
+	console.log("new message", message);
+});
+
+socket.on("typing", (event) => {
+	console.log("typing", event);
+});
+
+socket.on("unread:count", ({ user_id, count }) => {
+	console.log("unread count", user_id, count);
+});
+```
+
+Set `REDIS_URL` when you want the adapter and unread counters to use Redis across multiple app instances.
+
+## Video sessions and Zoom
+
+The backend now stores each scheduled meeting in `video_sessions` and links it to a chat conversation. When `ZOOM_ENABLED=true`, the server creates a Zoom meeting and stores the returned `meeting_link` and `meeting_id`.
+
+Required Zoom env vars for live meetings:
+
+- `ZOOM_ENABLED=true`
+- `ZOOM_ACCESS_TOKEN=<server-to-server OAuth access token>` or `ZOOM_JWT_TOKEN=<legacy token>`
+- `ZOOM_ACCOUNT_ID=<Zoom account id>`
+- `ZOOM_CLIENT_ID=<Zoom app client id>`
+- `ZOOM_CLIENT_SECRET=<Zoom app client secret>`
+- `ZOOM_USER_ID=<Zoom user id or email>`
+- `ZOOM_WEBHOOK_SECRET_TOKEN=<Zoom webhook secret token>`
+
+If you only want to smoke test locally, leave `ZOOM_ENABLED=false` and run `npm run test-video-sessions`.
+
+## Mentorship scheduling
+
+Mentorship scheduling now uses the mentor's recurring weekly availability plus the shared video-session layer.
+
+Useful endpoints:
+
+- `GET /api/mentorship/availability/me` - mentor reads their availability
+- `PUT /api/mentorship/availability/me` - mentor saves weekly availability slots
+- `GET /api/mentorship/availability/:mentorId` - approved users read a mentor's availability
+- `POST /api/mentorship/bookings` - startup books an accepted mentorship request into a real session
+- `POST /api/mentorship/sessions/:sessionId/confirm` - mentor confirms a session
+- `PUT /api/mentorship/sessions/:sessionId/reschedule` - either participant reschedules a booked session
+- `POST /api/mentorship/sessions/:sessionId/cancel` - either participant cancels a booked session
+
+Each booked session stores the mentor, startup, date, start/end time, duration, conversation link, and video session link. The backend also starts a lightweight reminder poller on boot and sends 24-hour and 1-hour reminders through the existing notification system.
+
+Useful scripts:
+
+- `npm run migrate-mentorship-scheduling` - applies the schedule schema upgrade
+- `npm run test-scheduling-system` - smoke tests availability, booking, confirm, reschedule, cancel, and reminders
 
 ## Troubleshooting
 - If requests fail with `Invalid URI "http:///..."`, import the Postman collection in `backend/` (it uses absolute `http://localhost:3000` URLs).

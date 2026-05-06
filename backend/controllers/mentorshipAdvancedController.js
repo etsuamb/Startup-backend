@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const chatService = require("../services/chatService");
 
 async function getStartupIdByUserId(userId) {
 	const result = await pool.query(
@@ -547,6 +548,8 @@ exports.getMentorshipResources = async (req, res) => {
 	}
 };
 
+const socketUtils = require("../utils/socket");
+
 exports.sendMentorshipMessage = async (req, res) => {
 	try {
 		const { user_id: userId, role } = req.user;
@@ -610,17 +613,42 @@ exports.sendMentorshipMessage = async (req, res) => {
 			});
 		}
 
-		const result = await pool.query(
-			`INSERT INTO messages (sender_user_id, receiver_user_id, subject, body)
-       VALUES ($1,$2,$3,$4)
-       RETURNING *`,
-			[userId, otherUserId, subject || null, body.trim()],
+		const conversation = await chatService.createConversation(
+			userId,
+			otherUserId,
+			"mentor_chat",
 		);
-
-		return res.status(201).json({
-			message: "Mentorship chat message sent",
-			chat_message: result.rows[0],
+		const msg = await chatService.sendMessage({
+			conversationId: conversation.conversation_id,
+			senderId: userId,
+			receiverId: otherUserId,
+			message: body.trim(),
+			messageType: "text",
 		});
+
+		// compute unread count for recipient and emit events
+		try {
+			const io = socketUtils.getIO();
+			const unreadCount = await chatService.getUnreadCount(otherUserId);
+			if (io) {
+				const room = socketUtils.getPairRoom(userId, otherUserId);
+				const conversationRoom = `conversation:${conversation.conversation_id}`;
+				if (room) io.to(room).emit("message:new", msg);
+				io.to(conversationRoom).emit("receive_message", msg);
+				io.to(`user:${otherUserId}`).emit("message:new", msg);
+				io.to(`user:${userId}`).emit("message:new", msg);
+				io.to(`user:${otherUserId}`).emit("unread:count", {
+					user_id: otherUserId,
+					count: unreadCount,
+				});
+			}
+		} catch (e) {
+			console.error("Socket emit failed:", e.message || e);
+		}
+
+		return res
+			.status(201)
+			.json({ message: "Mentorship chat message sent", chat_message: msg });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -681,23 +709,23 @@ exports.getMentorshipConversation = async (req, res) => {
 			});
 		}
 
-		const result = await pool.query(
-			`SELECT
-         m.*,
-         su.first_name AS sender_first_name,
-         su.last_name AS sender_last_name,
-         ru.first_name AS receiver_first_name,
-         ru.last_name AS receiver_last_name
-       FROM messages m
-       JOIN users su ON su.user_id = m.sender_user_id
-       JOIN users ru ON ru.user_id = m.receiver_user_id
-       WHERE (m.sender_user_id = $1 AND m.receiver_user_id = $2)
-          OR (m.sender_user_id = $2 AND m.receiver_user_id = $1)
-       ORDER BY m.created_at ASC`,
-			[userId, otherUserId],
+		const conversation = await chatService.getConversationByParticipants(
+			userId,
+			otherUserId,
+			"mentor_chat",
+		);
+		if (!conversation) {
+			return res.status(200).json([]);
+		}
+
+		const payload = await chatService.getConversationMessages(
+			conversation.conversation_id,
+			userId,
+			1,
+			100,
 		);
 
-		return res.status(200).json(result.rows);
+		return res.status(200).json(payload.messages);
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}

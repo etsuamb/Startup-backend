@@ -8,6 +8,13 @@ const {
 
 const investorController = require("../controllers/investorController");
 
+router.get(
+	"/profile",
+	authenticate,
+	authorizeRoles("Investor"),
+	investorController.getMyInvestorProfile,
+);
+
 router.post(
 	"/profile",
 	authenticate,
@@ -16,6 +23,50 @@ router.post(
 	investorController.createInvestorProfile,
 );
 
-// (example) protect other investor endpoints with requireApproval if added later
+router.put(
+	"/profile",
+	authenticate,
+	authorizeRoles("Investor"),
+	investorController.updateInvestorProfile,
+);
+
+router.get(
+	"/",
+	authenticate,
+	requireApproval,
+	investorController.getAllInvestors,
+);
+
+router.get(
+	"/startups",
+	authenticate,
+	requireApproval,
+	authorizeRoles("Investor"),
+	investorController.discoverStartups,
+);
+
+router.get(
+	"/startups/recommendations",
+	authenticate,
+	requireApproval,
+	authorizeRoles("Investor"),
+	investorController.getStartupRecommendations,
+);
+
+router.get(
+	"/startups/:startupId",
+	authenticate,
+	requireApproval,
+	authorizeRoles("Investor"),
+	investorController.getStartupDetails,
+);
+
+router.get(
+	"/portfolio",
+	authenticate,
+	requireApproval,
+	authorizeRoles("Investor"),
+	investorController.getInvestmentPortfolio,
+);
 
 module.exports = router;

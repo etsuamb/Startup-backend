@@ -9,18 +9,36 @@ const REFRESH_TOKEN_EXP_DAYS = parseInt(
 );
 const crypto = require("crypto");
 
+function splitFullName(fullName) {
+	if (!fullName || typeof fullName !== "string") return null;
+	const parts = fullName.trim().split(/\s+/).filter(Boolean);
+	if (!parts.length) return null;
+	if (parts.length === 1) {
+		return { first_name: parts[0], last_name: parts[0] };
+	}
+	return {
+		first_name: parts.shift(),
+		last_name: parts.join(" "),
+	};
+}
+
 // ========================
 // REGISTER
 // ========================
 exports.register = async (req, res) => {
-	const { first_name, last_name, email, password, role } = req.body;
+	const { first_name, last_name, full_name, email, password, role } = req.body;
 	const allowedRoles = ["Admin", "Startup", "Investor", "Mentor"];
+	const nameParts =
+		first_name && last_name
+			? { first_name, last_name }
+			: splitFullName(full_name);
 
 	try {
 		// Basic validation
-		if (!first_name || !last_name || !email || !password) {
+		if (!nameParts || !email || !password) {
 			return res.status(400).json({
-				message: "first_name, last_name, email and password are required",
+				message:
+					"full_name (or first_name/last_name), email and password are required",
 			});
 		}
 
@@ -45,7 +63,13 @@ exports.register = async (req, res) => {
 			`INSERT INTO users (first_name, last_name, email, password_hash, role)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING user_id, first_name, last_name, email, role, is_approved`,
-			[first_name, last_name, email, hashedPassword, assignedRole],
+			[
+				nameParts.first_name,
+				nameParts.last_name,
+				email,
+				hashedPassword,
+				assignedRole,
+			],
 		);
 
 		return res.status(201).json({
@@ -89,6 +113,17 @@ exports.login = async (req, res) => {
 		// NOTE: allow login even if not yet admin-approved so user can continue profile creation
 		// Approval gating is enforced by `requireApproval` middleware on protected routes.
 
+		let mentorProfile = null;
+		if (user.role === "Mentor") {
+			const mentorRes = await pool.query(
+				`SELECT mentor_id, user_id, headline, expertise, skills, industries, years_experience, hourly_rate, country, bio, profile_picture, verification_status, availability
+				 FROM mentors
+				 WHERE user_id = $1`,
+				[user.user_id],
+			);
+			mentorProfile = mentorRes.rows[0] || null;
+		}
+
 		// Generate access token
 		const token = jwt.sign(
 			{ user_id: user.user_id, role: user.role },
@@ -111,6 +146,7 @@ exports.login = async (req, res) => {
 			token,
 			refreshToken,
 			user: { user_id: user.user_id, email: user.email, role: user.role },
+			mentor: mentorProfile,
 		});
 	} catch (err) {
 		return res.status(500).json({ error: err.message });

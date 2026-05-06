@@ -6,6 +6,7 @@ const upload = multer({ dest: "uploads/" });
 const {
 	authenticate,
 	authorizeRoles,
+	requireApproval,
 } = require("../middleware/authMiddleware");
 
 const startupController = require("../controllers/startupController");
@@ -23,6 +24,13 @@ router.post(
 	startupController.createStartupProfile,
 );
 
+router.get(
+	"/profile",
+	authenticate,
+	authorizeRoles("Startup"),
+	startupController.getMyStartupProfile,
+);
+
 // Update existing profile
 router.put(
 	"/profile",
@@ -34,6 +42,30 @@ router.put(
 		{ name: "business_plan", maxCount: 1 },
 	]),
 	startupController.updateStartupProfile,
+);
+
+router.get(
+	"/discover",
+	authenticate,
+	requireApproval,
+	authorizeRoles("Startup"),
+	startupController.searchInvestorsAndMentors,
+);
+
+router.get(
+	"/recommendations",
+	authenticate,
+	requireApproval,
+	authorizeRoles("Startup"),
+	startupController.getRecommendations,
+);
+
+router.get(
+	"/dashboard",
+	authenticate,
+	requireApproval,
+	authorizeRoles("Startup"),
+	startupController.getDashboardStatus,
 );
 
 module.exports = router;

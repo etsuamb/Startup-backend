@@ -9,6 +9,7 @@ const {
 } = require("../middleware/authMiddleware");
 const mentorshipController = require("../controllers/mentorshipController");
 const mentorshipAdvancedController = require("../controllers/mentorshipAdvancedController");
+const mentorshipSchedulingController = require("../controllers/mentorshipSchedulingController");
 
 // Startup flows
 router.post(
@@ -22,14 +23,39 @@ router.post(
 router.get(
 	"/requests/outgoing",
 	authenticate,
+	requireApproval,
 	authorizeRoles("Startup"),
 	mentorshipController.getStartupMentorshipRequests,
 );
 
 // Mentor flows
 router.get(
+	"/availability/me",
+	authenticate,
+	requireApproval,
+	authorizeRoles("Mentor"),
+	mentorshipSchedulingController.getMyAvailability,
+);
+
+router.put(
+	"/availability/me",
+	authenticate,
+	requireApproval,
+	authorizeRoles("Mentor"),
+	mentorshipSchedulingController.updateMyAvailability,
+);
+
+router.get(
+	"/availability/:mentorId",
+	authenticate,
+	requireApproval,
+	mentorshipSchedulingController.getMentorAvailability,
+);
+
+router.get(
 	"/requests/incoming",
 	authenticate,
+	requireApproval,
 	authorizeRoles("Mentor"),
 	mentorshipController.getMentorIncomingRequests,
 );
@@ -50,15 +76,25 @@ router.post(
 	mentorshipController.scheduleMentorshipSession,
 );
 
+router.post(
+	"/bookings",
+	authenticate,
+	requireApproval,
+	authorizeRoles("Startup"),
+	mentorshipSchedulingController.bookSession,
+);
+
 router.get(
 	"/sessions",
 	authenticate,
-	mentorshipAdvancedController.listMentorshipSessions,
+	requireApproval,
+	mentorshipSchedulingController.listSessions,
 );
 
 router.get(
 	"/sessions/:sessionId",
 	authenticate,
+	requireApproval,
 	mentorshipAdvancedController.getMentorshipSessionById,
 );
 
@@ -73,6 +109,7 @@ router.post(
 router.get(
 	"/reports",
 	authenticate,
+	requireApproval,
 	mentorshipAdvancedController.getMentorshipReports,
 );
 
@@ -88,6 +125,7 @@ router.post(
 router.get(
 	"/resources",
 	authenticate,
+	requireApproval,
 	mentorshipAdvancedController.getMentorshipResources,
 );
 
@@ -102,6 +140,7 @@ router.post(
 router.get(
 	"/payments",
 	authenticate,
+	requireApproval,
 	mentorshipAdvancedController.getMentorshipPayments,
 );
 
@@ -115,6 +154,7 @@ router.post(
 router.get(
 	"/chat/conversation/:otherUserId",
 	authenticate,
+	requireApproval,
 	mentorshipAdvancedController.getMentorshipConversation,
 );
 
@@ -124,6 +164,28 @@ router.put(
 	requireApproval,
 	authorizeRoles("Mentor"),
 	mentorshipController.updateMentorshipSessionStatus,
+);
+
+router.post(
+	"/sessions/:sessionId/confirm",
+	authenticate,
+	requireApproval,
+	authorizeRoles("Mentor"),
+	mentorshipSchedulingController.confirmSession,
+);
+
+router.put(
+	"/sessions/:sessionId/reschedule",
+	authenticate,
+	requireApproval,
+	mentorshipSchedulingController.rescheduleSession,
+);
+
+router.post(
+	"/sessions/:sessionId/cancel",
+	authenticate,
+	requireApproval,
+	mentorshipSchedulingController.cancelSession,
 );
 
 // Shared history (role-checked in controller)

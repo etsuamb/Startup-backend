@@ -121,6 +121,13 @@ router.get(
 	adminController.getMentorDocument,
 );
 
+router.delete(
+	"/mentor-documents/:documentId",
+	authenticate,
+	authorizeRoles("Admin"),
+	adminController.deleteMentorDocumentAdmin,
+);
+
 // Search users
 router.get(
 	"/users",

@@ -89,14 +89,7 @@ exports.rejectUser = async (req, res) => {
 		await pool.query(
 			`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata)
 			 VALUES ($1, $2, $3, $4, $5, $6)`,
-			[
-				admin.user_id,
-				"reject_user",
-				"users",
-				userId,
-				reason || null,
-				null,
-			],
+			[admin.user_id, "reject_user", "users", userId, reason || null, null],
 		);
 
 		// notify the user
@@ -201,14 +194,7 @@ exports.approveUser = async (req, res) => {
 		await pool.query(
 			`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata)
 			 VALUES ($1, $2, $3, $4, $5, $6)`,
-			[
-				admin.user_id,
-				"approve_user",
-				"users",
-				userId,
-				comment || null,
-				null,
-			],
+			[admin.user_id, "approve_user", "users", userId, comment || null, null],
 		);
 
 		// notify the user
@@ -276,6 +262,73 @@ exports.getMentorDocument = async (req, res) => {
 	}
 };
 
+exports.deleteMentorDocumentAdmin = async (req, res) => {
+	const { documentId } = req.params;
+	const admin = req.user;
+	try {
+		const id = Number(documentId);
+		if (!Number.isInteger(id) || id <= 0) {
+			return res.status(400).json({ message: "Invalid document id" });
+		}
+
+		const r = await pool.query(
+			`SELECT md.*, m.user_id AS owner_user_id FROM mentor_documents md JOIN mentors m ON m.mentor_id = md.mentor_id WHERE md.mentor_document_id = $1`,
+			[id],
+		);
+
+		if (!r.rowCount)
+			return res.status(404).json({ message: "Document not found" });
+		const doc = r.rows[0];
+
+		const uploadsDir = path.resolve(process.cwd(), "uploads");
+		const absPath = path.resolve(process.cwd(), doc.file_path);
+		if (absPath.startsWith(uploadsDir) && fs.existsSync(absPath)) {
+			try {
+				fs.unlinkSync(absPath);
+			} catch (e) {
+				console.error("Failed removing file:", e.message || e);
+			}
+		}
+
+		await pool.query(
+			"DELETE FROM mentor_documents WHERE mentor_document_id = $1",
+			[id],
+		);
+
+		await pool.query(
+			`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata)
+			 VALUES ($1,$2,$3,$4,$5,$6)`,
+			[
+				admin.user_id,
+				"delete_mentor_document",
+				"mentor_documents",
+				id,
+				`Deleted mentor document ${doc.file_name} for mentor_id ${doc.mentor_id}`,
+				null,
+			],
+		);
+
+		if (doc.owner_user_id) {
+			await pool.query(
+				`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id)
+				 VALUES ($1,$2,$3,$4,$5,$6)`,
+				[
+					doc.owner_user_id,
+					"mentor_document",
+					"Document removed by admin",
+					`An administrator removed your uploaded document ${doc.file_name}`,
+					"mentor_documents",
+					id,
+				],
+			);
+		}
+
+		return res.json({ message: "Mentor document deleted by admin" });
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
 // GET /api/admin/users/:userId  -> full user + profile (admin view)
 exports.getUser = async (req, res) => {
 	const { userId } = req.params;
@@ -285,18 +338,25 @@ exports.getUser = async (req, res) => {
 			 FROM users WHERE user_id = $1`,
 			[userId],
 		);
-		if (!userRes.rowCount) return res.status(404).json({ message: 'User not found' });
+		if (!userRes.rowCount)
+			return res.status(404).json({ message: "User not found" });
 		const user = userRes.rows[0];
 
 		let profile = null;
-		if (user.role === 'Startup') {
-			const p = await pool.query('SELECT * FROM startups WHERE user_id = $1', [userId]);
+		if (user.role === "Startup") {
+			const p = await pool.query("SELECT * FROM startups WHERE user_id = $1", [
+				userId,
+			]);
 			profile = p.rows[0] || null;
-		} else if (user.role === 'Investor') {
-			const p = await pool.query('SELECT * FROM investors WHERE user_id = $1', [userId]);
+		} else if (user.role === "Investor") {
+			const p = await pool.query("SELECT * FROM investors WHERE user_id = $1", [
+				userId,
+			]);
 			profile = p.rows[0] || null;
-		} else if (user.role === 'Mentor') {
-			const p = await pool.query('SELECT * FROM mentors WHERE user_id = $1', [userId]);
+		} else if (user.role === "Mentor") {
+			const p = await pool.query("SELECT * FROM mentors WHERE user_id = $1", [
+				userId,
+			]);
 			profile = p.rows[0] || null;
 		}
 
@@ -312,32 +372,46 @@ exports.deleteUser = async (req, res) => {
 	const { hard } = req.query;
 	const admin = req.user;
 	try {
-		if (hard === 'true') {
+		if (hard === "true") {
 			// hard delete (dangerous) - cascade will remove related rows
-			const r = await pool.query('DELETE FROM users WHERE user_id = $1 RETURNING user_id, email', [userId]);
-			if (!r.rowCount) return res.status(404).json({ message: 'User not found' });
+			const r = await pool.query(
+				"DELETE FROM users WHERE user_id = $1 RETURNING user_id, email",
+				[userId],
+			);
+			if (!r.rowCount)
+				return res.status(404).json({ message: "User not found" });
 			await pool.query(
 				`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata)
 				 VALUES ($1,$2,$3,$4,$5,$6)`,
-				[admin.user_id, 'delete_user', 'users', userId, 'hard delete', null],
+				[admin.user_id, "delete_user", "users", userId, "hard delete", null],
 			);
-			return res.json({ message: 'User hard-deleted', user: r.rows[0] });
+			return res.json({ message: "User hard-deleted", user: r.rows[0] });
 		}
 
 		// soft deactivate
-		const r = await pool.query('UPDATE users SET is_active = false WHERE user_id = $1 RETURNING user_id, email, is_active', [userId]);
-		if (!r.rowCount) return res.status(404).json({ message: 'User not found' });
+		const r = await pool.query(
+			"UPDATE users SET is_active = false WHERE user_id = $1 RETURNING user_id, email, is_active",
+			[userId],
+		);
+		if (!r.rowCount) return res.status(404).json({ message: "User not found" });
 		await pool.query(
 			`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata)
 			 VALUES ($1,$2,$3,$4,$5,$6)`,
-			[admin.user_id, 'deactivate_user', 'users', userId, null, null],
+			[admin.user_id, "deactivate_user", "users", userId, null, null],
 		);
 		await pool.query(
 			`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id)
 			 VALUES ($1,$2,$3,$4,$5,$6)`,
-			[userId, 'account', 'Account deactivated', 'Your account was deactivated by an administrator.', 'users', userId],
+			[
+				userId,
+				"account",
+				"Account deactivated",
+				"Your account was deactivated by an administrator.",
+				"users",
+				userId,
+			],
 		);
-		return res.json({ message: 'User deactivated', user: r.rows[0] });
+		return res.json({ message: "User deactivated", user: r.rows[0] });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -366,16 +440,33 @@ exports.removeStartupListing = async (req, res) => {
 	const { startupId } = req.params;
 	const admin = req.user;
 	try {
-		const rr = await pool.query('SELECT user_id FROM startups WHERE startup_id = $1', [startupId]);
-		if (!rr.rowCount) return res.status(404).json({ message: 'Startup not found' });
+		const rr = await pool.query(
+			"SELECT user_id FROM startups WHERE startup_id = $1",
+			[startupId],
+		);
+		if (!rr.rowCount)
+			return res.status(404).json({ message: "Startup not found" });
 		const userId = rr.rows[0].user_id;
-		const r = await pool.query('UPDATE users SET is_active = false WHERE user_id = $1 RETURNING user_id, email, is_active', [userId]);
+		const r = await pool.query(
+			"UPDATE users SET is_active = false WHERE user_id = $1 RETURNING user_id, email, is_active",
+			[userId],
+		);
 		await pool.query(
 			`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata)
 			 VALUES ($1,$2,$3,$4,$5,$6)`,
-			[admin.user_id, 'remove_startup_listing', 'startups', startupId, null, null],
+			[
+				admin.user_id,
+				"remove_startup_listing",
+				"startups",
+				startupId,
+				null,
+				null,
+			],
 		);
-		return res.json({ message: 'Startup listing removed (owner deactivated)', user: r.rows[0] });
+		return res.json({
+			message: "Startup listing removed (owner deactivated)",
+			user: r.rows[0],
+		});
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -387,17 +478,42 @@ exports.approveStartup = async (req, res) => {
 	const admin = req.user;
 	try {
 		// ensure column exists
-		await pool.query("ALTER TABLE startups ADD COLUMN IF NOT EXISTS is_listed BOOLEAN DEFAULT FALSE");
-		const rr = await pool.query('UPDATE startups SET is_listed = true WHERE startup_id = $1 RETURNING *', [startupId]);
-		if (!rr.rowCount) return res.status(404).json({ message: 'Startup not found' });
+		await pool.query(
+			"ALTER TABLE startups ADD COLUMN IF NOT EXISTS is_listed BOOLEAN DEFAULT FALSE",
+		);
+		const rr = await pool.query(
+			"UPDATE startups SET is_listed = true WHERE startup_id = $1 RETURNING *",
+			[startupId],
+		);
+		if (!rr.rowCount)
+			return res.status(404).json({ message: "Startup not found" });
 		// notify owner
-		const uidRes = await pool.query('SELECT user_id FROM startups WHERE startup_id = $1', [startupId]);
+		const uidRes = await pool.query(
+			"SELECT user_id FROM startups WHERE startup_id = $1",
+			[startupId],
+		);
 		const uid = uidRes.rows[0] && uidRes.rows[0].user_id;
 		if (uid) {
-			await pool.query(`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id) VALUES ($1,$2,$3,$4,$5,$6)`, [uid, 'startup', 'Startup listing approved', 'Your startup listing has been approved and is now visible.', 'startups', startupId]);
+			await pool.query(
+				`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id) VALUES ($1,$2,$3,$4,$5,$6)`,
+				[
+					uid,
+					"startup",
+					"Startup listing approved",
+					"Your startup listing has been approved and is now visible.",
+					"startups",
+					startupId,
+				],
+			);
 		}
-		await pool.query(`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata) VALUES ($1,$2,$3,$4,$5,$6)`, [admin.user_id, 'approve_startup', 'startups', startupId, null, null]);
-		return res.json({ message: 'Startup approved/listed', startup: rr.rows[0] });
+		await pool.query(
+			`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata) VALUES ($1,$2,$3,$4,$5,$6)`,
+			[admin.user_id, "approve_startup", "startups", startupId, null, null],
+		);
+		return res.json({
+			message: "Startup approved/listed",
+			startup: rr.rows[0],
+		});
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -409,16 +525,50 @@ exports.unapproveStartup = async (req, res) => {
 	const admin = req.user;
 	const { reason } = req.body || {};
 	try {
-		await pool.query("ALTER TABLE startups ADD COLUMN IF NOT EXISTS is_listed BOOLEAN DEFAULT FALSE");
-		const rr = await pool.query('UPDATE startups SET is_listed = false WHERE startup_id = $1 RETURNING *', [startupId]);
-		if (!rr.rowCount) return res.status(404).json({ message: 'Startup not found' });
-		const uidRes = await pool.query('SELECT user_id FROM startups WHERE startup_id = $1', [startupId]);
+		await pool.query(
+			"ALTER TABLE startups ADD COLUMN IF NOT EXISTS is_listed BOOLEAN DEFAULT FALSE",
+		);
+		const rr = await pool.query(
+			"UPDATE startups SET is_listed = false WHERE startup_id = $1 RETURNING *",
+			[startupId],
+		);
+		if (!rr.rowCount)
+			return res.status(404).json({ message: "Startup not found" });
+		const uidRes = await pool.query(
+			"SELECT user_id FROM startups WHERE startup_id = $1",
+			[startupId],
+		);
 		const uid = uidRes.rows[0] && uidRes.rows[0].user_id;
 		if (uid) {
-			await pool.query(`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id) VALUES ($1,$2,$3,$4,$5,$6)`, [uid, 'startup', 'Startup listing unapproved', reason ? `Listing unapproved: ${reason}` : 'Your startup listing was unapproved by admin.', 'startups', startupId]);
+			await pool.query(
+				`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id) VALUES ($1,$2,$3,$4,$5,$6)`,
+				[
+					uid,
+					"startup",
+					"Startup listing unapproved",
+					reason
+						? `Listing unapproved: ${reason}`
+						: "Your startup listing was unapproved by admin.",
+					"startups",
+					startupId,
+				],
+			);
 		}
-		await pool.query(`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata) VALUES ($1,$2,$3,$4,$5,$6)`, [admin.user_id, 'unapprove_startup', 'startups', startupId, reason || null, null]);
-		return res.json({ message: 'Startup unapproved/unlisted', startup: rr.rows[0] });
+		await pool.query(
+			`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata) VALUES ($1,$2,$3,$4,$5,$6)`,
+			[
+				admin.user_id,
+				"unapprove_startup",
+				"startups",
+				startupId,
+				reason || null,
+				null,
+			],
+		);
+		return res.json({
+			message: "Startup unapproved/unlisted",
+			startup: rr.rows[0],
+		});
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -429,16 +579,41 @@ exports.approveMentor = async (req, res) => {
 	const { mentorId } = req.params;
 	const admin = req.user;
 	try {
-		await pool.query("ALTER TABLE mentors ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE");
-		const rr = await pool.query('UPDATE mentors SET is_approved = true WHERE mentor_id = $1 RETURNING *', [mentorId]);
-		if (!rr.rowCount) return res.status(404).json({ message: 'Mentor not found' });
-		const uidRes = await pool.query('SELECT user_id FROM mentors WHERE mentor_id = $1', [mentorId]);
+		await pool.query(
+			"ALTER TABLE mentors ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE",
+		);
+		await pool.query(
+			"ALTER TABLE mentors ADD COLUMN IF NOT EXISTS verification_status VARCHAR(20) NOT NULL DEFAULT 'pending'",
+		);
+		const rr = await pool.query(
+			"UPDATE mentors SET is_approved = true, verification_status = 'approved' WHERE mentor_id = $1 RETURNING *",
+			[mentorId],
+		);
+		if (!rr.rowCount)
+			return res.status(404).json({ message: "Mentor not found" });
+		const uidRes = await pool.query(
+			"SELECT user_id FROM mentors WHERE mentor_id = $1",
+			[mentorId],
+		);
 		const uid = uidRes.rows[0] && uidRes.rows[0].user_id;
 		if (uid) {
-			await pool.query(`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id) VALUES ($1,$2,$3,$4,$5,$6)`, [uid, 'mentor', 'Mentor profile approved', 'Your mentor profile has been approved.', 'mentors', mentorId]);
+			await pool.query(
+				`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id) VALUES ($1,$2,$3,$4,$5,$6)`,
+				[
+					uid,
+					"mentor",
+					"Mentor profile approved",
+					"Your mentor profile has been approved.",
+					"mentors",
+					mentorId,
+				],
+			);
 		}
-		await pool.query(`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata) VALUES ($1,$2,$3,$4,$5,$6)`, [admin.user_id, 'approve_mentor', 'mentors', mentorId, null, null]);
-		return res.json({ message: 'Mentor approved', mentor: rr.rows[0] });
+		await pool.query(
+			`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata) VALUES ($1,$2,$3,$4,$5,$6)`,
+			[admin.user_id, "approve_mentor", "mentors", mentorId, null, null],
+		);
+		return res.json({ message: "Mentor approved", mentor: rr.rows[0] });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -450,16 +625,50 @@ exports.unapproveMentor = async (req, res) => {
 	const admin = req.user;
 	const { reason } = req.body || {};
 	try {
-		await pool.query("ALTER TABLE mentors ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE");
-		const rr = await pool.query('UPDATE mentors SET is_approved = false WHERE mentor_id = $1 RETURNING *', [mentorId]);
-		if (!rr.rowCount) return res.status(404).json({ message: 'Mentor not found' });
-		const uidRes = await pool.query('SELECT user_id FROM mentors WHERE mentor_id = $1', [mentorId]);
+		await pool.query(
+			"ALTER TABLE mentors ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE",
+		);
+		await pool.query(
+			"ALTER TABLE mentors ADD COLUMN IF NOT EXISTS verification_status VARCHAR(20) NOT NULL DEFAULT 'pending'",
+		);
+		const rr = await pool.query(
+			"UPDATE mentors SET is_approved = false, verification_status = 'rejected' WHERE mentor_id = $1 RETURNING *",
+			[mentorId],
+		);
+		if (!rr.rowCount)
+			return res.status(404).json({ message: "Mentor not found" });
+		const uidRes = await pool.query(
+			"SELECT user_id FROM mentors WHERE mentor_id = $1",
+			[mentorId],
+		);
 		const uid = uidRes.rows[0] && uidRes.rows[0].user_id;
 		if (uid) {
-			await pool.query(`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id) VALUES ($1,$2,$3,$4,$5,$6)`, [uid, 'mentor', 'Mentor profile unapproved', reason ? `Unapproved: ${reason}` : 'Your mentor profile was unapproved by admin.', 'mentors', mentorId]);
+			await pool.query(
+				`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id) VALUES ($1,$2,$3,$4,$5,$6)`,
+				[
+					uid,
+					"mentor",
+					"Mentor profile unapproved",
+					reason
+						? `Unapproved: ${reason}`
+						: "Your mentor profile was unapproved by admin.",
+					"mentors",
+					mentorId,
+				],
+			);
 		}
-		await pool.query(`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata) VALUES ($1,$2,$3,$4,$5,$6)`, [admin.user_id, 'unapprove_mentor', 'mentors', mentorId, reason || null, null]);
-		return res.json({ message: 'Mentor unapproved', mentor: rr.rows[0] });
+		await pool.query(
+			`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata) VALUES ($1,$2,$3,$4,$5,$6)`,
+			[
+				admin.user_id,
+				"unapprove_mentor",
+				"mentors",
+				mentorId,
+				reason || null,
+				null,
+			],
+		);
+		return res.json({ message: "Mentor unapproved", mentor: rr.rows[0] });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -470,16 +679,38 @@ exports.approveInvestor = async (req, res) => {
 	const { investorId } = req.params;
 	const admin = req.user;
 	try {
-		await pool.query("ALTER TABLE investors ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE");
-		const rr = await pool.query('UPDATE investors SET is_approved = true WHERE investor_id = $1 RETURNING *', [investorId]);
-		if (!rr.rowCount) return res.status(404).json({ message: 'Investor not found' });
-		const uidRes = await pool.query('SELECT user_id FROM investors WHERE investor_id = $1', [investorId]);
+		await pool.query(
+			"ALTER TABLE investors ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE",
+		);
+		const rr = await pool.query(
+			"UPDATE investors SET is_approved = true WHERE investor_id = $1 RETURNING *",
+			[investorId],
+		);
+		if (!rr.rowCount)
+			return res.status(404).json({ message: "Investor not found" });
+		const uidRes = await pool.query(
+			"SELECT user_id FROM investors WHERE investor_id = $1",
+			[investorId],
+		);
 		const uid = uidRes.rows[0] && uidRes.rows[0].user_id;
 		if (uid) {
-			await pool.query(`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id) VALUES ($1,$2,$3,$4,$5,$6)`, [uid, 'investor', 'Investor profile approved', 'Your investor profile has been approved.', 'investors', investorId]);
+			await pool.query(
+				`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id) VALUES ($1,$2,$3,$4,$5,$6)`,
+				[
+					uid,
+					"investor",
+					"Investor profile approved",
+					"Your investor profile has been approved.",
+					"investors",
+					investorId,
+				],
+			);
 		}
-		await pool.query(`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata) VALUES ($1,$2,$3,$4,$5,$6)`, [admin.user_id, 'approve_investor', 'investors', investorId, null, null]);
-		return res.json({ message: 'Investor approved', investor: rr.rows[0] });
+		await pool.query(
+			`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata) VALUES ($1,$2,$3,$4,$5,$6)`,
+			[admin.user_id, "approve_investor", "investors", investorId, null, null],
+		);
+		return res.json({ message: "Investor approved", investor: rr.rows[0] });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -491,16 +722,47 @@ exports.unapproveInvestor = async (req, res) => {
 	const admin = req.user;
 	const { reason } = req.body || {};
 	try {
-		await pool.query("ALTER TABLE investors ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE");
-		const rr = await pool.query('UPDATE investors SET is_approved = false WHERE investor_id = $1 RETURNING *', [investorId]);
-		if (!rr.rowCount) return res.status(404).json({ message: 'Investor not found' });
-		const uidRes = await pool.query('SELECT user_id FROM investors WHERE investor_id = $1', [investorId]);
+		await pool.query(
+			"ALTER TABLE investors ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE",
+		);
+		const rr = await pool.query(
+			"UPDATE investors SET is_approved = false WHERE investor_id = $1 RETURNING *",
+			[investorId],
+		);
+		if (!rr.rowCount)
+			return res.status(404).json({ message: "Investor not found" });
+		const uidRes = await pool.query(
+			"SELECT user_id FROM investors WHERE investor_id = $1",
+			[investorId],
+		);
 		const uid = uidRes.rows[0] && uidRes.rows[0].user_id;
 		if (uid) {
-			await pool.query(`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id) VALUES ($1,$2,$3,$4,$5,$6)`, [uid, 'investor', 'Investor profile unapproved', reason ? `Unapproved: ${reason}` : 'Your investor profile was unapproved by admin.', 'investors', investorId]);
+			await pool.query(
+				`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id) VALUES ($1,$2,$3,$4,$5,$6)`,
+				[
+					uid,
+					"investor",
+					"Investor profile unapproved",
+					reason
+						? `Unapproved: ${reason}`
+						: "Your investor profile was unapproved by admin.",
+					"investors",
+					investorId,
+				],
+			);
 		}
-		await pool.query(`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata) VALUES ($1,$2,$3,$4,$5,$6)`, [admin.user_id, 'unapprove_investor', 'investors', investorId, reason || null, null]);
-		return res.json({ message: 'Investor unapproved', investor: rr.rows[0] });
+		await pool.query(
+			`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata) VALUES ($1,$2,$3,$4,$5,$6)`,
+			[
+				admin.user_id,
+				"unapprove_investor",
+				"investors",
+				investorId,
+				reason || null,
+				null,
+			],
+		);
+		return res.json({ message: "Investor unapproved", investor: rr.rows[0] });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -512,16 +774,28 @@ exports.updateProjectStatus = async (req, res) => {
 	const { status, comment } = req.body || {};
 	const admin = req.user;
 	try {
-		const allowed = ['draft', 'active', 'funded', 'completed', 'cancelled'];
-		if (!allowed.includes(status)) return res.status(400).json({ error: 'Invalid status' });
-		const r = await pool.query('UPDATE projects SET status = $1 WHERE project_id = $2 RETURNING *', [status, projectId]);
-		if (!r.rowCount) return res.status(404).json({ message: 'Project not found' });
+		const allowed = ["draft", "active", "funded", "completed", "cancelled"];
+		if (!allowed.includes(status))
+			return res.status(400).json({ error: "Invalid status" });
+		const r = await pool.query(
+			"UPDATE projects SET status = $1 WHERE project_id = $2 RETURNING *",
+			[status, projectId],
+		);
+		if (!r.rowCount)
+			return res.status(404).json({ message: "Project not found" });
 		await pool.query(
 			`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata)
 			 VALUES ($1,$2,$3,$4,$5,$6)`,
-			[admin.user_id, 'update_project_status', 'projects', projectId, comment || null, null],
+			[
+				admin.user_id,
+				"update_project_status",
+				"projects",
+				projectId,
+				comment || null,
+				null,
+			],
 		);
-		return res.json({ message: 'Project status updated', project: r.rows[0] });
+		return res.json({ message: "Project status updated", project: r.rows[0] });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -552,8 +826,8 @@ exports.reportsOverview = async (req, res) => {
 // GET /api/admin/maintenance/status
 exports.maintenanceStatus = async (_req, res) => {
 	try {
-		const r = await pool.query('SELECT 1');
-		return res.json({ database: 'ok', timestamp: new Date().toISOString() });
+		const r = await pool.query("SELECT 1");
+		return res.json({ database: "ok", timestamp: new Date().toISOString() });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -565,13 +839,23 @@ exports.clearOldAuditLogs = async (req, res) => {
 	const admin = req.user;
 	try {
 		const cutoff = new Date(Date.now() - Number(days) * 24 * 60 * 60 * 1000);
-		const r = await pool.query('DELETE FROM audit_logs WHERE created_at < $1 RETURNING audit_log_id', [cutoff]);
+		const r = await pool.query(
+			"DELETE FROM audit_logs WHERE created_at < $1 RETURNING audit_log_id",
+			[cutoff],
+		);
 		await pool.query(
 			`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata)
 			 VALUES ($1,$2,$3,$4,$5,$6)`,
-			[admin.user_id, 'clear_old_audit_logs', 'audit_logs', null, `deleted ${r.rowCount} logs older than ${days} days`, null],
+			[
+				admin.user_id,
+				"clear_old_audit_logs",
+				"audit_logs",
+				null,
+				`deleted ${r.rowCount} logs older than ${days} days`,
+				null,
+			],
 		);
-		return res.json({ message: 'Old audit logs cleared', deleted: r.rowCount });
+		return res.json({ message: "Old audit logs cleared", deleted: r.rowCount });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -580,18 +864,30 @@ exports.clearOldAuditLogs = async (req, res) => {
 // POST /api/admin/create-admin
 // body: { first_name, last_name, email, password, privilege_level }
 exports.createAdmin = async (req, res) => {
-	const { first_name, last_name, email, password, privilege_level = 1 } = req.body || {};
+	const {
+		first_name,
+		last_name,
+		email,
+		password,
+		privilege_level = 1,
+	} = req.body || {};
 	const adminUser = req.user;
 	try {
 		if (!first_name || !last_name || !email || !password) {
-			return res.status(400).json({ error: 'first_name,last_name,email,password required' });
+			return res
+				.status(400)
+				.json({ error: "first_name,last_name,email,password required" });
 		}
 
 		// Prevent creation if email already exists
-		const existing = await pool.query('SELECT user_id FROM users WHERE email = $1', [email]);
-		if (existing.rowCount) return res.status(409).json({ error: 'User already exists' });
+		const existing = await pool.query(
+			"SELECT user_id FROM users WHERE email = $1",
+			[email],
+		);
+		if (existing.rowCount)
+			return res.status(409).json({ error: "User already exists" });
 
-		const bcrypt = require('bcrypt');
+		const bcrypt = require("bcrypt");
 		const hashed = await bcrypt.hash(password, 10);
 
 		const r = await pool.query(
@@ -603,17 +899,17 @@ exports.createAdmin = async (req, res) => {
 		const userId = r.rows[0].user_id;
 		// insert into admins table
 		await pool.query(
-			'INSERT INTO admins (user_id, privilege_level) VALUES ($1,$2)',
+			"INSERT INTO admins (user_id, privilege_level) VALUES ($1,$2)",
 			[userId, Number(privilege_level) || 1],
 		);
 
 		await pool.query(
 			`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata)
 			 VALUES ($1,$2,$3,$4,$5,$6)`,
-			[adminUser.user_id, 'create_admin', 'users', userId, null, null],
+			[adminUser.user_id, "create_admin", "users", userId, null, null],
 		);
 
-		return res.status(201).json({ message: 'Admin created', admin: r.rows[0] });
+		return res.status(201).json({ message: "Admin created", admin: r.rows[0] });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -624,14 +920,18 @@ exports.removeProject = async (req, res) => {
 	const { projectId } = req.params;
 	const admin = req.user;
 	try {
-		const r = await pool.query('UPDATE projects SET status = $1 WHERE project_id = $2 RETURNING *', ['cancelled', projectId]);
-		if (!r.rowCount) return res.status(404).json({ message: 'Project not found' });
+		const r = await pool.query(
+			"UPDATE projects SET status = $1 WHERE project_id = $2 RETURNING *",
+			["cancelled", projectId],
+		);
+		if (!r.rowCount)
+			return res.status(404).json({ message: "Project not found" });
 		await pool.query(
 			`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata)
 			 VALUES ($1,$2,$3,$4,$5,$6)`,
-			[admin.user_id, 'remove_project', 'projects', projectId, null, null],
+			[admin.user_id, "remove_project", "projects", projectId, null, null],
 		);
-		return res.json({ message: 'Project removed', project: r.rows[0] });
+		return res.json({ message: "Project removed", project: r.rows[0] });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -642,14 +942,18 @@ exports.restoreProject = async (req, res) => {
 	const { projectId } = req.params;
 	const admin = req.user;
 	try {
-		const r = await pool.query('UPDATE projects SET status = $1 WHERE project_id = $2 RETURNING *', ['active', projectId]);
-		if (!r.rowCount) return res.status(404).json({ message: 'Project not found' });
+		const r = await pool.query(
+			"UPDATE projects SET status = $1 WHERE project_id = $2 RETURNING *",
+			["active", projectId],
+		);
+		if (!r.rowCount)
+			return res.status(404).json({ message: "Project not found" });
 		await pool.query(
 			`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata)
 			 VALUES ($1,$2,$3,$4,$5,$6)`,
-			[admin.user_id, 'restore_project', 'projects', projectId, null, null],
+			[admin.user_id, "restore_project", "projects", projectId, null, null],
 		);
-		return res.json({ message: 'Project restored', project: r.rows[0] });
+		return res.json({ message: "Project restored", project: r.rows[0] });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -660,14 +964,25 @@ exports.deleteMentorshipResource = async (req, res) => {
 	const { id } = req.params;
 	const admin = req.user;
 	try {
-		const r = await pool.query('DELETE FROM mentorship_resources WHERE resource_id = $1 RETURNING *', [id]);
-		if (!r.rowCount) return res.status(404).json({ message: 'Resource not found' });
+		const r = await pool.query(
+			"DELETE FROM mentorship_resources WHERE resource_id = $1 RETURNING *",
+			[id],
+		);
+		if (!r.rowCount)
+			return res.status(404).json({ message: "Resource not found" });
 		await pool.query(
 			`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata)
 			 VALUES ($1,$2,$3,$4,$5,$6)`,
-			[admin.user_id, 'delete_mentorship_resource', 'mentorship_resources', id, null, null],
+			[
+				admin.user_id,
+				"delete_mentorship_resource",
+				"mentorship_resources",
+				id,
+				null,
+				null,
+			],
 		);
-		return res.json({ message: 'Resource deleted', resource: r.rows[0] });
+		return res.json({ message: "Resource deleted", resource: r.rows[0] });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -678,28 +993,35 @@ exports.deleteDocumentAdmin = async (req, res) => {
 	const { documentId } = req.params;
 	const admin = req.user;
 	try {
-		const r = await pool.query('SELECT * FROM documents WHERE document_id = $1', [documentId]);
-		if (!r.rowCount) return res.status(404).json({ message: 'Document not found' });
+		const r = await pool.query(
+			"SELECT * FROM documents WHERE document_id = $1",
+			[documentId],
+		);
+		if (!r.rowCount)
+			return res.status(404).json({ message: "Document not found" });
 		const doc = r.rows[0];
 		// try unlink file
 		try {
-			const fs = require('fs');
-			const path = require('path');
+			const fs = require("fs");
+			const path = require("path");
 			const abs = path.resolve(process.cwd(), doc.file_path);
 			if (fs.existsSync(abs)) {
 				fs.unlinkSync(abs);
 			}
 		} catch (e) {
 			// ignore file unlink errors
-			console.error('unlink failed', e.message || e);
+			console.error("unlink failed", e.message || e);
 		}
-		const del = await pool.query('DELETE FROM documents WHERE document_id = $1 RETURNING *', [documentId]);
+		const del = await pool.query(
+			"DELETE FROM documents WHERE document_id = $1 RETURNING *",
+			[documentId],
+		);
 		await pool.query(
 			`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata)
 			 VALUES ($1,$2,$3,$4,$5,$6)`,
-			[admin.user_id, 'delete_document', 'documents', documentId, null, null],
+			[admin.user_id, "delete_document", "documents", documentId, null, null],
 		);
-		return res.json({ message: 'Document removed', document: del.rows[0] });
+		return res.json({ message: "Document removed", document: del.rows[0] });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -711,7 +1033,7 @@ exports.exportAuditLogs = async (req, res) => {
 	const { since, until } = req.query;
 	try {
 		const params = [];
-		let where = '';
+		let where = "";
 		if (since) {
 			params.push(since);
 			where += ` AND created_at >= $${params.length}`;
@@ -723,13 +1045,17 @@ exports.exportAuditLogs = async (req, res) => {
 		const q = `SELECT audit_log_id, actor_user_id, action, entity_type, entity_id, details, metadata, created_at FROM audit_logs WHERE 1=1 ${where} ORDER BY created_at DESC`;
 		const r = await pool.query(q, params);
 		// build CSV
-		res.setHeader('Content-Type', 'text/csv');
-		res.setHeader('Content-Disposition', 'attachment; filename="audit_logs.csv"');
+		res.setHeader("Content-Type", "text/csv");
+		res.setHeader(
+			"Content-Disposition",
+			'attachment; filename="audit_logs.csv"',
+		);
 		const rows = r.rows;
-		const header = 'audit_log_id,actor_user_id,action,entity_type,entity_id,details,metadata,created_at\n';
+		const header =
+			"audit_log_id,actor_user_id,action,entity_type,entity_id,details,metadata,created_at\n";
 		res.write(header);
 		for (const row of rows) {
-			const line = `${row.audit_log_id},${row.actor_user_id || ''},${(row.action||'').replace(/\,/g,' ')},${row.entity_type || ''},${row.entity_id || ''},"${(row.details||'').toString().replace(/"/g,'""')}","${JSON.stringify(row.metadata||{}).replace(/"/g,'""')}",${row.created_at.toISOString()}\n`;
+			const line = `${row.audit_log_id},${row.actor_user_id || ""},${(row.action || "").replace(/\,/g, " ")},${row.entity_type || ""},${row.entity_id || ""},"${(row.details || "").toString().replace(/"/g, '""')}","${JSON.stringify(row.metadata || {}).replace(/"/g, '""')}",${row.created_at.toISOString()}\n`;
 			res.write(line);
 		}
 		return res.end();
@@ -743,29 +1069,32 @@ exports.exportReportCSV = async (req, res) => {
 	const { type } = req.query;
 	try {
 		let q;
-		if (type === 'users') {
+		if (type === "users") {
 			q = `SELECT user_id, first_name, last_name, email, role, is_active, is_approved, created_at FROM users ORDER BY created_at DESC`;
-		} else if (type === 'projects') {
+		} else if (type === "projects") {
 			q = `SELECT project_id, project_title, startup_id, funding_goal, amount_raised, status, start_date, end_date, created_at FROM projects ORDER BY created_at DESC`;
-		} else if (type === 'investments') {
+		} else if (type === "investments") {
 			q = `SELECT investment_id, investment_request_id, amount, equity_percentage, status, created_at FROM investments ORDER BY created_at DESC`;
 		} else {
-			return res.status(400).json({ error: 'unknown report type' });
+			return res.status(400).json({ error: "unknown report type" });
 		}
 		const r = await pool.query(q);
-		res.setHeader('Content-Type', 'text/csv');
-		res.setHeader('Content-Disposition', `attachment; filename="${type}_report.csv"`);
-		if (r.rows.length === 0) return res.end('');
+		res.setHeader("Content-Type", "text/csv");
+		res.setHeader(
+			"Content-Disposition",
+			`attachment; filename="${type}_report.csv"`,
+		);
+		if (r.rows.length === 0) return res.end("");
 		const keys = Object.keys(r.rows[0]);
-		res.write(keys.join(',') + '\n');
+		res.write(keys.join(",") + "\n");
 		for (const row of r.rows) {
-			const vals = keys.map(k => {
+			const vals = keys.map((k) => {
 				const v = row[k];
-				if (v === null || v === undefined) return '';
+				if (v === null || v === undefined) return "";
 				if (v instanceof Date) return v.toISOString();
 				return String(v).replace(/\"/g, '"');
 			});
-			res.write(vals.join(',') + '\n');
+			res.write(vals.join(",") + "\n");
 		}
 		return res.end();
 	} catch (err) {
@@ -781,9 +1110,20 @@ exports.scheduleReport = async (req, res) => {
 		await pool.query(
 			`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata)
 			 VALUES ($1,$2,$3,$4,$5,$6)`,
-			[admin.user_id, 'schedule_report', 'reports', null, `type=${type} run_at=${run_at||'immediate'}`, null],
+			[
+				admin.user_id,
+				"schedule_report",
+				"reports",
+				null,
+				`type=${type} run_at=${run_at || "immediate"}`,
+				null,
+			],
 		);
-		return res.json({ message: 'Report scheduled (placeholder)', type, run_at: run_at || 'immediate' });
+		return res.json({
+			message: "Report scheduled (placeholder)",
+			type,
+			run_at: run_at || "immediate",
+		});
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -872,24 +1212,42 @@ exports.updateInvestmentRequestStatus = async (req, res) => {
 		if (rr.rowCount) {
 			const row = rr.rows[0];
 			const title = `Investment request ${status}`;
-			const message = comment || `Investment request has been ${status} by an administrator.`;
+			const message =
+				comment || `Investment request has been ${status} by an administrator.`;
 
 			// notify startup
 			await pool.query(
 				`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id)
 				 VALUES ($1,$2,$3,$4,$5,$6)`,
-				[row.startup_user_id, "investment", title, message, "investment_requests", id],
+				[
+					row.startup_user_id,
+					"investment",
+					title,
+					message,
+					"investment_requests",
+					id,
+				],
 			);
 
 			// notify investor
 			await pool.query(
 				`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id)
 				 VALUES ($1,$2,$3,$4,$5,$6)`,
-				[row.investor_user_id, "investment", title, message, "investment_requests", id],
+				[
+					row.investor_user_id,
+					"investment",
+					title,
+					message,
+					"investment_requests",
+					id,
+				],
 			);
 		}
 
-		return res.json({ message: "Status updated", investment_request: result.rows[0] });
+		return res.json({
+			message: "Status updated",
+			investment_request: result.rows[0],
+		});
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -899,8 +1257,8 @@ exports.updateInvestmentRequestStatus = async (req, res) => {
 exports.listInvestments = async (req, res) => {
 	const { limit = 100, offset = 0 } = req.query;
 	try {
-			const r = await pool.query(
-				`SELECT inv.*, ir.requested_amount, ir.project_id, p.project_title,
+		const r = await pool.query(
+			`SELECT inv.*, ir.requested_amount, ir.project_id, p.project_title,
 						su_user.first_name AS startup_first_name, iv_user.first_name AS investor_first_name,
 						s.startup_id, iv.investor_id
 				 FROM investments inv
@@ -912,8 +1270,8 @@ exports.listInvestments = async (req, res) => {
 				 JOIN users iv_user ON iv_user.user_id = iv.user_id
 				 ORDER BY inv.created_at DESC
 				 LIMIT $1 OFFSET $2`,
-				[limit, offset],
-			);
+			[limit, offset],
+		);
 		return res.json({ investments: r.rows });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });

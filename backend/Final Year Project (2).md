@@ -495,6 +495,13 @@ To make the registration process clear and operational, the platform should spec
 information required from each user type during sign-up. In this project, registration is divided
 into two parts: account creation and profile completion/verification.
 
+Implementation note for this project:
+● One core users table stores identity, login credentials, role, and verification status.
+● Startup, mentor, and investor profile tables are linked to users through user_id.
+● Uploaded files are stored in the file system or external object storage, while PostgreSQL stores
+	only the file URL/path and metadata.
+● Discovery endpoints should return only approved profiles.
+
 For all users, the system should collect the basic account information shown below:
 ● Full name
 ● Email address

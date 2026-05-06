@@ -1,4 +1,37 @@
 const pool = require("../config/db");
+const { normalizeMultipartBody } = require("../utils/requestBody");
+
+exports.getMyStartupProfile = async (req, res) => {
+	try {
+		const userId = req.user.user_id;
+
+		const result = await pool.query(
+			`SELECT s.*, u.user_id, u.first_name, u.last_name, u.email
+			 FROM startups s
+			 JOIN users u ON u.user_id = s.user_id
+			 WHERE s.user_id = $1`,
+			[userId],
+		);
+
+		if (!result.rowCount) {
+			return res.status(404).json({ error: "Startup profile not found" });
+		}
+
+		const startup = result.rows[0];
+		const docs = await pool.query(
+			`SELECT document_id, file_name, file_path, file_type, file_size_bytes, description, created_at
+			 FROM documents
+			 WHERE startup_id = $1
+			 ORDER BY created_at DESC`,
+			[startup.startup_id],
+		);
+
+		startup.documents = docs.rows;
+		return res.status(200).json(startup);
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
 
 // Create startup profile
 exports.createStartupProfile = async (req, res) => {
@@ -16,21 +49,7 @@ exports.createStartupProfile = async (req, res) => {
 					"Startup profile already exists for this user. Use PUT /api/startups/profile to update.",
 			});
 		}
-		// Accept JSON and multipart/form-data bodies.
-		if (!req.body || typeof req.body !== "object") {
-			req.body = {};
-		}
-
-		// Some clients send a JSON string in a multipart field named 'data'.
-		if (typeof req.body.data === "string" && req.body.data.trim() !== "") {
-			try {
-				req.body = JSON.parse(req.body.data);
-			} catch (parseErr) {
-				return res.status(400).json({
-					error: "Invalid JSON in form-data field 'data'",
-				});
-			}
-		}
+		req.body = normalizeMultipartBody(req.body);
 
 		let {
 			startup_name,
@@ -183,20 +202,7 @@ exports.updateStartupProfile = async (req, res) => {
 	try {
 		const userId = req.user.user_id;
 
-		// Accept JSON and multipart/form-data bodies.
-		if (!req.body || typeof req.body !== "object") {
-			req.body = {};
-		}
-
-		if (typeof req.body.data === "string" && req.body.data.trim() !== "") {
-			try {
-				req.body = JSON.parse(req.body.data);
-			} catch (parseErr) {
-				return res.status(400).json({
-					error: "Invalid JSON in form-data field 'data'",
-				});
-			}
-		}
+		req.body = normalizeMultipartBody(req.body);
 
 		let {
 			startup_name,
@@ -348,5 +354,247 @@ exports.updateStartupProfile = async (req, res) => {
 		res.status(200).json({ message: "Startup profile updated", startup });
 	} catch (err) {
 		res.status(500).json({ error: err.message });
+	}
+};
+
+async function getStartupByUserId(userId) {
+	const result = await pool.query(
+		"SELECT * FROM startups WHERE user_id = $1",
+		[userId],
+	);
+	return result.rowCount ? result.rows[0] : null;
+}
+
+exports.searchInvestorsAndMentors = async (req, res) => {
+	try {
+		const {
+			q,
+			industry,
+			stage,
+			country,
+			type = "all",
+			limit = 50,
+			offset = 0,
+		} = req.query || {};
+
+		const payload = {};
+		const maxLimit = Math.min(Number(limit) || 50, 100);
+		const startOffset = Number(offset) || 0;
+
+		if (type === "all" || type === "investors") {
+			const filters = ["u.is_active = true", "u.is_approved = true"];
+			const values = [];
+			if (q) {
+				values.push(`%${q}%`);
+				filters.push(
+					`(i.organization_name ILIKE $${values.length} OR u.first_name ILIKE $${values.length} OR u.last_name ILIKE $${values.length})`,
+				);
+			}
+			if (industry) {
+				values.push(`%${industry}%`);
+				filters.push(`i.preferred_industry ILIKE $${values.length}`);
+			}
+			if (stage) {
+				values.push(`%${stage}%`);
+				filters.push(`i.investment_stage ILIKE $${values.length}`);
+			}
+			if (country) {
+				values.push(`%${country}%`);
+				filters.push(`i.country ILIKE $${values.length}`);
+			}
+			values.push(maxLimit, startOffset);
+
+			const investors = await pool.query(
+				`SELECT i.*, u.user_id, u.first_name, u.last_name, u.email
+				 FROM investors i
+				 JOIN users u ON u.user_id = i.user_id
+				 WHERE ${filters.join(" AND ")}
+				 ORDER BY i.created_at DESC
+				 LIMIT $${values.length - 1} OFFSET $${values.length}`,
+				values,
+			);
+			payload.investors = investors.rows;
+		}
+
+		if (type === "all" || type === "mentors") {
+			const filters = [
+				"u.is_active = true",
+				"u.is_approved = true",
+				"m.verification_status = 'approved'",
+			];
+			const values = [];
+			if (q) {
+				values.push(`%${q}%`);
+				filters.push(
+					`(m.headline ILIKE $${values.length} OR m.expertise ILIKE $${values.length} OR u.first_name ILIKE $${values.length} OR u.last_name ILIKE $${values.length})`,
+				);
+			}
+			if (industry) {
+				values.push(`%${industry}%`);
+				filters.push(
+					`(m.expertise ILIKE $${values.length} OR m.industries::text ILIKE $${values.length})`,
+				);
+			}
+			if (country) {
+				values.push(`%${country}%`);
+				filters.push(`m.country ILIKE $${values.length}`);
+			}
+			values.push(maxLimit, startOffset);
+
+			const mentors = await pool.query(
+				`SELECT m.*, u.user_id, u.first_name, u.last_name, u.email
+				 FROM mentors m
+				 JOIN users u ON u.user_id = m.user_id
+				 WHERE ${filters.join(" AND ")}
+				 ORDER BY m.created_at DESC
+				 LIMIT $${values.length - 1} OFFSET $${values.length}`,
+				values,
+			);
+			payload.mentors = mentors.rows;
+		}
+
+		return res.json(payload);
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
+exports.getRecommendations = async (req, res) => {
+	try {
+		const startup = await getStartupByUserId(req.user.user_id);
+		if (!startup) {
+			return res.status(404).json({ error: "Startup profile not found" });
+		}
+
+		const [investors, mentors] = await Promise.all([
+			pool.query(
+				`SELECT
+					i.*,
+					u.first_name,
+					u.last_name,
+					u.email,
+					(
+						CASE WHEN i.preferred_industry IS NOT NULL
+						      AND $1::text IS NOT NULL
+						      AND i.preferred_industry ILIKE $1 THEN 45 ELSE 0 END
+						+ CASE WHEN i.investment_stage IS NOT NULL
+						      AND $2::text IS NOT NULL
+						      AND i.investment_stage ILIKE $2 THEN 30 ELSE 0 END
+						+ CASE WHEN i.investment_budget IS NOT NULL
+						      AND $3::numeric IS NOT NULL
+						      AND i.investment_budget >= $3 THEN 25 ELSE 0 END
+					) AS match_score
+				 FROM investors i
+				 JOIN users u ON u.user_id = i.user_id
+				 WHERE u.is_active = true AND u.is_approved = true
+				 ORDER BY match_score DESC, i.created_at DESC
+				 LIMIT 20`,
+				[startup.industry, startup.business_stage, startup.funding_needed],
+			),
+			pool.query(
+				`SELECT
+					m.*,
+					u.first_name,
+					u.last_name,
+					u.email,
+					(
+						CASE WHEN $1::text IS NOT NULL
+						      AND (m.expertise ILIKE '%' || $1 || '%'
+						           OR m.industries::text ILIKE '%' || $1 || '%') THEN 60 ELSE 0 END
+						+ CASE WHEN $2::text IS NOT NULL
+						      AND m.country ILIKE '%' || $2 || '%' THEN 15 ELSE 0 END
+						+ CASE WHEN m.years_experience >= 3 THEN 25 ELSE 0 END
+					) AS match_score
+				 FROM mentors m
+				 JOIN users u ON u.user_id = m.user_id
+				 WHERE u.is_active = true
+				   AND u.is_approved = true
+				   AND m.verification_status = 'approved'
+				 ORDER BY match_score DESC, m.created_at DESC
+				 LIMIT 20`,
+				[startup.industry, startup.location],
+			),
+		]);
+
+		return res.json({
+			method: "rule_based_profile_match",
+			investors: investors.rows,
+			mentors: mentors.rows,
+		});
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
+exports.getDashboardStatus = async (req, res) => {
+	try {
+		const startup = await getStartupByUserId(req.user.user_id);
+		if (!startup) {
+			return res.status(404).json({ error: "Startup profile not found" });
+		}
+
+		const [projects, investments, mentorship, payments, feedback] =
+			await Promise.all([
+				pool.query(
+					`SELECT status, COUNT(*)::int AS count, COALESCE(SUM(amount_raised),0) AS amount_raised
+					 FROM projects
+					 WHERE startup_id = $1
+					 GROUP BY status`,
+					[startup.startup_id],
+				),
+				pool.query(
+					`SELECT status, COUNT(*)::int AS count
+					 FROM investment_requests
+					 WHERE startup_id = $1
+					 GROUP BY status`,
+					[startup.startup_id],
+				),
+				pool.query(
+					`SELECT status, COUNT(*)::int AS count
+					 FROM mentorship_requests
+					 WHERE startup_id = $1
+					 GROUP BY status`,
+					[startup.startup_id],
+				),
+				pool.query(
+					`SELECT pay.status, COUNT(*)::int AS count, COALESCE(SUM(pay.amount),0) AS total
+					 FROM payments pay
+					 JOIN investment_requests ir
+					   ON ir.investment_request_id = pay.reference_id
+					  AND pay.reference_type = 'investment_requests'
+					 WHERE ir.startup_id = $1
+					 GROUP BY pay.status`,
+					[startup.startup_id],
+				),
+				pool.query(
+					`SELECT COUNT(*)::int AS count, AVG(rating)::numeric(10,2) AS average_rating
+					 FROM investor_feedback
+					 WHERE startup_id = $1`,
+					[startup.startup_id],
+				),
+			]);
+
+		const activeMentorship =
+			mentorship.rows.find((row) => row.status === "accepted") ||
+			mentorship.rows.find((row) => row.status === "pending");
+		const fundedProject = projects.rows.find((row) => row.status === "funded");
+
+		return res.json({
+			startup,
+			status: fundedProject
+				? "Funded"
+				: activeMentorship
+					? "Mentored"
+					: projects.rows.length
+						? "Active"
+						: "Profile",
+			projects: projects.rows,
+			investments: investments.rows,
+			mentorship: mentorship.rows,
+			payments: payments.rows,
+			feedback: feedback.rows[0],
+		});
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
 	}
 };

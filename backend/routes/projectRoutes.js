@@ -17,11 +17,33 @@ router.post(
 );
 
 router.get(
+	"/mine",
+	authenticate,
+	requireApproval,
+	authorizeRoles("Startup"),
+	projectController.getMyProjects,
+);
+
+router.get(
 	"/all",
 	authenticate,
 	requireApproval,
-	authorizeRoles("Investor"),
 	projectController.getAllProjects,
+);
+
+router.get(
+	"/:projectId",
+	authenticate,
+	requireApproval,
+	projectController.getProjectById,
+);
+
+router.put(
+	"/:projectId",
+	authenticate,
+	requireApproval,
+	authorizeRoles("Startup"),
+	projectController.updateMyProject,
 );
 
 module.exports = router;
