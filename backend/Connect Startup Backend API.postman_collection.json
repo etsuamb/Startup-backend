@@ -1,0 +1,4833 @@
+{
+  "info": {
+    "_postman_id": "a24615ef-1ee1-40d2-b576-9baed6057746",
+    "name": "Connect Startup Backend API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "37603307"
+  },
+  "variable": [
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "discoverMentorId",
+      "value": "1"
+    },
+    {
+      "key": "discoverInvestorId",
+      "value": "1"
+    },
+    {
+      "key": "discoverProfileId",
+      "value": "1"
+    },
+    {
+      "key": "chatConversationId",
+      "value": "1"
+    },
+    {
+      "key": "chatInvestorId",
+      "value": "1"
+    },
+    {
+      "key": "chatMessageId",
+      "value": "1"
+    },
+    {
+      "key": "chatStartupId",
+      "value": "1"
+    },
+    {
+      "key": "mentorChatConversationId",
+      "value": "1"
+    },
+    {
+      "key": "mentorChatMentorId",
+      "value": "1"
+    },
+    {
+      "key": "mentorChatStartupId",
+      "value": "1"
+    },
+    {
+      "key": "mentorChatMessageId",
+      "value": "1"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "first_name",
+                  "value": "Etsub",
+                  "type": "text"
+                },
+                {
+                  "key": "last_name",
+                  "value": "Girma",
+                  "type": "text"
+                },
+                {
+                  "key": "email",
+                  "value": "startup@test.com",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "12345678",
+                  "type": "text"
+                },
+                {
+                  "key": "confirm_password",
+                  "value": "12345678",
+                  "type": "text"
+                },
+                {
+                  "key": "role",
+                  "value": "Startup",
+                  "type": "text"
+                },
+                {
+                  "key": "phone_number",
+                  "value": "+251911000000",
+                  "type": "text"
+                },
+                {
+                  "key": "founder_full_name",
+                  "value": "Etsub Girma",
+                  "type": "text"
+                },
+                {
+                  "key": "startup_name",
+                  "value": "Connect Startup Sample",
+                  "type": "text"
+                },
+                {
+                  "key": "industry",
+                  "value": "Technology",
+                  "type": "text"
+                },
+                {
+                  "key": "startup_tagline",
+                  "value": "Connecting startups with investors in Ethiopia",
+                  "type": "text"
+                },
+                {
+                  "key": "business_stage",
+                  "value": "Seed",
+                  "type": "text"
+                },
+                {
+                  "key": "startup_type",
+                  "value": "Private",
+                  "type": "text"
+                },
+                {
+                  "key": "founded_year",
+                  "value": "2024",
+                  "type": "text"
+                },
+                {
+                  "key": "region",
+                  "value": "Addis Ababa",
+                  "type": "text"
+                },
+                {
+                  "key": "city",
+                  "value": "Addis Ababa",
+                  "type": "text"
+                },
+                {
+                  "key": "team_size",
+                  "value": "5",
+                  "type": "text"
+                },
+                {
+                  "key": "founder_role",
+                  "value": "CEO",
+                  "type": "text"
+                },
+                {
+                  "key": "founder_id",
+                  "type": "file"
+                },
+                {
+                  "key": "business_registration_proof",
+                  "type": "file"
+                },
+                {
+                  "key": "support_affiliation_letter",
+                  "type": "file"
+                },
+                {
+                  "key": "tin_certificate",
+                  "type": "file"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/auth/register",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Startup registration: required files founder_id, business_registration_proof; optional support_affiliation_letter, tin_certificate. Files stored in DB (documents.file_data)."
+          }
+        },
+        {
+          "name": "Register Investor",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "first_name",
+                  "value": "John",
+                  "type": "text"
+                },
+                {
+                  "key": "last_name",
+                  "value": "Doe",
+                  "type": "text"
+                },
+                {
+                  "key": "email",
+                  "value": "investor@test.com",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "12345678",
+                  "type": "text"
+                },
+                {
+                  "key": "confirm_password",
+                  "value": "12345678",
+                  "type": "text"
+                },
+                {
+                  "key": "role",
+                  "value": "Investor",
+                  "type": "text"
+                },
+                {
+                  "key": "phone_number",
+                  "value": "+251911111111",
+                  "type": "text"
+                },
+                {
+                  "key": "investor_type",
+                  "value": "Individual",
+                  "type": "text"
+                },
+                {
+                  "key": "investment_stage",
+                  "value": "Seed",
+                  "type": "text"
+                },
+                {
+                  "key": "investment_range",
+                  "value": "50000",
+                  "type": "text"
+                },
+                {
+                  "key": "location_preference",
+                  "value": "Addis Ababa",
+                  "type": "text"
+                },
+                {
+                  "key": "linked_in_or_website",
+                  "value": "https://linkedin.com/in/johndoe",
+                  "type": "text"
+                },
+                {
+                  "key": "bio",
+                  "value": "Experienced angel investor with a focus on early-stage startups.",
+                  "type": "text"
+                },
+                {
+                  "key": "personal_verification",
+                  "value": "Verified Investor",
+                  "type": "text"
+                },
+                {
+                  "key": "preferred_industry",
+                  "value": "Technology",
+                  "type": "text"
+                },
+                {
+                  "key": "registration_doc",
+                  "type": "file"
+                },
+                {
+                  "key": "trade_license",
+                  "type": "file"
+                },
+                {
+                  "key": "tin_certificate",
+                  "type": "file"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/auth/register",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Investor registration: attach registration_doc, trade_license, tin_certificate (memory upload → DB). preferred_industry is required."
+          }
+        },
+        {
+          "name": "Register Mentor",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "first_name",
+                  "value": "Meron",
+                  "type": "text"
+                },
+                {
+                  "key": "last_name",
+                  "value": "Tadesse",
+                  "type": "text"
+                },
+                {
+                  "key": "email",
+                  "value": "mentor.register@test.com",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "12345678",
+                  "type": "text"
+                },
+                {
+                  "key": "confirm_password",
+                  "value": "12345678",
+                  "type": "text"
+                },
+                {
+                  "key": "role",
+                  "value": "Mentor",
+                  "type": "text"
+                },
+                {
+                  "key": "phone_number",
+                  "value": "+251922000000",
+                  "type": "text"
+                },
+                {
+                  "key": "professional_title",
+                  "value": "Principal Product Advisor",
+                  "type": "text"
+                },
+                {
+                  "key": "year_of_experience",
+                  "value": "10",
+                  "type": "text"
+                },
+                {
+                  "key": "language",
+                  "value": "English, Amharic",
+                  "type": "text"
+                },
+                {
+                  "key": "expertise_area",
+                  "value": "Product strategy, GTM, fundraising narrative",
+                  "type": "text"
+                },
+                {
+                  "key": "professional_bio",
+                  "value": "Former VP Product; advises seed–Series A teams on roadmap and investor storytelling.",
+                  "type": "text"
+                },
+                {
+                  "key": "linkedin_portfolio",
+                  "value": "https://linkedin.com/in/mentor-sample",
+                  "type": "text"
+                },
+                {
+                  "key": "certification_credentials",
+                  "value": "PMP; executive coaching certificate; references on request.",
+                  "type": "text"
+                },
+                {
+                  "key": "availability_preference",
+                  "value": "Weekday evenings (GMT+3), 60-minute sessions",
+                  "type": "text"
+                },
+                {
+                  "key": "session_pricing",
+                  "value": "120",
+                  "type": "text"
+                },
+                {
+                  "key": "current_organization",
+                  "value": "Connect Startup Advisory",
+                  "type": "text"
+                },
+                {
+                  "key": "current_title",
+                  "value": "Lead Mentor",
+                  "type": "text"
+                },
+                {
+                  "key": "primary_industry",
+                  "value": "Technology",
+                  "type": "text"
+                },
+                {
+                  "key": "secondary_industry",
+                  "value": "FinTech",
+                  "type": "text"
+                },
+                {
+                  "key": "city_location",
+                  "value": "Addis Ababa",
+                  "type": "text"
+                },
+                {
+                  "key": "mentor_platform",
+                  "value": "Zoom, Google Meet",
+                  "type": "text"
+                },
+                {
+                  "key": "session_frequency",
+                  "value": "Up to 4 sessions per month",
+                  "type": "text"
+                },
+                {
+                  "key": "required_time_slots",
+                  "value": "Mon & Wed 18:00-20:00, Sat 10:00-12:00 (GMT+3)",
+                  "type": "text",
+                  "description": "Plain text or valid JSON string (e.g. array). Stored as TEXT on mentors."
+                },
+                {
+                  "key": "mentoring_style",
+                  "value": "Hands-on workshops plus async document review",
+                  "type": "text"
+                },
+                {
+                  "key": "notable_startups_mentored",
+                  "value": "Advised 12+ startups; 3 raised seed rounds within 9 months.",
+                  "type": "text"
+                },
+                {
+                  "key": "key_achievement",
+                  "value": "Scaled mentorship program to 200+ founders regionally.",
+                  "type": "text"
+                },
+                {
+                  "key": "intro_video",
+                  "type": "file",
+                  "description": "Optional. Short intro video (stored in DB as BYTEA)."
+                },
+                {
+                  "key": "certifications",
+                  "type": "file",
+                  "description": "Optional. One or more certification files (repeat key in Postman or add rows)."
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/auth/register",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Mentor self-registration via /api/auth/register. intro_video and certifications optional. Files use same documents table as Startup/Investor (mentor_id + file_data). Run 001_init.sql alters: documents.mentor_id, mentors.required_time_slots TEXT + jsonb→text DO block. Change email before re-run."
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n\"email\":\"startup@test.com\",\n\"password\":\"123456\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/auth/login",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const response = pm.response.json();",
+                  "if (response.token) {",
+                  "  pm.collectionVariables.set('token', response.token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Startup Profile",
+      "item": [
+        {
+          "name": "Create Startup Profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "startup_name",
+                  "value": "Tech Hub",
+                  "type": "text"
+                },
+                {
+                  "key": "industry",
+                  "value": "FinTech",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": "Funding platform",
+                  "type": "text"
+                },
+                {
+                  "key": "business_stage",
+                  "value": "Seed",
+                  "type": "text"
+                },
+                {
+                  "key": "founded_year",
+                  "value": "2024",
+                  "type": "text"
+                },
+                {
+                  "key": "team_size",
+                  "value": "4",
+                  "type": "text"
+                },
+                {
+                  "key": "location",
+                  "value": "Addis Ababa",
+                  "type": "text"
+                },
+                {
+                  "key": "website",
+                  "value": "https://techhub.com",
+                  "type": "text"
+                },
+                {
+                  "key": "funding_needed",
+                  "value": "50000",
+                  "type": "text"
+                },
+                {
+                  "key": "pitch_deck",
+                  "type": "file",
+                  "value": ""
+                },
+                {
+                  "key": "business_plan",
+                  "type": "file",
+                  "value": ""
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/startups/profile",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "startups",
+                "profile"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Startup Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "startup_name",
+                  "value": "Tech Hub Updated",
+                  "type": "text"
+                },
+                {
+                  "key": "industry",
+                  "value": "FinTech",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": "Updated startup profile",
+                  "type": "text"
+                },
+                {
+                  "key": "business_stage",
+                  "value": "Growth",
+                  "type": "text"
+                },
+                {
+                  "key": "founded_year",
+                  "value": "2025",
+                  "type": "text"
+                },
+                {
+                  "key": "team_size",
+                  "value": "8",
+                  "type": "text"
+                },
+                {
+                  "key": "location",
+                  "value": "Addis Ababa",
+                  "type": "text"
+                },
+                {
+                  "key": "website",
+                  "value": "https://techhub.com",
+                  "type": "text"
+                },
+                {
+                  "key": "funding_needed",
+                  "value": "75000",
+                  "type": "text"
+                },
+                {
+                  "key": "pitch_deck",
+                  "type": "file",
+                  "value": ""
+                },
+                {
+                  "key": "business_plan",
+                  "type": "file",
+                  "value": ""
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/startups/profile",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "startups",
+                "profile"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Startup Discover",
+      "description": "Startup JWT. Base: /api/startups/discover. GET search (no admin approval). POST request/interest/apply/favorite require approved account. apply = full JSON payload + DB-enriched profile; saved to discover_*_applications.",
+      "item": [
+        {
+          "name": "Discover — Search mentors (GET /api/startups/discover/mentors)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/startups/discover/mentors?industry=&country=&q=&page=1&limit=20",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "startups",
+                "discover",
+                "mentors"
+              ],
+              "query": [
+                {
+                  "key": "industry",
+                  "value": "",
+                  "description": "Filter: primary/secondary industry or expertise (ILIKE)"
+                },
+                {
+                  "key": "country",
+                  "value": "",
+                  "description": "Filter: country or city_location (ILIKE)"
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "description": "Search text (alias: search)"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Max 100"
+                }
+              ]
+            },
+            "description": "Returns { mentors, pagination }. Only active, admin-approved mentors. is_favorite when startup profile exists."
+          }
+        },
+        {
+          "name": "Discover — Search investors (GET /api/startups/discover/investors)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/startups/discover/investors?industry=&country=&investor_type=&q=&page=1&limit=20",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "startups",
+                "discover",
+                "investors"
+              ],
+              "query": [
+                {
+                  "key": "industry",
+                  "value": "",
+                  "description": "preferred_industry ILIKE"
+                },
+                {
+                  "key": "country",
+                  "value": ""
+                },
+                {
+                  "key": "investor_type",
+                  "value": ""
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "description": "Alias: search"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Returns { investors, pagination }."
+          }
+        },
+        {
+          "name": "Discover — Request mentor (POST /api/startups/discover/mentors/:mentorId/request)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"Mentorship request\",\n  \"message\": \"We would like guidance on our go-to-market.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/startups/discover/mentors/{{discoverMentorId}}/request",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "startups",
+                "discover",
+                "mentors",
+                "{{discoverMentorId}}",
+                "request"
+              ]
+            },
+            "description": "Requires admin-approved startup. Creates mentorship_requests row (pending)."
+          }
+        },
+        {
+          "name": "Discover — Express investor interest (POST /api/startups/discover/investors/:investorId/interest)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"We are raising a seed round and would love to connect.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/startups/discover/investors/{{discoverInvestorId}}/interest",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "startups",
+                "discover",
+                "investors",
+                "{{discoverInvestorId}}",
+                "interest"
+              ]
+            },
+            "description": "Requires admin-approved startup. Upserts startup_investor_interests."
+          }
+        },
+        {
+          "name": "Discover — Apply to investor (POST /api/startups/discover/investors/:investorId/apply)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"investor\": {\n    \"name\": \"EthioVenture Capital\",\n    \"status\": \"Active\",\n    \"location\": \"Addis Ababa, ET\",\n    \"fundingRange\": \"50000-250000\"\n  },\n  \"application\": {\n    \"startupProject\": \"GreenTech Solutions - Phase 1\",\n    \"requestedAmount\": 150000,\n    \"useOfFunds\": \"Expand MVP into pilot installations across Addis Ababa.\",\n    \"expectedMilestones\": \"Launch pilot, onboard 50 customers, secure regulatory approval.\",\n    \"messageToInvestor\": \"We believe EthioVenture Capital is the right partner to scale our clean energy solution.\"\n  },\n  \"documents\": {\n    \"pitchDeck\": \"GreenTech_Pitch_v2.pdf\",\n    \"businessPlan\": \"2024_Strategic_Plan.docx\",\n    \"financialDocument\": null,\n    \"demoVideo\": null\n  },\n  \"summary\": {\n    \"startupName\": \"GreenTech Solutions\",\n    \"project\": \"Waste-to-Energy Initiative\",\n    \"industry\": \"Renewable Energy\",\n    \"requestedAmount\": 150000,\n    \"status\": \"Draft\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/startups/discover/investors/{{discoverInvestorId}}/apply",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "startups",
+                "discover",
+                "investors",
+                "{{discoverInvestorId}}",
+                "apply"
+              ]
+            },
+            "description": "Returns same shape with investor block merged from DB (name/location/fundingRange fall back to DB when omitted). Required: application.startupProject, application.requestedAmount, application.messageToInvestor. Persists to discover_investor_applications."
+          }
+        },
+        {
+          "name": "Discover — Apply to mentor (POST /api/startups/discover/mentors/:mentorId/apply)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mentor\": {\n    \"name\": \"Dr. Sara Mekonnen\",\n    \"status\": \"Active\",\n    \"location\": \"Addis Ababa, ET\",\n    \"expertiseAreas\": \"Product, GTM\",\n    \"sessionAvailability\": \"Weekly video\"\n  },\n  \"application\": {\n    \"startupProject\": \"GreenTech — MVP hardening\",\n    \"mentorshipFocus\": \"Go-to-market and pilot rollout\",\n    \"preferredSessionFormat\": \"Video, 60 minutes\",\n    \"expectedOutcomes\": \"Clear pilot plan and investor narrative.\",\n    \"messageToMentor\": \"We would value your experience scaling climate tech in East Africa.\"\n  },\n  \"documents\": {\n    \"pitchDeck\": \"GreenTech_Pitch_v2.pdf\",\n    \"businessPlan\": \"2024_Strategic_Plan.docx\",\n    \"financialDocument\": null,\n    \"demoVideo\": null,\n    \"introVideo\": null,\n    \"cvOrBio\": null\n  },\n  \"summary\": {\n    \"startupName\": \"GreenTech Solutions\",\n    \"project\": \"Waste-to-Energy Initiative\",\n    \"industry\": \"Renewable Energy\",\n    \"mentorshipFocus\": \"GTM\",\n    \"status\": \"Draft\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/startups/discover/mentors/{{discoverMentorId}}/apply",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "startups",
+                "discover",
+                "mentors",
+                "{{discoverMentorId}}",
+                "apply"
+              ]
+            },
+            "description": "Mentor-specific application. Required: application.startupProject, application.messageToMentor. Response: mentor, application, documents (incl. introVideo, cvOrBio), summary (mentorshipFocus instead of requestedAmount). Persists to discover_mentor_applications."
+          }
+        },
+        {
+          "name": "Discover — Toggle favorite (POST /api/startups/discover/:profileId/favorite)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"mentor\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/startups/discover/{{discoverProfileId}}/favorite",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "startups",
+                "discover",
+                "{{discoverProfileId}}",
+                "favorite"
+              ]
+            },
+            "description": "Body type: mentor | investor (must match profileId). Toggle: POST again removes bookmark. Requires admin-approved startup."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Startup Dashboard",
+      "item": [
+        {
+          "name": "Dashboard — Startup info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/startups/dashboard/startup-info",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "startups",
+                "dashboard",
+                "startup-info"
+              ]
+            },
+            "description": "Startup user JWT. Returns name, founder, greeting."
+          }
+        },
+        {
+          "name": "Dashboard — Mentor updates",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/startups/dashboard/mentor-updates?limit=15",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "startups",
+                "dashboard",
+                "mentor-updates"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "15"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dashboard — Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/startups/dashboard/status",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "startups",
+                "dashboard",
+                "status"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dashboard — Progress",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/startups/dashboard/progress",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "startups",
+                "dashboard",
+                "progress"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dashboard — Funding",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/startups/dashboard/funding",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "startups",
+                "dashboard",
+                "funding"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dashboard — Documents status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/startups/dashboard/documents",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "startups",
+                "dashboard",
+                "documents"
+              ]
+            },
+            "description": "Separate from GET /api/startups/documents (raw file list). This returns uploaded vs missing checklist."
+          }
+        },
+        {
+          "name": "Dashboard — Feedback",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/startups/dashboard/feedback?limit=10",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "startups",
+                "dashboard",
+                "feedback"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dashboard — Events (sessions)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/startups/dashboard/events",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "startups",
+                "dashboard",
+                "events"
+              ]
+            },
+            "description": "Upcoming mentorship_sessions with join_link and agenda from notes/subject."
+          }
+        },
+        {
+          "name": "Dashboard — Activity",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/startups/dashboard/activity?limit=30",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "startups",
+                "dashboard",
+                "activity"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "30"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dashboard — Quick actions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"mark_notifications_read\",\n  \"payload\": {}\n}"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/startups/dashboard/actions",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "startups",
+                "dashboard",
+                "actions"
+              ]
+            },
+            "description": "Actions: mark_notifications_read (optional payload.notification_ids), create_project_hint, request_investment_hint."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chat & video",
+      "description": "Startup–investor threads: messages, files (BYTEA), notifications, and video session metadata (room_id + status). Startup-only mount: /api/startups/chat. Shared (Startup or Investor): /api/chat.",
+      "item": [
+        {
+          "name": "Startup JWT — /api/startups/chat",
+          "description": "Requires role Startup. Paths mirror /chat/* under /api/startups/chat.",
+          "item": [
+            {
+              "name": "Create or get conversation",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"investor_id\": {{chatInvestorId}}\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:5000/api/startups/chat/conversations",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "startups",
+                    "chat",
+                    "conversations"
+                  ]
+                },
+                "description": "Startup JWT: required body field investor_id (integer)."
+              }
+            },
+            {
+              "name": "List conversations",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/startups/chat/conversations",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "startups",
+                    "chat",
+                    "conversations"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get messages",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/startups/chat/conversations/{{chatConversationId}}/messages?limit=50&offset=0",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "startups",
+                    "chat",
+                    "conversations",
+                    "{{chatConversationId}}",
+                    "messages"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "50"
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0"
+                    }
+                  ]
+                },
+                "description": "Marks peer messages read for your role when opened."
+              }
+            },
+            {
+              "name": "Send text message",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"body\": \"Hello\"\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:5000/api/startups/chat/conversations/{{chatConversationId}}/messages",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "startups",
+                    "chat",
+                    "conversations",
+                    "{{chatConversationId}}",
+                    "messages"
+                  ]
+                },
+                "description": "Alternatively use field \"text\" instead of \"body\"."
+              }
+            },
+            {
+              "name": "Upload file",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": [],
+                      "description": "Pitch deck, doc, etc."
+                    },
+                    {
+                      "key": "caption",
+                      "value": "Optional caption",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "http://localhost:5000/api/startups/chat/conversations/{{chatConversationId}}/files",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "startups",
+                    "chat",
+                    "conversations",
+                    "{{chatConversationId}}",
+                    "files"
+                  ]
+                },
+                "description": "multipart field name: file"
+              }
+            },
+            {
+              "name": "Chat notifications (unread + video alerts)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/startups/chat/notifications",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "startups",
+                    "chat",
+                    "notifications"
+                  ]
+                },
+                "description": "Returns unread_chat_total, conversations_with_unread, video_alerts, unread_chat_video_notifications."
+              }
+            },
+            {
+              "name": "Video — start call",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/startups/chat/conversations/{{chatConversationId}}/video/start",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "startups",
+                    "chat",
+                    "conversations",
+                    "{{chatConversationId}}",
+                    "video",
+                    "start"
+                  ]
+                },
+                "description": "Creates room_id (UUID); notifies peer. Ends any prior ringing/active call on this thread."
+              }
+            },
+            {
+              "name": "Video — join call",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/startups/chat/conversations/{{chatConversationId}}/video/join",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "startups",
+                    "chat",
+                    "conversations",
+                    "{{chatConversationId}}",
+                    "video",
+                    "join"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Video — end call",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/startups/chat/conversations/{{chatConversationId}}/video/end",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "startups",
+                    "chat",
+                    "conversations",
+                    "{{chatConversationId}}",
+                    "video",
+                    "end"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Video — status (+ session participants)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/startups/chat/conversations/{{chatConversationId}}/video/status",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "startups",
+                    "chat",
+                    "conversations",
+                    "{{chatConversationId}}",
+                    "video",
+                    "status"
+                  ]
+                },
+                "description": "Latest call: status ringing|active|ended|missed|none; session_participants lists join/leave audit."
+              }
+            },
+            {
+              "name": "Video — screen share",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"action\": \"start\"\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:5000/api/startups/chat/conversations/{{chatConversationId}}/video/screen-share",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "startups",
+                    "chat",
+                    "conversations",
+                    "{{chatConversationId}}",
+                    "video",
+                    "screen-share"
+                  ]
+                },
+                "description": "Use \"action\": \"stop\" to clear screen_share_user_id (must be the user who started)."
+              }
+            },
+            {
+              "name": "Download chat file",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/startups/chat/conversations/{{chatConversationId}}/files/{{chatMessageId}}",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "startups",
+                    "chat",
+                    "conversations",
+                    "{{chatConversationId}}",
+                    "files",
+                    "{{chatMessageId}}"
+                  ]
+                },
+                "description": "Returns binary for message_type=file (chat_message_id from upload response)."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Startup or Investor JWT — /api/chat",
+          "description": "Same routes as startup folder; use Investor JWT with startup_id when creating a thread.",
+          "item": [
+            {
+              "name": "Create or get (Startup — investor_id)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"investor_id\": {{chatInvestorId}}\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:5000/api/chat/conversations",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "chat",
+                    "conversations"
+                  ]
+                },
+                "description": "Use with Startup JWT."
+              }
+            },
+            {
+              "name": "Create or get (Investor — startup_id)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"startup_id\": {{chatStartupId}}\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:5000/api/chat/conversations",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "chat",
+                    "conversations"
+                  ]
+                },
+                "description": "Use with Investor JWT; startup_id is startups.startup_id."
+              }
+            },
+            {
+              "name": "List conversations",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/chat/conversations",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "chat",
+                    "conversations"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get messages",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/chat/conversations/{{chatConversationId}}/messages?limit=50&offset=0",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "chat",
+                    "conversations",
+                    "{{chatConversationId}}",
+                    "messages"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "50"
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0"
+                    }
+                  ]
+                },
+                "description": "Marks peer messages read for your role when opened."
+              }
+            },
+            {
+              "name": "Send text message",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"body\": \"Hello\"\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:5000/api/chat/conversations/{{chatConversationId}}/messages",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "chat",
+                    "conversations",
+                    "{{chatConversationId}}",
+                    "messages"
+                  ]
+                },
+                "description": "Alternatively use field \"text\" instead of \"body\"."
+              }
+            },
+            {
+              "name": "Upload file",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": [],
+                      "description": "Pitch deck, doc, etc."
+                    },
+                    {
+                      "key": "caption",
+                      "value": "Optional caption",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "http://localhost:5000/api/chat/conversations/{{chatConversationId}}/files",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "chat",
+                    "conversations",
+                    "{{chatConversationId}}",
+                    "files"
+                  ]
+                },
+                "description": "multipart field name: file"
+              }
+            },
+            {
+              "name": "Chat notifications (unread + video alerts)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/chat/notifications",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "chat",
+                    "notifications"
+                  ]
+                },
+                "description": "Returns unread_chat_total, conversations_with_unread, video_alerts, unread_chat_video_notifications."
+              }
+            },
+            {
+              "name": "Video — start call",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/chat/conversations/{{chatConversationId}}/video/start",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "chat",
+                    "conversations",
+                    "{{chatConversationId}}",
+                    "video",
+                    "start"
+                  ]
+                },
+                "description": "Creates room_id (UUID); notifies peer. Ends any prior ringing/active call on this thread."
+              }
+            },
+            {
+              "name": "Video — join call",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/chat/conversations/{{chatConversationId}}/video/join",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "chat",
+                    "conversations",
+                    "{{chatConversationId}}",
+                    "video",
+                    "join"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Video — end call",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/chat/conversations/{{chatConversationId}}/video/end",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "chat",
+                    "conversations",
+                    "{{chatConversationId}}",
+                    "video",
+                    "end"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Video — status (+ session participants)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/chat/conversations/{{chatConversationId}}/video/status",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "chat",
+                    "conversations",
+                    "{{chatConversationId}}",
+                    "video",
+                    "status"
+                  ]
+                },
+                "description": "Latest call: status ringing|active|ended|missed|none; session_participants lists join/leave audit."
+              }
+            },
+            {
+              "name": "Video — screen share",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"action\": \"start\"\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:5000/api/chat/conversations/{{chatConversationId}}/video/screen-share",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "chat",
+                    "conversations",
+                    "{{chatConversationId}}",
+                    "video",
+                    "screen-share"
+                  ]
+                },
+                "description": "Use \"action\": \"stop\" to clear screen_share_user_id (must be the user who started)."
+              }
+            },
+            {
+              "name": "Download chat file",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/chat/conversations/{{chatConversationId}}/files/{{chatMessageId}}",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "chat",
+                    "conversations",
+                    "{{chatConversationId}}",
+                    "files",
+                    "{{chatMessageId}}"
+                  ]
+                },
+                "description": "Returns binary for message_type=file (chat_message_id from upload response)."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Mentor chat & video",
+      "description": "Startup–mentor messaging + video (DB: mentor_chat_*). Requires a mentorship_requests row for the pair.",
+      "item": [
+        {
+          "name": "Startup JWT — /api/startups/mentor-chat",
+          "description": "Startup-only routes under /api/startups/mentor-chat.",
+          "item": [
+            {
+              "name": "Create or get conversation",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"mentor_id\": {{mentorChatMentorId}}\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:5000/api/startups/mentor-chat/conversations",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "startups",
+                    "mentor-chat",
+                    "conversations"
+                  ]
+                },
+                "description": "Requires mentorship_requests for this startup + mentor."
+              }
+            },
+            {
+              "name": "List conversations",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/startups/mentor-chat/conversations",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "startups",
+                    "mentor-chat",
+                    "conversations"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get messages",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/startups/mentor-chat/conversations/{{mentorChatConversationId}}/messages?limit=50&offset=0",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "startups",
+                    "mentor-chat",
+                    "conversations",
+                    "{{mentorChatConversationId}}",
+                    "messages"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "50"
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0"
+                    }
+                  ]
+                },
+                "description": "Marks peer messages read when opened."
+              }
+            },
+            {
+              "name": "Send text message",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"body\": \"Hello\"\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:5000/api/startups/mentor-chat/conversations/{{mentorChatConversationId}}/messages",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "startups",
+                    "mentor-chat",
+                    "conversations",
+                    "{{mentorChatConversationId}}",
+                    "messages"
+                  ]
+                },
+                "description": "Field text also accepted."
+              }
+            },
+            {
+              "name": "Upload file",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": [],
+                      "description": "Doc / deck"
+                    },
+                    {
+                      "key": "caption",
+                      "value": "Optional",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "http://localhost:5000/api/startups/mentor-chat/conversations/{{mentorChatConversationId}}/files",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "startups",
+                    "mentor-chat",
+                    "conversations",
+                    "{{mentorChatConversationId}}",
+                    "files"
+                  ]
+                },
+                "description": "multipart field name: file"
+              }
+            },
+            {
+              "name": "Mentor-chat notifications",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/startups/mentor-chat/notifications",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "startups",
+                    "mentor-chat",
+                    "notifications"
+                  ]
+                },
+                "description": "unread_chat_total, video_alerts, unread_mentor_chat_notifications."
+              }
+            },
+            {
+              "name": "Video — start",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/startups/mentor-chat/conversations/{{mentorChatConversationId}}/video/start",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "startups",
+                    "mentor-chat",
+                    "conversations",
+                    "{{mentorChatConversationId}}",
+                    "video",
+                    "start"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Video — join",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/startups/mentor-chat/conversations/{{mentorChatConversationId}}/video/join",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "startups",
+                    "mentor-chat",
+                    "conversations",
+                    "{{mentorChatConversationId}}",
+                    "video",
+                    "join"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Video — end",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/startups/mentor-chat/conversations/{{mentorChatConversationId}}/video/end",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "startups",
+                    "mentor-chat",
+                    "conversations",
+                    "{{mentorChatConversationId}}",
+                    "video",
+                    "end"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Video — status",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/startups/mentor-chat/conversations/{{mentorChatConversationId}}/video/status",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "startups",
+                    "mentor-chat",
+                    "conversations",
+                    "{{mentorChatConversationId}}",
+                    "video",
+                    "status"
+                  ]
+                },
+                "description": "Includes session_participants."
+              }
+            },
+            {
+              "name": "Video — screen share",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"action\": \"start\"\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:5000/api/startups/mentor-chat/conversations/{{mentorChatConversationId}}/video/screen-share",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "startups",
+                    "mentor-chat",
+                    "conversations",
+                    "{{mentorChatConversationId}}",
+                    "video",
+                    "screen-share"
+                  ]
+                },
+                "description": "Use action \"stop\" to end sharing."
+              }
+            },
+            {
+              "name": "Download file",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/startups/mentor-chat/conversations/{{mentorChatConversationId}}/files/{{mentorChatMessageId}}",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "startups",
+                    "mentor-chat",
+                    "conversations",
+                    "{{mentorChatConversationId}}",
+                    "files",
+                    "{{mentorChatMessageId}}"
+                  ]
+                },
+                "description": "mentor_chat_message_id from upload response."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mentor JWT — /api/mentors/mentor-chat",
+          "description": "Mentor-only routes under /api/mentors/mentor-chat.",
+          "item": [
+            {
+              "name": "Create or get conversation",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"startup_id\": {{mentorChatStartupId}}\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:5000/api/mentors/mentor-chat/conversations",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "mentors",
+                    "mentor-chat",
+                    "conversations"
+                  ]
+                },
+                "description": "Requires mentorship_requests for this startup + mentor."
+              }
+            },
+            {
+              "name": "List conversations",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/mentors/mentor-chat/conversations",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "mentors",
+                    "mentor-chat",
+                    "conversations"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get messages",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/mentors/mentor-chat/conversations/{{mentorChatConversationId}}/messages?limit=50&offset=0",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "mentors",
+                    "mentor-chat",
+                    "conversations",
+                    "{{mentorChatConversationId}}",
+                    "messages"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "50"
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0"
+                    }
+                  ]
+                },
+                "description": "Marks peer messages read when opened."
+              }
+            },
+            {
+              "name": "Send text message",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"body\": \"Hello\"\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:5000/api/mentors/mentor-chat/conversations/{{mentorChatConversationId}}/messages",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "mentors",
+                    "mentor-chat",
+                    "conversations",
+                    "{{mentorChatConversationId}}",
+                    "messages"
+                  ]
+                },
+                "description": "Field text also accepted."
+              }
+            },
+            {
+              "name": "Upload file",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": [],
+                      "description": "Doc / deck"
+                    },
+                    {
+                      "key": "caption",
+                      "value": "Optional",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "http://localhost:5000/api/mentors/mentor-chat/conversations/{{mentorChatConversationId}}/files",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "mentors",
+                    "mentor-chat",
+                    "conversations",
+                    "{{mentorChatConversationId}}",
+                    "files"
+                  ]
+                },
+                "description": "multipart field name: file"
+              }
+            },
+            {
+              "name": "Mentor-chat notifications",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/mentors/mentor-chat/notifications",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "mentors",
+                    "mentor-chat",
+                    "notifications"
+                  ]
+                },
+                "description": "unread_chat_total, video_alerts, unread_mentor_chat_notifications."
+              }
+            },
+            {
+              "name": "Video — start",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/mentors/mentor-chat/conversations/{{mentorChatConversationId}}/video/start",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "mentors",
+                    "mentor-chat",
+                    "conversations",
+                    "{{mentorChatConversationId}}",
+                    "video",
+                    "start"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Video — join",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/mentors/mentor-chat/conversations/{{mentorChatConversationId}}/video/join",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "mentors",
+                    "mentor-chat",
+                    "conversations",
+                    "{{mentorChatConversationId}}",
+                    "video",
+                    "join"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Video — end",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/mentors/mentor-chat/conversations/{{mentorChatConversationId}}/video/end",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "mentors",
+                    "mentor-chat",
+                    "conversations",
+                    "{{mentorChatConversationId}}",
+                    "video",
+                    "end"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Video — status",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/mentors/mentor-chat/conversations/{{mentorChatConversationId}}/video/status",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "mentors",
+                    "mentor-chat",
+                    "conversations",
+                    "{{mentorChatConversationId}}",
+                    "video",
+                    "status"
+                  ]
+                },
+                "description": "Includes session_participants."
+              }
+            },
+            {
+              "name": "Video — screen share",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"action\": \"start\"\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:5000/api/mentors/mentor-chat/conversations/{{mentorChatConversationId}}/video/screen-share",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "mentors",
+                    "mentor-chat",
+                    "conversations",
+                    "{{mentorChatConversationId}}",
+                    "video",
+                    "screen-share"
+                  ]
+                },
+                "description": "Use action \"stop\" to end sharing."
+              }
+            },
+            {
+              "name": "Download file",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:5000/api/mentors/mentor-chat/conversations/{{mentorChatConversationId}}/files/{{mentorChatMessageId}}",
+                  "host": [
+                    "http://localhost:5000"
+                  ],
+                  "path": [
+                    "api",
+                    "mentors",
+                    "mentor-chat",
+                    "conversations",
+                    "{{mentorChatConversationId}}",
+                    "files",
+                    "{{mentorChatMessageId}}"
+                  ]
+                },
+                "description": "mentor_chat_message_id from upload response."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Mentor",
+      "item": [
+        {
+          "name": "Create Mentor Profile (with files)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "headline",
+                  "value": "Growth and fundraising mentor",
+                  "type": "text"
+                },
+                {
+                  "key": "expertise",
+                  "value": "Go-to-market, fundraising, product strategy",
+                  "type": "text"
+                },
+                {
+                  "key": "years_experience",
+                  "value": "8",
+                  "type": "text"
+                },
+                {
+                  "key": "hourly_rate",
+                  "value": "120",
+                  "type": "text"
+                },
+                {
+                  "key": "country",
+                  "value": "Ethiopia",
+                  "type": "text"
+                },
+                {
+                  "key": "bio",
+                  "value": "Helps early-stage startups validate and scale.",
+                  "type": "text"
+                },
+                {
+                  "key": "availability",
+                  "value": "{\"monday\":[\"09:00-12:00\"],\"wednesday\":[\"14:00-17:00\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "cv",
+                  "type": "file",
+                  "value": ""
+                },
+                {
+                  "key": "certifications",
+                  "type": "file",
+                  "value": ""
+                },
+                {
+                  "key": "intro_video",
+                  "type": "file",
+                  "value": "",
+                  "description": "Optional. Stored in mentor_documents with file_data (memory upload)."
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/mentors/profile",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "mentors",
+                "profile"
+              ]
+            },
+            "description": "Authenticated Mentor only. Uses multer memoryStorage; CV, certifications, and intro_video bytes go into mentor_documents (not disk)."
+          }
+        },
+        {
+          "name": "Update Mentor Profile (with files)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "headline",
+                  "value": "Updated headline",
+                  "type": "text"
+                },
+                {
+                  "key": "bio",
+                  "value": "Updated bio",
+                  "type": "text"
+                },
+                {
+                  "key": "availability",
+                  "value": "{\"tuesday\":[\"10:00-12:00\"]}",
+                  "type": "text"
+                },
+                {
+                  "key": "cv",
+                  "type": "file",
+                  "value": ""
+                },
+                {
+                  "key": "certifications",
+                  "type": "file",
+                  "value": ""
+                },
+                {
+                  "key": "intro_video",
+                  "type": "file",
+                  "value": "",
+                  "description": "Optional. Appends intro_video row to mentor_documents."
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/mentors/profile",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "mentors",
+                "profile"
+              ]
+            },
+            "description": "PUT multipart; only include fields you change. Files stored in DB (mentor_documents.file_data)."
+          }
+        },
+        {
+          "name": "Get Mentor By Id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/mentors/:mentorId",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "mentors",
+                ":mentorId"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get All Mentors",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/mentors/all",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "mentors",
+                "all"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mentorship",
+      "item": [
+        {
+          "name": "Create Mentorship Request (Startup)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n\"mentor_id\":1,\n\"subject\":\"Fundraising guidance\",\n\"message\":\"Need help preparing for investor meetings and pitch practice.\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/mentorship/requests",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "mentorship",
+                "requests"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Outgoing Requests (Startup)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/mentorship/requests/outgoing",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "mentorship",
+                "requests",
+                "outgoing"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Incoming Requests (Mentor)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/mentorship/requests/incoming",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "mentorship",
+                "requests",
+                "incoming"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Respond to Request (Mentor)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n\"status\":\"accepted\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/mentorship/requests/1/respond",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "mentorship",
+                "requests",
+                "1",
+                "respond"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Schedule Session (Mentor)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n\"mentorship_request_id\":1,\n\"scheduled_at\":\"2026-06-01T10:00:00.000Z\",\n\"duration_minutes\":60,\n\"meeting_link\":\"https://meet.example/session-123\",\n\"notes\":\"Initial discovery session\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/mentorship/sessions",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "mentorship",
+                "sessions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Session Status (Mentor)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n\"status\":\"completed\",\n\"notes\":\"Session completed successfully\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/mentorship/sessions/1",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "mentorship",
+                "sessions",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Mentorship History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/mentorship/history",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "mentorship",
+                "history"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Mentorship Report (Mentor)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n\"mentorship_session_id\":1,\n\"report_title\":\"Session 1 Summary\",\n\"summary\":\"Discussed pitch, GTM, and investor readiness.\",\n\"action_items\":[\"Refine pitch deck\",\"Collect traction metrics\"],\n\"next_steps\":[\"Schedule follow-up\",\"Share updated deck\"],\n\"progress_rating\":4,\n\"startup_feedback\":\"Very helpful and structured\",\n\"mentor_notes\":\"Need to review the next deck version\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/mentorship/reports",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "mentorship",
+                "reports"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Mentorship Reports",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/mentorship/reports",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "mentorship",
+                "reports"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Share Mentorship Resource (Mentor)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "mentorship_request_id",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "mentorship_session_id",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "resource_title",
+                  "value": "Pitch Deck Template",
+                  "type": "text"
+                },
+                {
+                  "key": "resource_description",
+                  "value": "Use this structure for the next deck update",
+                  "type": "text"
+                },
+                {
+                  "key": "resource_type",
+                  "value": "file",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "value": ""
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/mentorship/resources",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "mentorship",
+                "resources"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Mentorship Resources",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/mentorship/resources",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "mentorship",
+                "resources"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Record Mentorship Payment (Startup)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n\"mentorship_session_id\":1,\n\"amount\":120,\n\"payment_method\":\"Telebirr\",\n\"currency\":\"USD\",\n\"status\":\"completed\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/mentorship/payments",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "mentorship",
+                "payments"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Mentorship Payments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/mentorship/payments",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "mentorship",
+                "payments"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Send Mentorship Chat Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n\"other_user_id\":4,\n\"subject\":\"Mentorship follow-up\",\n\"body\":\"Please review the updated pitch deck.\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/mentorship/chat/messages",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "mentorship",
+                "chat",
+                "messages"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Mentorship Chat Conversation",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/mentorship/chat/conversation/4",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "mentorship",
+                "chat",
+                "conversation",
+                "4"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Mentorship Overview",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/admin/mentorship/overview",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "mentorship",
+                "overview"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mentorship Requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/admin/mentorship/requests",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "mentorship",
+                "requests"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mentorship Sessions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/admin/mentorship/sessions",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "mentorship",
+                "sessions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mentorship Reports",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/admin/mentorship/reports",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "mentorship",
+                "reports"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mentorship Resources",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/admin/mentorship/resources",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "mentorship",
+                "resources"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mentorship Payments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/admin/mentorship/payments",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "mentorship",
+                "payments"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Users",
+      "item": [
+        {
+          "name": "List Pending Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/admin/users/pending",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users",
+                "pending"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Pending User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/admin/users/pending/1",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users",
+                "pending",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Approve User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"comment\": \"Approved after review\" }"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/admin/users/approve/1",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users",
+                "approve",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reject User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"reason\": \"Insufficient documents\" }"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/admin/users/reject/1",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users",
+                "reject",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"first_name\": \"New\", \"last_name\": \"Admin\", \"email\": \"newadmin@connectstartup.test\", \"password\": \"P@ssw0rd!\", \"privilege_level\": 5 }"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/admin/create-admin",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "create-admin"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get User (Admin view)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/admin/users/1",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Deactivate User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/admin/users/1",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Hard Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/admin/users/1?hard=true",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users",
+                "1"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Startups & Projects",
+      "item": [
+        {
+          "name": "List Startups",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/admin/startups",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "startups"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Remove Startup Listing (deactivate owner)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/admin/startups/1/remove",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "startups",
+                "1",
+                "remove"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Approve Startup (profile/listing)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"note\": \"Listing approved\" }"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/admin/startups/1/approve",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "startups",
+                "1",
+                "approve"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Unapprove Startup (profile/listing)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"reason\": \"Missing docs\" }"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/admin/startups/1/unapprove",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "startups",
+                "1",
+                "unapprove"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Project Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"cancelled\",\n  \"comment\": \"Violates policy\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/admin/projects/1/status",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "projects",
+                "1",
+                "status"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Reports & Maintenance",
+      "item": [
+        {
+          "name": "System Overview Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/admin/reports/overview",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "reports",
+                "overview"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Maintenance Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/admin/maintenance/status",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "maintenance",
+                "status"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Clear Old Audit Logs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"days\": 365\n}",
+              "urlencoded": []
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/admin/maintenance/clear-audit-logs",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "maintenance",
+                "clear-audit-logs"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Profiles",
+      "item": [
+        {
+          "name": "Approve Mentor",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"note\": \"Mentor approved\" }"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/admin/mentors/1/approve",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "mentors",
+                "1",
+                "approve"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Unapprove Mentor",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"reason\": \"Missing CV\" }"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/admin/mentors/1/unapprove",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "mentors",
+                "1",
+                "unapprove"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Approve Investor",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"note\": \"Investor approved\" }"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/admin/investors/1/approve",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "investors",
+                "1",
+                "approve"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Unapprove Investor",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"reason\": \"KYC failed\" }"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/admin/investors/1/unapprove",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "investors",
+                "1",
+                "unapprove"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Documents",
+      "item": [
+        {
+          "name": "Download Mentor Document",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/admin/mentor-documents/:documentId",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "mentor-documents",
+                ":documentId"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "Create Project",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "name",
+                  "value": "AgriTech Ethiopia Hub",
+                  "type": "text",
+                  "description": "basicInfo.name (or use nested basicInfo via optional `data` JSON)"
+                },
+                {
+                  "key": "industry",
+                  "value": "Agriculture",
+                  "type": "text"
+                },
+                {
+                  "key": "stage",
+                  "value": "Prototype",
+                  "type": "text"
+                },
+                {
+                  "key": "summary",
+                  "value": "Smart irrigation solutions for Ethiopian farmers.",
+                  "type": "text"
+                },
+                {
+                  "key": "problem",
+                  "value": "Water scarcity and inefficient irrigation systems.",
+                  "type": "text"
+                },
+                {
+                  "key": "solution",
+                  "value": "IoT-enabled smart irrigation that reduces water waste.",
+                  "type": "text"
+                },
+                {
+                  "key": "requiredFunding",
+                  "value": "50000",
+                  "type": "text"
+                },
+                {
+                  "key": "expectedImpact",
+                  "value": "500+ farmers supported",
+                  "type": "text"
+                },
+                {
+                  "key": "startDate",
+                  "value": "",
+                  "type": "text",
+                  "description": "Optional YYYY-MM-DD; leave empty to derive from timeline"
+                },
+                {
+                  "key": "endDate",
+                  "value": "",
+                  "type": "text",
+                  "description": "Optional YYYY-MM-DD"
+                },
+                {
+                  "key": "mentor_requested",
+                  "value": "true",
+                  "type": "text"
+                },
+                {
+                  "key": "mentor_preferred_field",
+                  "value": "AgriTech",
+                  "type": "text"
+                },
+                {
+                  "key": "timeline",
+                  "value": "[{\"title\":\"Prototype Completion\",\"deadline\":\"2026-06-30\"},{\"title\":\"Investor Pitch\",\"deadline\":\"2026-07-15\"}]",
+                  "type": "text",
+                  "description": "JSON array string"
+                },
+                {
+                  "key": "goals",
+                  "value": "{\"shortTerm\":\"Launch prototype in Addis Ababa\",\"longTerm\":\"Expand nationwide\"}",
+                  "type": "text",
+                  "description": "JSON object string"
+                },
+                {
+                  "key": "market",
+                  "value": "{\"target\":\"Smallholder farmers\",\"competitors\":[\"AgriSmart\",\"EcoFarm\"],\"insights\":\"High demand for water-efficient farming solutions\"}",
+                  "type": "text",
+                  "description": "JSON object string"
+                },
+                {
+                  "key": "pitch_deck",
+                  "type": "file",
+                  "description": "Required — stored in documents.file_data"
+                },
+                {
+                  "key": "business_plan",
+                  "type": "file",
+                  "description": "Required"
+                },
+                {
+                  "key": "financial_projection",
+                  "type": "file",
+                  "description": "Required"
+                },
+                {
+                  "key": "tax_clearance",
+                  "type": "file",
+                  "description": "Optional"
+                },
+                {
+                  "key": "cover_photo",
+                  "type": "file",
+                  "description": "Optional — image"
+                },
+                {
+                  "key": "demo_video",
+                  "type": "file",
+                  "description": "Optional — video"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/projects/create",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "create"
+              ]
+            },
+            "description": "Multipart form fields: text keys `name`, `summary`, `requiredFunding`, `industry`, `stage`, `problem`, `solution`, `expectedImpact`, optional `startDate`/`endDate`, `mentor_requested` (true/false), `mentor_preferred_field`, JSON strings `timeline`, `goals`, `market`. Optional bulk JSON in `data` or `payload` merges first then text fields override. Files: pitch_deck, business_plan, financial_projection (required), tax_clearance, cover_photo, demo_video (optional). Memory upload → BYTEA."
+          }
+        },
+        {
+          "name": "Get All Projects",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/projects/all",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "all"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Startup — List projects (GET /api/projects)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/projects",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "projects"
+              ]
+            },
+            "description": "Startup JWT. Returns { projects: [] } until admin approves account."
+          }
+        },
+        {
+          "name": "Startup — Project details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/projects/1",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "1"
+              ]
+            },
+            "description": "Replace 1 with project_id. Empty until approved."
+          }
+        },
+        {
+          "name": "Startup — Project status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/projects/1/status",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "1",
+                "status"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Startup — Project progress",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/projects/1/progress",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "1",
+                "progress"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Startup — Project funding",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/projects/1/funding",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "1",
+                "funding"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Startup — Project documents",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/projects/1/documents",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "1",
+                "documents"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Startup — Project feedback",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/projects/1/feedback",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "1",
+                "feedback"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Startup — Project events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/projects/1/events",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "1",
+                "events"
+              ]
+            },
+            "description": "Mentor sessions are startup-scoped in DB (see response note)."
+          }
+        },
+        {
+          "name": "Startup — Project activity",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/projects/1/activity?limit=40",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "1",
+                "activity"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "40"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Investments",
+      "item": [
+        {
+          "name": "Send Investment Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n\"project_id\":1,\n\"requested_amount\":50000,\n\"proposal_message\":\"Interested in funding this startup\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/investments/request",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "investments",
+                "request"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Investors",
+      "item": [
+        {
+          "name": "Create Investor Profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"investor_type\": \"Individual\",\n  \"organization_name\": \"ACME Capital\",\n  \"investment_budget\": 100000,\n  \"preferred_industry\": \"FinTech\",\n  \"investment_stage\": \"Seed\",\n  \"country\": \"Ethiopia\",\n  \"portfolio_size\": 5\n}"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/investors/profile",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "investors",
+                "profile"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "List Notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/notifications",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mark Notification Read",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/notifications/:id/read",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                ":id",
+                "read"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Unread Count",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/notifications/unread-count",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "unread-count"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mark All Read",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/notifications/mark-all-read",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "mark-all-read"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Test",
+      "item": [
+        {
+          "name": "Dashboard (Auth)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/test/dashboard",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "test",
+                "dashboard"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Startup Only",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/test/startup-only",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "test",
+                "startup-only"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -6,8 +6,8 @@
       "server": "localhost",
       "port": 5432,
       "driver": "PostgreSQL",
-      "name": "final_pro",
-      "database": "startup_connect",
+      "name": "final project",
+      "database": "connect_startup",
       "username": "postgres"
     }
   ]
