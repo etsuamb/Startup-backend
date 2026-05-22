@@ -17,6 +17,7 @@ router.post(
 	"/projects",
 	authenticate,
 	authorizeRoles("Startup"),
+	upload.single("cover_photo"),
 	startupController.createProject
 );
 
@@ -41,6 +42,7 @@ router.put(
 	"/projects/:projectId",
 	authenticate,
 	authorizeRoles("Startup"),
+	upload.single("cover_photo"),
 	startupController.updateProject
 );
 

@@ -6,8 +6,22 @@ const path = require("path");
 exports.createProject = async (req, res) => {
 	try {
 		const userId = req.user.user_id;
-		const { project_title, description, funding_goal, start_date, end_date } =
-			req.body;
+		const {
+			project_title,
+			industry,
+			lifecycle_stage,
+			description,
+			problem_statement,
+			solution_statement,
+			expected_impact,
+			funding_goal,
+			start_date,
+			end_date,
+		} = req.body;
+
+		const cover_photo_path = req.file
+			? path.join("uploads", req.file.filename).replace(/\\/g, "/")
+			: null;
 
 		if (!project_title || !funding_goal) {
 			return res.status(400).json({
@@ -28,9 +42,9 @@ exports.createProject = async (req, res) => {
 		const startup_id = startupRes.rows[0].startup_id;
 
 		const result = await pool.query(
-			`INSERT INTO projects (startup_id, project_title, description, funding_goal, start_date, end_date)
-			 VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-			[startup_id, project_title, description, funding_goal, start_date, end_date]
+			`INSERT INTO projects (startup_id, project_title, industry, lifecycle_stage, description, problem_statement, solution_statement, expected_impact, cover_photo_path, funding_goal, start_date, end_date)
+				 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+			[startup_id, project_title, industry, lifecycle_stage, description, problem_statement, solution_statement, expected_impact, cover_photo_path, funding_goal, start_date, end_date]
 		);
 
 		res.status(201).json(result.rows[0]);
@@ -102,7 +116,21 @@ exports.updateProject = async (req, res) => {
 	try {
 		const { projectId } = req.params;
 		const userId = req.user.user_id;
-		const { project_title, description, funding_goal, status } = req.body;
+		const {
+			project_title,
+			industry,
+			lifecycle_stage,
+			description,
+			problem_statement,
+			solution_statement,
+			expected_impact,
+			funding_goal,
+			status,
+		} = req.body;
+
+		const cover_photo_path = req.file
+			? path.join("uploads", req.file.filename).replace(/\\/g, "/")
+			: null;
 
 		// Verify ownership
 		const projectRes = await pool.query(
@@ -116,9 +144,13 @@ exports.updateProject = async (req, res) => {
 
 		const result = await pool.query(
 			`UPDATE projects SET project_title = COALESCE($1, project_title), 
-			 description = COALESCE($2, description), funding_goal = COALESCE($3, funding_goal),
-			 status = COALESCE($4, status) WHERE project_id = $5 RETURNING *`,
-			[project_title, description, funding_goal, status, projectId]
+			 industry = COALESCE($2, industry), lifecycle_stage = COALESCE($3, lifecycle_stage),
+			 description = COALESCE($4, description), problem_statement = COALESCE($5, problem_statement),
+			 solution_statement = COALESCE($6, solution_statement), expected_impact = COALESCE($7, expected_impact),
+			 funding_goal = COALESCE($8, funding_goal), cover_photo_path = COALESCE($9, cover_photo_path),
+			 status = COALESCE($10, status)
+			 WHERE project_id = $11 RETURNING *`,
+			[project_title, industry, lifecycle_stage, description, problem_statement, solution_statement, expected_impact, funding_goal, cover_photo_path, status, projectId]
 		);
 
 		res.json(result.rows[0]);
@@ -152,11 +184,12 @@ exports.uploadDocument = async (req, res) => {
 		const file_name = req.file.originalname;
 		const file_type = req.file.mimetype;
 		const file_size_bytes = req.file.size;
+		const projectIdValue = project_id ? Number(project_id) : null;
 
 		const result = await pool.query(
-			`INSERT INTO documents (startup_id, file_name, file_path, file_type, file_size_bytes, description)
-			 VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-			[startup_id, file_name, file_path, file_type, file_size_bytes, description]
+			`INSERT INTO documents (startup_id, project_id, file_name, file_path, file_type, file_size_bytes, description)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+			[startup_id, projectIdValue, file_name, file_path, file_type, file_size_bytes, description]
 		);
 
 		res.status(201).json(result.rows[0]);

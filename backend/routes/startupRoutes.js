@@ -56,4 +56,28 @@ router.get(
 // Public search for startups (supports query, industry, stage, page, limit)
 router.get("/search", startupController.searchPublicStartups);
 
+// Get all offers (investment and mentorship) for a startup
+router.get(
+  "/offers",
+  authenticate,
+  authorizeRoles("Startup"),
+  startupController.getStartupOffers,
+);
+
+// Get detailed information about a specific offer
+router.get(
+  "/offers/:offerType/:offerId",
+  authenticate,
+  authorizeRoles("Startup"),
+  startupController.getOfferDetails,
+);
+
+// Accept or reject an offer
+router.patch(
+  "/offers/:offerType/:offerId",
+  authenticate,
+  authorizeRoles("Startup"),
+  startupController.updateOfferStatus,
+);
+
 module.exports = router;

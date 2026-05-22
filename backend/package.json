@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
+ "migrate": "node scripts/run_migration.js",
     "reset-db": "node scripts/reset_db.js",
     "seed-db": "node scripts/seed_db.js",
     "upload-demo": "node scripts/upload_demo_file.js",

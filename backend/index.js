@@ -7,6 +7,7 @@ const PORT = Number(process.env.PORT) || 5000;
 
 // Middleware
 app.use(express.json());
+app.use("/uploads", express.static("uploads"));
 
 // ✅ Routes FIRST
 app.use("/api/auth", authRoutes);
@@ -61,6 +62,12 @@ app.use("/api/chat", chatRoutes);
 
 const miscRoutes = require("./routes/miscRoutes");
 app.use("/api", miscRoutes);
+
+const startupDashboardRoutes = require("./routes/startupDashboardRoutes");
+app.use("/api/startup-dashboard", startupDashboardRoutes);
+
+const discoverRoutes = require("./routes/discoverRoutes");
+app.use("/api/startups/discover", discoverRoutes);
 
 // Start server LAST
 app.listen(PORT, () => {

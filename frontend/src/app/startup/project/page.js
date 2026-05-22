@@ -1,10 +1,12 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Sidebar from "@/components/startup/Sidebar";
 import { getMyProjects } from "@/lib/startupApi";
 
 export default function StartupProjectsListing() {
+  const router = useRouter();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -83,35 +85,64 @@ export default function StartupProjectsListing() {
           ) : (
             <div className="space-y-6">
               {projects.map((project) => (
-                <div key={project.project_id} className="rounded-[30px] border border-gray-100 bg-white p-6 shadow-sm">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div>
-                      <h2 className="text-xl font-bold text-gray-900">{project.project_title}</h2>
-                      <p className="text-sm text-gray-500 mt-2">{project.description || "No description provided yet."}</p>
-                    </div>
-                    <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-gray-700 bg-gray-50">
-                      {project.status ? project.status : "Draft"}
-                    </span>
-                  </div>
-
-                  <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm text-gray-600">
-                    <div>
-                      <p className="text-[9px] uppercase tracking-widest text-gray-400 mb-1">Funding Goal</p>
-                      <p className="font-semibold text-gray-900">${Number(project.funding_goal || 0).toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] uppercase tracking-widest text-gray-400 mb-1">Raised</p>
-                      <p className="font-semibold text-gray-900">${Number(project.amount_raised || 0).toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] uppercase tracking-widest text-gray-400 mb-1">Timeline</p>
-                      <p className="font-semibold text-gray-900">{project.start_date || "TBD"} – {project.end_date || "TBD"}</p>
+                <div key={project.project_id} className="rounded-[30px] border border-gray-100 bg-white shadow-sm overflow-hidden">
+                  <div className="relative h-56 bg-slate-100 overflow-hidden">
+                    {project.cover_photo_path ? (
+                      <img
+                        src={`/${project.cover_photo_path}`}
+                        alt={`${project.project_title} cover`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-sm uppercase tracking-[0.2em] text-gray-400 bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100">
+                        No cover image yet
+                      </div>
+                    )}
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+                      <div className="text-[10px] text-white/80 uppercase tracking-[0.22em]">
+                        {project.industry || "Industry TBD"}
+                      </div>
+                      <div className="mt-1 text-xs text-white/90">{project.lifecycle_stage || "Stage TBD"}</div>
                     </div>
                   </div>
 
-                  <div className="mt-6 flex flex-wrap gap-3">
-                    <Link href="/startup/project/documents" className="rounded-2xl bg-[#0f3d32] px-5 py-3 text-xs font-bold uppercase tracking-widest text-white hover:bg-[#0a2921] transition">Upload Documents</Link>
-                    <Link href="/startup/project/create" className="rounded-2xl border border-gray-200 px-5 py-3 text-xs font-bold uppercase tracking-widest text-gray-700 hover:bg-gray-50 transition">Edit Project</Link>
+                  <div className="p-6 space-y-5">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <h2 className="text-2xl font-semibold text-gray-900">{project.project_title}</h2>
+                        <p className="text-sm text-gray-500 mt-2">{project.description || "No description provided yet."}</p>
+                      </div>
+                      <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-2 text-[11px] font-bold uppercase tracking-widest text-gray-700">
+                        {project.status ? project.status : "Draft"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm text-gray-600">
+                      <div className="rounded-3xl bg-slate-50 p-4">
+                        <p className="text-[9px] uppercase tracking-widest text-gray-400 mb-1">Funding Goal</p>
+                        <p className="font-semibold text-gray-900">${Number(project.funding_goal || 0).toLocaleString()}</p>
+                      </div>
+                      <div className="rounded-3xl bg-slate-50 p-4">
+                        <p className="text-[9px] uppercase tracking-widest text-gray-400 mb-1">Raised</p>
+                        <p className="font-semibold text-gray-900">${Number(project.amount_raised || 0).toLocaleString()}</p>
+                      </div>
+                      <div className="rounded-3xl bg-slate-50 p-4">
+                        <p className="text-[9px] uppercase tracking-widest text-gray-400 mb-1">Timeline</p>
+                        <p className="font-semibold text-gray-900">{project.start_date || "TBD"} – {project.end_date || "TBD"}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        onClick={() => router.push(`/startup/project/create?edit=${project.project_id}`)}
+                        className="rounded-2xl border border-gray-200 px-5 py-3 text-xs font-bold uppercase tracking-widest text-gray-700 hover:bg-gray-50 transition"
+                      >
+                        Edit Project
+                      </button>
+                      <Link href={`/startup/project/details/${project.project_id}`} className="rounded-2xl bg-[#0f3d32] px-5 py-3 text-xs font-bold uppercase tracking-widest text-white hover:bg-[#0a2921] transition">
+                        View Details
+                      </Link>
+                    </div>
                   </div>
                 </div>
               ))}

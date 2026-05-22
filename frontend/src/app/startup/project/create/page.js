@@ -1,12 +1,16 @@
 ﻿"use client";
-import { useState } from "react";
+export const dynamic = "force-dynamic";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Sidebar from "@/components/startup/Sidebar";
-import { createProject } from "@/lib/startupApi";
+import { createProject, getProjectDetails, updateProject } from "@/lib/startupApi";
 
 export default function StartupProjectCreate() {
   const router = useRouter();
+  const [editProjectId, setEditProjectId] = useState(null);
+  const isEditMode = Boolean(editProjectId);
+  
   const [projectTitle, setProjectTitle] = useState("");
   const [industry, setIndustry] = useState("");
   const [stage, setStage] = useState("");
@@ -15,9 +19,52 @@ export default function StartupProjectCreate() {
   const [solution, setSolution] = useState("");
   const [fundingGoal, setFundingGoal] = useState("");
   const [expectedImpact, setExpectedImpact] = useState("");
+  const [coverPhoto, setCoverPhoto] = useState(null);
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [showErrorPopup, setShowErrorPopup] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const editId = params.get("edit");
+
+    if (editId) {
+      setEditProjectId(editId);
+    }
+  }, []);
+
+  useEffect(() => {
+    async function loadProjectData() {
+      if (!editProjectId) return;
+
+      try {
+        setLoading(true);
+        const data = await getProjectDetails(editProjectId);
+        const project = data.project || data;
+        setProjectTitle(project.project_title || "");
+        setIndustry(project.industry || "");
+        setStage(project.lifecycle_stage || project.stage || "");
+        setSummary(project.description || "");
+        setProblem(project.problem_statement || "");
+        setSolution(project.solution_statement || project.solution || "");
+        setFundingGoal(project.funding_goal ? String(project.funding_goal) : "");
+        setExpectedImpact(project.expected_impact || "");
+        if (project.cover_photo_path) {
+          setCoverPreviewUrl(`/${project.cover_photo_path}`);
+        }
+      } catch (err) {
+        setError(err.message || "Failed to load project data.");
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadProjectData();
+  }, [editProjectId]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -31,23 +78,46 @@ export default function StartupProjectCreate() {
 
     setLoading(true);
     try {
-      await createProject({
-        project_title: projectTitle,
-        industry,
-        stage,
-        description: summary,
-        problem_statement: problem,
-        solution,
-        funding_goal: fundingGoal,
-        expected_impact: expectedImpact,
-      });
-      setSuccess("Project created successfully. Redirecting to documents...");
-      setTimeout(() => router.push("/startup/project/documents"), 1000);
+      const formData = new FormData();
+      formData.append("project_title", projectTitle);
+      formData.append("industry", industry);
+      formData.append("lifecycle_stage", stage);
+      formData.append("description", summary);
+      formData.append("problem_statement", problem);
+      formData.append("solution_statement", solution);
+      formData.append("funding_goal", fundingGoal);
+      formData.append("expected_impact", expectedImpact);
+      if (coverPhoto) {
+        formData.append("cover_photo", coverPhoto);
+      }
+
+      if (isEditMode) {
+        await updateProject(editProjectId, formData);
+        setShowSuccessPopup(true);
+      } else {
+        const response = await createProject(formData);
+        const projectId = response.project_id || response.project?.project_id;
+        setSuccess("Project created successfully. Redirecting to documents...");
+        setTimeout(() => {
+          if (projectId) {
+            router.push(`/startup/project/documents?project=${projectId}`);
+          } else {
+            router.push("/startup/project/documents");
+          }
+        }, 1000);
+      }
     } catch (err) {
-      setError(err.message || "Failed to create project.");
+      setError(err.message || (isEditMode ? "Failed to update project." : "Failed to create project."));
+      if (isEditMode) setShowErrorPopup(true);
     } finally {
       setLoading(false);
     }
+  }
+
+  function closePopup() {
+    setShowSuccessPopup(false);
+    setShowErrorPopup(false);
+    router.push("/startup/project");
   }
 
   return (
@@ -83,7 +153,7 @@ export default function StartupProjectCreate() {
         </header>
 
         <div className="px-4 sm:px-10 py-10 w-full max-w-[1200px] mx-auto">
-          <h1 className="text-[32px] font-bold text-[#0f3d32] mb-6 tracking-tight">Create Startup Project</h1>
+          <h1 className="text-[32px] font-bold text-[#0f3d32] mb-6 tracking-tight">{isEditMode ? "Edit Project" : "Create Startup Project"}</h1>
 
           {/* Stepper */}
           <div className="flex items-center gap-6 mb-10 border-b border-gray-200 pb-px">
@@ -133,11 +203,25 @@ export default function StartupProjectCreate() {
                           className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0f3d32]/20 focus:border-[#0f3d32] transition text-sm text-gray-800 appearance-none"
                         >
                           <option value="">Select Industry</option>
-                          <option value="agritech">Agritech</option>
-                          <option value="fintech">Fintech</option>
-                          <option value="healthtech">Healthtech</option>
-                          <option value="edtech">EdTech</option>
-                          <option value="other">Other</option>
+                          <option value="Agriculture">Agriculture</option>
+                          <option value="Agro-processing">Agro-processing</option>
+                          <option value="Construction">Construction</option>
+                          <option value="Education">Education</option>
+                          <option value="Energy">Energy</option>
+                          <option value="Environment and Water">Environment and Water</option>
+                          <option value="Finance and Insurance">Finance and Insurance</option>
+                          <option value="Food and Beverage">Food and Beverage</option>
+                          <option value="Health and Wellness">Health and Wellness</option>
+                          <option value="ICT / Technology">ICT / Technology</option>
+                          <option value="Logistics and Transportation">Logistics and Transportation</option>
+                          <option value="Manufacturing">Manufacturing</option>
+                          <option value="Media and Entertainment">Media and Entertainment</option>
+                          <option value="Mining and Extractives">Mining and Extractives</option>
+                          <option value="Professional Services">Professional Services</option>
+                          <option value="Real Estate">Real Estate</option>
+                          <option value="Retail and Consumer Goods">Retail and Consumer Goods</option>
+                          <option value="Tourism and Hospitality">Tourism and Hospitality</option>
+                          <option value="Textiles and Apparel">Textiles and Apparel</option>
                         </select>
                         <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-gray-400">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
@@ -167,38 +251,47 @@ export default function StartupProjectCreate() {
 
                   {/* Short Summary */}
                   <div>
-                    <label className="block text-xs font-bold text-gray-900 mb-2">Short Summary</label>
+                    <label className="block text-xs font-bold text-gray-900 mb-2">Short Summary <span className="text-gray-400 font-normal">(50-200 characters)</span></label>
                     <input
                       type="text"
                       value={summary}
                       onChange={(e) => setSummary(e.target.value)}
                       placeholder="A one-sentence elevator pitch"
                       className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0f3d32]/20 focus:border-[#0f3d32] transition text-sm text-gray-800 placeholder-gray-400"
+                      minLength={50}
+                      maxLength={200}
                     />
+                    <p className="text-[10px] text-gray-400 mt-1">{summary.length}/200 characters</p>
                   </div>
 
                   {/* Problem Statement */}
                   <div>
-                    <label className="block text-xs font-bold text-gray-900 mb-2">Problem Statement</label>
+                    <label className="block text-xs font-bold text-gray-900 mb-2">Problem Statement <span className="text-gray-400 font-normal">(100-500 characters)</span></label>
                     <textarea
                       rows="3"
                       value={problem}
                       onChange={(e) => setProblem(e.target.value)}
                       placeholder="What specific problem are you solving in the Ethiopian market?"
                       className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0f3d32]/20 focus:border-[#0f3d32] transition text-sm text-gray-800 placeholder-gray-400 resize-none"
+                      minLength={100}
+                      maxLength={500}
                     ></textarea>
+                    <p className="text-[10px] text-gray-400 mt-1">{problem.length}/500 characters</p>
                   </div>
 
                   {/* Solution */}
                   <div>
-                    <label className="block text-xs font-bold text-gray-900 mb-2">Solution</label>
+                    <label className="block text-xs font-bold text-gray-900 mb-2">Solution <span className="text-gray-400 font-normal">(100-500 characters)</span></label>
                     <textarea
                       rows="3"
                       value={solution}
                       onChange={(e) => setSolution(e.target.value)}
                       placeholder="How does your startup solve this problem uniquely?"
                       className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0f3d32]/20 focus:border-[#0f3d32] transition text-sm text-gray-800 placeholder-gray-400 resize-none"
+                      minLength={100}
+                      maxLength={500}
                     ></textarea>
+                    <p className="text-[10px] text-gray-400 mt-1">{solution.length}/500 characters</p>
                   </div>
 
                   {/* Funding & Impact */}
@@ -241,15 +334,17 @@ export default function StartupProjectCreate() {
                       disabled={loading}
                       className="px-6 py-3.5 bg-[#0f3d32] hover:bg-[#0a2921] text-white font-bold rounded-lg transition shadow-md text-xs disabled:opacity-70 disabled:cursor-not-allowed"
                     >
-                      {loading ? "Creating..." : "Continue to Documents"}
+                      {loading ? (isEditMode ? "Updating..." : "Creating...") : (isEditMode ? "Submit Edit" : "Continue to Documents")}
                     </button>
-                    <button
-                      type="button"
-                      disabled
-                      className="px-6 py-3.5 bg-white border border-gray-200 text-gray-300 font-bold rounded-lg text-xs ml-auto cursor-not-allowed"
-                    >
-                      Publish Project
-                    </button>
+                    {!isEditMode && (
+                      <button
+                        type="button"
+                        disabled
+                        className="px-6 py-3.5 bg-white border border-gray-200 text-gray-300 font-bold rounded-lg text-xs ml-auto cursor-not-allowed"
+                      >
+                        Publish Project
+                      </button>
+                    )}
                   </div>
                 </form>
               </div>
@@ -270,10 +365,31 @@ export default function StartupProjectCreate() {
 
                 <div className="p-5">
                   {/* Image Placeholder */}
-                  <div className="w-full h-36 bg-[#f8fafc] border-2 border-dashed border-gray-200 rounded-xl mb-5 flex flex-col items-center justify-center text-gray-400 cursor-pointer hover:border-[#0f3d32] hover:text-[#0f3d32] transition group">
-                    <svg className="w-6 h-6 mb-2 text-gray-300 group-hover:text-[#0f3d32] transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                    <span className="text-[10px] font-bold">Click to upload cover photo</span>
-                  </div>
+<label htmlFor="coverPhotoInput" className="relative w-full h-36 bg-[#f8fafc] border-2 border-dashed border-gray-200 rounded-xl mb-5 flex flex-col items-center justify-center text-gray-400 cursor-pointer hover:border-[#0f3d32] hover:text-[#0f3d32] transition group">
+                      {coverPreviewUrl ? (
+                        <img src={coverPreviewUrl} alt="Project cover preview" className="w-full h-full object-cover rounded-xl" />
+                      ) : (
+                        <>
+                          <svg className="w-6 h-6 mb-2 text-gray-300 group-hover:text-[#0f3d32] transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                          <span className="text-[10px] font-bold">Click to upload cover photo</span>
+                        </>
+                      )}
+                      <input
+                        id="coverPhotoInput"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          setCoverPhoto(file);
+                          if (file) {
+                            setCoverPreviewUrl(URL.createObjectURL(file));
+                          } else {
+                            setCoverPreviewUrl(null);
+                          }
+                        }}
+                      />
+                    </label>
 
                   {/* Title & Stage */}
                   <div className="flex justify-between items-start mb-3">
@@ -337,6 +453,56 @@ export default function StartupProjectCreate() {
             </div>
           </div>
         </div>
+
+        {/* Success Popup */}
+        {showSuccessPopup && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Project Updated Successfully!</h3>
+                <p className="text-sm text-gray-600 mb-6">Your project has been updated and the changes are now saved.</p>
+                <div className="flex gap-3 justify-center">
+                  <button
+                    onClick={closePopup}
+                    className="px-6 py-3 bg-[#0f3d32] hover:bg-[#0a2921] text-white font-bold rounded-lg transition text-sm"
+                  >
+                    View My Projects
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Error Popup */}
+        {showErrorPopup && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Update Failed</h3>
+                <p className="text-sm text-gray-600 mb-6">There was an error updating your project. Please try again.</p>
+                <div className="flex gap-3 justify-center">
+                  <button
+                    onClick={() => setShowErrorPopup(false)}
+                    className="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-900 font-bold rounded-lg transition text-sm"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

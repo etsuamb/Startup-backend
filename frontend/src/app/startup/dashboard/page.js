@@ -2,26 +2,39 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Sidebar from "@/components/startup/Sidebar";
-import { getDocuments, getMyProjects, getStartupProfile } from "@/lib/startupApi";
+import { getDocuments, getMyProjects, getStartupProfile, getDashboardActivities, getDashboardFeedback, getDashboardEvents, getNotifications } from "@/lib/startupApi";
 
 export default function StartupDashboard() {
   const [startup, setStartup] = useState(null);
   const [projects, setProjects] = useState([]);
   const [documents, setDocuments] = useState([]);
+  const [activities, setActivities] = useState([]);
+  const [feedback, setFeedback] = useState(null);
+  const [events, setEvents] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [profileRes, projectsRes, documentsRes] = await Promise.all([
+        const [profileRes, projectsRes, documentsRes, activitiesRes, feedbackRes, eventsRes, notificationsRes] = await Promise.all([
           getStartupProfile(),
           getMyProjects(),
           getDocuments(),
+          getDashboardActivities(),
+          getDashboardFeedback(),
+          getDashboardEvents(),
+          getNotifications(),
         ]);
         setStartup(profileRes.startup || null);
         setProjects(projectsRes.projects || []);
         setDocuments(documentsRes.documents || []);
+        setActivities(activitiesRes.activity || []);
+        setFeedback(feedbackRes.feedback?.[0] || null);
+        setEvents(eventsRes.events || []);
+        setNotifications(notificationsRes.notifications || []);
       } catch (err) {
         setError(err.message || "Unable to load dashboard data.");
       } finally {
@@ -44,18 +57,19 @@ export default function StartupDashboard() {
   }, [amountRaised, totalFundingNeeded]);
   const uploadedDocs = documents.length;
   const missingDocs = Math.max(0, 4 - uploadedDocs);
-  const mentorName = "Dr. Sara Melaku";
-  const mentorTitle = "Senior Advisor, Global VC";
+  const mentorName = feedback?.from_name || "Mentor";
+  const mentorTitle = feedback?.source || "Feedback";
   const mentorInitials = mentorName
     .split(" ")
     .map((item) => item[0])
     .join("");
-  const activity1Title = "New investor interest received";
-  const activity1Detail = "EthioVenture requested a follow-up meeting for your Q4 roadmap.";
-  const activity2Title = "Document added";
-  const activity2Detail = "Pitch deck uploaded successfully and shared with current investors.";
-  const activity3Title = "Profile completed";
-  const activity3Detail = "Your startup profile is now live and visible to mentors.";
+  const activity1Title = activities[0]?.headline || "No recent activity";
+  const activity1Detail = activities[0]?.detail || "";
+  const activity2Title = activities[1]?.headline || "";
+  const activity2Detail = activities[1]?.detail || "";
+  const activity3Title = activities[2]?.headline || "";
+  const activity3Detail = activities[2]?.detail || "";
+  const upcomingEvent = events[0] || null;
 
   if (loading) {
     return (
@@ -82,21 +96,47 @@ export default function StartupDashboard() {
             <input type="text" placeholder="Search resources..." className="w-full pl-10 pr-4 py-2 bg-white border border-gray-100 rounded-full text-xs outline-none focus:ring-2 focus:ring-[#0f3d32]/20 shadow-sm transition" />
           </div>
           <div className="flex items-center gap-6 ml-auto">
-            <button className="text-gray-400 hover:text-gray-600 transition relative">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-              <div className="absolute top-0 right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full"></div>
-            </button>
-            <div className="flex items-center gap-3">
+            <div className="relative">
+              <button 
+                className="text-gray-400 hover:text-gray-600 transition relative"
+                onClick={() => setShowNotifications(!showNotifications)}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                {notifications.some(n => !n.is_read) && (
+                  <div className="absolute top-0 right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                )}
+              </button>
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 z-50">
+                  <div className="p-4 border-b border-gray-100">
+                    <h3 className="font-bold text-gray-900 text-sm">Notifications</h3>
+                  </div>
+                  <div className="max-h-96 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-4 text-center text-gray-500 text-sm">No notifications</div>
+                    ) : (
+                      notifications.map((notification) => (
+                        <div key={notification.notification_id} className={`p-4 border-b border-gray-50 hover:bg-gray-50 ${!notification.is_read ? 'bg-blue-50' : ''}`}>
+                          <h4 className="font-bold text-gray-900 text-xs mb-1">{notification.title}</h4>
+                          <p className="text-gray-600 text-xs">{notification.message}</p>
+                          <p className="text-gray-400 text-[10px] mt-1">{new Date(notification.created_at).toLocaleDateString()}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            <Link href="/startup/settings" className="flex items-center gap-3 hover:opacity-80 transition">
               <div className="hidden sm:flex flex-col items-end">
                 <span className="text-xs font-bold text-gray-900">{startup?.startup_name || "My Startup"}</span>
-                <span className="text-[10px] text-gray-500 font-medium">Startup Founder</span>
               </div>
               <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden shrink-0 border border-gray-200">
                 <div className="w-full h-full bg-[#115b4c] text-white flex items-center justify-center font-bold text-[10px]">
                   {startup?.startup_name?.split(" ").map((item) => item[0]).slice(0, 2).join("") || "ST"}
                 </div>
               </div>
-            </div>
+            </Link>
           </div>
         </header>
         <div className="px-4 sm:px-8 pb-12 w-full max-w-[1200px] mx-auto">
@@ -231,7 +271,7 @@ export default function StartupDashboard() {
             <div className="bg-white rounded-[20px] p-6 shadow-sm border border-gray-100 relative overflow-hidden flex flex-col justify-between">
               <div className="absolute -top-4 -right-2 text-[#f3f4f6] text-[100px] leading-none font-serif select-none pointer-events-none">"</div>
               <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 relative z-10">Latest Feedback</h3>
-              <p className="text-sm text-gray-800 font-medium italic mb-6 leading-relaxed relative z-10">Great progress on your pitch deck and investor follow-ups — keep the updates coming.</p>
+              <p className="text-sm text-gray-800 font-medium italic mb-6 leading-relaxed relative z-10">{feedback?.body || "No feedback yet. Keep working on your startup!"}</p>
               <div className="flex items-center gap-3 relative z-10">
                 <div className="w-8 h-8 rounded-full bg-[#1e293b] text-white flex items-center justify-center font-bold text-xs shrink-0">{mentorInitials}</div>
                 <div>
@@ -247,12 +287,19 @@ export default function StartupDashboard() {
                 <span className="bg-[#165042] text-[#bdf0db] text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full">Tomorrow</span>
               </div>
               <div className="relative z-10 mb-4">
-                <h3 className="font-bold text-white text-sm mb-1.5 leading-tight">Strategy Sync with Investor Group</h3>
-                <p className="text-[11px] text-[#8ba39e] leading-snug">Pitch deck review and roadmap alignment session.</p>
+                <h3 className="font-bold text-white text-sm mb-1.5 leading-tight">{upcomingEvent?.subject || upcomingEvent?.agenda || "No upcoming events"}</h3>
+                <p className="text-[11px] text-[#8ba39e] leading-snug">{upcomingEvent?.mentor_name ? `with ${upcomingEvent.mentor_name}` : ""}</p>
               </div>
               <div className="relative z-10 flex justify-between items-center mt-auto">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-white"><svg className="w-4 h-4 text-[#bdf0db]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>10:00 AM</div>
-                <button className="bg-white hover:bg-gray-50 text-[#0f3d32] text-[11px] font-bold px-4 py-2 rounded-lg transition shadow-sm">Join Room</button>
+                {upcomingEvent?.scheduled_at && (
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+                    <svg className="w-4 h-4 text-[#bdf0db]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    {new Date(upcomingEvent.scheduled_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                  </div>
+                )}
+                {upcomingEvent?.join_link && (
+                  <a href={upcomingEvent.join_link} target="_blank" rel="noopener noreferrer" className="bg-white hover:bg-gray-50 text-[#0f3d32] text-[11px] font-bold px-4 py-2 rounded-lg transition shadow-sm">Join Room</a>
+                )}
               </div>
             </div>
             <div className="bg-white rounded-[20px] p-6 shadow-sm border border-gray-100 flex flex-col">
