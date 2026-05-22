@@ -124,6 +124,7 @@ export default function InvestorOfferPage() {
       setError(null);
       
       await createInvestmentRequest({
+        investor_id: parseInt(investorId),
         project_id: parseInt(formData.project_id),
         requested_amount: parseFloat(formData.investment_amount),
         proposal_message: formData.description,

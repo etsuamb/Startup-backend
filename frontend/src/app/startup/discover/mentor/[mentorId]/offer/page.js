@@ -116,7 +116,7 @@ export default function MentorOfferPage() {
       await createMentorshipRequest({
         mentor_id: parseInt(mentorId),
         subject: `Mentorship Request from ${formData.startup_name}`,
-        message: formData.description,
+        message: `${formData.description}\n\nPayment Offer: $${formData.payment_offer}`,
       });
       
       setSuccess(true);
