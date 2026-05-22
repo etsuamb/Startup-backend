@@ -1,9 +1,42 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { getRole, getUserName } from "@/lib/authStorage";
+import { getInvestorProfile } from "@/lib/investorApi";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [profileName, setProfileName] = useState(() => getUserName() || "");
+  const [profileRole, setProfileRole] = useState(() => {
+    const storedRole = getRole();
+    return storedRole ? storedRole.charAt(0).toUpperCase() + storedRole.slice(1) : "Investor";
+  });
+
+  useEffect(() => {
+    let ignore = false;
+    getInvestorProfile()
+      .then((data) => {
+        if (ignore) return;
+        const investor = data?.investor || {};
+        const userName = `${investor.first_name || ""} ${investor.last_name || ""}`.trim();
+        const name = investor.full_name
+          || investor.name
+          || investor.investor_name
+          || userName
+          || investor.organization_name
+          || investor.company_name;
+        const role = investor.investor_type || investor.role || investor.title;
+        if (name) setProfileName(name);
+        if (role) setProfileRole(String(role).replace(/_/g, " ").toUpperCase());
+      })
+      .catch(() => {});
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const primaryLinks = [
     { 
@@ -64,11 +97,93 @@ export default function Sidebar() {
     }
   ];
 
-  // Combine Settings & Feedback in bottom or standard layout?
-  // Let's match the standard layout and place them naturally.
-  
+  const profileInitials = profileName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase() || "IN";
+
   return (
-    <aside className="hidden md:flex flex-col w-[260px] bg-[#061e16] border-r border-[#0f3d32] shrink-0 sticky top-0 h-screen overflow-y-auto relative">
+    <>
+      <div className="fixed top-0 left-0 right-0 md:left-[260px] z-50 flex h-16 items-center justify-between gap-4 border-b border-gray-200 bg-white px-4 md:px-6">
+        <div className="relative w-full max-w-[440px]">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <input
+            type="search"
+            placeholder="Search..."
+            className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#0a4d3c]/30 focus:ring-2 focus:ring-[#0a4d3c]/10"
+          />
+        </div>
+
+        <div className="relative flex items-center gap-3 shrink-0">
+          <button
+            type="button"
+            className="relative flex h-10 w-10 items-center justify-center rounded-xl text-gray-500 transition hover:bg-gray-50 hover:text-gray-900"
+            aria-label="Notifications"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsProfileMenuOpen((current) => !current)}
+            className="flex min-w-0 items-center gap-3 rounded-xl px-2 py-1.5 text-left transition hover:bg-gray-50"
+            aria-expanded={isProfileMenuOpen}
+          >
+            <div className="w-9 h-9 rounded-full bg-[#115b4c] text-white flex items-center justify-center font-bold text-xs shrink-0">
+              {profileInitials}
+            </div>
+            <div className="hidden sm:flex w-[150px] flex-col overflow-hidden">
+              <span className="truncate text-sm font-bold leading-tight text-gray-900">{profileName || "Loading..."}</span>
+              <span className="truncate text-[10px] font-semibold uppercase leading-tight tracking-wide text-gray-500">{profileRole}</span>
+            </div>
+            <svg
+              className={`hidden sm:block w-4 h-4 text-gray-400 transition ${isProfileMenuOpen ? "rotate-180" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+
+        {isProfileMenuOpen && (
+          <div className="absolute right-0 top-12 w-48 rounded-xl border border-gray-200 bg-white p-2 shadow-lg">
+            {systemLinks.map((link) => {
+              const isActive = pathname === link.href || pathname?.startsWith(link.href);
+              return (
+                <Link
+                  key={link.name}
+                  href={link.href}
+                  onClick={() => setIsProfileMenuOpen(false)}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-bold transition ${
+                    isActive
+                      ? "bg-[#e9f7ef] text-[#0a4d3c]"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  }`}
+                >
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {link.icon}
+                  </svg>
+                  {link.name}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <aside className="hidden md:flex flex-col w-[260px] bg-[#061e16] border-r border-[#0f3d32] shrink-0 sticky top-0 h-screen overflow-y-auto relative">
       {/* Abstract Green Light Beams / Background */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         <div className="absolute inset-0 bg-[#061e16]"></div>
@@ -144,44 +259,7 @@ export default function Sidebar() {
         })}
       </div>
 
-      {/* Bottom Area: System and User */}
-      <div className="mt-auto pt-4 px-4 pb-6 relative z-10">
-        <div className="flex flex-col gap-1 pt-4 border-t border-[#0f3d32]">
-          {systemLinks.map((link) => {
-            const isActive = pathname === link.href || pathname?.startsWith(link.href);
-            return (
-              <Link 
-                key={link.name} 
-                href={link.href} 
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition relative overflow-hidden group ${
-                  isActive 
-                    ? "bg-[#0f3d32] text-white" 
-                    : "text-[#8ba39e] hover:text-white hover:bg-[#0a2921]"
-                }`}
-              >
-                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  {link.icon}
-                </svg>
-                {link.name}
-                {isActive && (
-                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-[#10b981] rounded-l-full"></div>
-                )}
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* User profile section at the bottom */}
-        <div className="mt-4 px-4 py-3 flex items-center gap-3 bg-[#0a2921] rounded-xl border border-[#0f3d32] cursor-pointer hover:bg-[#0f3d32] transition">
-          <div className="w-8 h-8 rounded-full bg-[#115b4c] text-white flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden">
-             <img src="https://i.pravatar.cc/150?img=11" alt="Abebe" className="w-full h-full object-cover" />
-          </div>
-          <div className="flex flex-col overflow-hidden">
-            <span className="text-xs font-bold text-white truncate">Abebe Tekle</span>
-            <span className="text-[9px] text-[#8ba39e] truncate">Investor</span>
-          </div>
-        </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 }

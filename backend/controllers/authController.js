@@ -821,7 +821,13 @@ exports.login = async (req, res) => {
 			message: "Login successful 🔐",
 			token,
 			refreshToken,
-			user: { user_id: user.user_id, email: user.email, role: user.role },
+			user: {
+				user_id: user.user_id,
+				email: user.email,
+				role: user.role,
+				first_name: user.first_name,
+				last_name: user.last_name,
+			},
 		});
 	} catch (err) {
 		return res.status(500).json({ error: err.message });

@@ -4,7 +4,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Sidebar from "@/components/investor/Sidebar";
-import { getInvestorStartupDetails } from "@/lib/investorApi";
+import {
+	acceptInvestorFundingOffer,
+	getInvestorFundingOffers,
+	getInvestorStartupDetails,
+} from "@/lib/investorApi";
 
 function formatCurrency(value) {
 	const amount = Number(value || 0);
@@ -41,6 +45,13 @@ function initials(name = "") {
 	return parts.slice(0, 2).map((part) => part[0]).join("").toUpperCase();
 }
 
+function statusLabel(status = "pending") {
+	const normalized = String(status || "pending").toLowerCase();
+	if (["approved", "accepted"].includes(normalized)) return "Accepted";
+	if (normalized === "withdrawn") return "Cancelled";
+	return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
 function StatCard({ label, value, detail }) {
 	return (
 		<div className="text-center px-4">
@@ -57,8 +68,11 @@ export default function StartupProfile() {
 	const [startup, setStartup] = useState(null);
 	const [projects, setProjects] = useState([]);
 	const [documents, setDocuments] = useState([]);
+	const [offer, setOffer] = useState(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
+	const [actionError, setActionError] = useState("");
+	const [accepting, setAccepting] = useState(false);
 
 	useEffect(() => {
 		let ignore = false;
@@ -73,11 +87,21 @@ export default function StartupProfile() {
 			try {
 				setLoading(true);
 				setError("");
-				const data = await getInvestorStartupDetails(startupId);
+				const [data, offerData] = await Promise.all([
+					getInvestorStartupDetails(startupId),
+					getInvestorFundingOffers(),
+				]);
 				if (ignore) return;
 				setStartup(data.startup || null);
 				setProjects(Array.isArray(data.projects) ? data.projects : []);
 				setDocuments(Array.isArray(data.documents) ? data.documents : []);
+				const startupOffers = Array.isArray(offerData.funding_offers)
+					? offerData.funding_offers.filter((item) => String(item.startup_id) === String(startupId))
+					: [];
+				const selectedOffer = startupOffers.find((item) => String(item.status || "pending").toLowerCase() === "pending")
+					|| startupOffers.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0]
+					|| null;
+				setOffer(selectedOffer);
 			} catch (err) {
 				if (!ignore) setError(err.message || "Failed to load startup profile.");
 			} finally {
@@ -91,6 +115,25 @@ export default function StartupProfile() {
 		};
 	}, [startupId]);
 
+	async function handleAcceptOffer() {
+		if (!offer?.investment_request_id) return;
+
+		try {
+			setAccepting(true);
+			setActionError("");
+			const data = await acceptInvestorFundingOffer(offer.investment_request_id);
+			setOffer((currentOffer) => ({
+				...currentOffer,
+				...(data.offer || {}),
+				status: data.offer?.status || "approved",
+			}));
+		} catch (err) {
+			setActionError(err.message || "Failed to accept offer.");
+		} finally {
+			setAccepting(false);
+		}
+	}
+
 	const totals = useMemo(() => {
 		const fundingGoal = projects.reduce((sum, project) => sum + Number(project.funding_goal || 0), 0);
 		const raised = projects.reduce((sum, project) => sum + Number(project.amount_raised || 0), 0);
@@ -100,7 +143,10 @@ export default function StartupProfile() {
 	}, [projects, startup]);
 
 	const location = startup?.location || startup?.city || startup?.region || "Location not set";
-	const offerHref = startup?.startup_id ? `/investor/offers/new?startupId=${startup.startup_id}` : "/investor/offers/new";
+	const offerStatus = String(offer?.status || "pending").toLowerCase();
+	const canAcceptOffer = Boolean(offer?.investment_request_id) && offerStatus === "pending";
+	const acceptLabel = accepting ? "ACCEPTING..." : offer ? statusLabel(offerStatus).toUpperCase() : "NO OFFER";
+	const messageHref = startup?.startup_id ? `/investor/messages?startupId=${startup.startup_id}` : "/investor/messages";
 
 	return (
 		<div className="flex h-screen bg-[#f8f9fa] font-sans text-gray-900 overflow-hidden">
@@ -121,15 +167,26 @@ export default function StartupProfile() {
 							</div>
 							{startup && (
 								<div className="flex items-center gap-3">
-									<Link href={offerHref} className="px-5 py-2.5 bg-[#0a4d3c] text-white rounded-lg text-xs font-bold hover:bg-[#07382b] transition shadow-sm">
-										SEND OFFER
+									<button
+										type="button"
+										onClick={handleAcceptOffer}
+										disabled={!canAcceptOffer || accepting}
+										className="px-5 py-2.5 bg-[#0a4d3c] text-white rounded-lg text-xs font-bold hover:bg-[#07382b] transition shadow-sm disabled:bg-gray-200 disabled:text-gray-500 disabled:cursor-not-allowed"
+									>
+										{acceptLabel}
+									</button>
+									<Link href={messageHref} className="px-5 py-2.5 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-600 hover:bg-gray-50 transition shadow-sm">
+										NEGOTIATING
 									</Link>
-									<a href={startup.website || "#"} target="_blank" rel="noreferrer" className={`px-5 py-2.5 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-600 hover:bg-gray-50 transition shadow-sm ${startup.website ? "" : "pointer-events-none opacity-50"}`}>
-										VISIT WEBSITE
-									</a>
 								</div>
 							)}
 						</div>
+
+						{actionError ? (
+							<div className="mb-5 bg-red-50 border border-red-100 rounded-xl p-4 text-sm font-semibold text-red-700">
+								{actionError}
+							</div>
+						) : null}
 
 						{loading ? (
 							<div className="border border-gray-200 rounded-2xl p-10 text-center text-gray-500 font-semibold shadow-sm">
@@ -246,9 +303,19 @@ export default function StartupProfile() {
 										<div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden mb-6">
 											<div className="h-full bg-[#0a4d3c] rounded-full" style={{ width: `${totals.percent}%` }} />
 										</div>
-										<Link href={offerHref} className="w-full py-3.5 bg-[#0a4d3c] text-white text-xs font-bold rounded-xl hover:bg-[#07382b] transition shadow-sm flex justify-center">
-											SEND OFFER
-										</Link>
+										<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
+											<button
+												type="button"
+												onClick={handleAcceptOffer}
+												disabled={!canAcceptOffer || accepting}
+												className="w-full py-3.5 bg-[#0a4d3c] text-white text-xs font-bold rounded-xl hover:bg-[#07382b] transition shadow-sm flex justify-center disabled:bg-gray-200 disabled:text-gray-500 disabled:cursor-not-allowed"
+											>
+												{acceptLabel}
+											</button>
+											<Link href={messageHref} className="w-full py-3.5 bg-white border border-gray-200 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-50 transition shadow-sm flex justify-center">
+												NEGOTIATING
+											</Link>
+										</div>
 									</div>
 
 									<div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
@@ -272,11 +339,8 @@ export default function StartupProfile() {
 									<div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
 										<h3 className="text-sm font-bold text-[#0a4d3c] mb-6">Quick Actions</h3>
 										<div className="space-y-3">
-											<Link href={`/investor/messages?startupId=${startup.startup_id}`} className="w-full py-3 bg-white border border-gray-200 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-50 transition flex justify-center items-center gap-2 shadow-sm">
+											<Link href={messageHref} className="w-full py-3 bg-white border border-gray-200 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-50 transition flex justify-center items-center gap-2 shadow-sm">
 												MESSAGE STARTUP
-											</Link>
-											<Link href={offerHref} className="w-full py-3 bg-white border border-gray-200 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-50 transition flex justify-center items-center gap-2 shadow-sm">
-												CREATE REQUEST
 											</Link>
 											<Link href={`/investor/feedback?startupId=${startup.startup_id}`} className="w-full py-3 bg-white border border-gray-200 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-50 transition flex justify-center items-center gap-2 shadow-sm">
 												GIVE FEEDBACK

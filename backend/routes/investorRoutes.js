@@ -79,6 +79,14 @@ router.patch(
 	investorController.acceptFundingOffer,
 );
 
+router.patch(
+	"/funding-offers/:offerId/withdraw",
+	authenticate,
+	requireApproval,
+	authorizeRoles("Investor"),
+	investorController.withdrawFundingOffer,
+);
+
 router.get(
 	"/portfolio",
 	authenticate,

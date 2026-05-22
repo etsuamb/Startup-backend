@@ -23,6 +23,7 @@ export default function LoginForm() {
 				token: data.token,
 				refreshToken: data.refreshToken,
 				role: data.user?.role,
+				userName: `${data.user?.first_name || ""} ${data.user?.last_name || ""}`.trim(),
 			});
 			const r = data.user?.role;
 			if (r === "Startup") router.push("/startup/dashboard");

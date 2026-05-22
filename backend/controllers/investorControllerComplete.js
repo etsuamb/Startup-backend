@@ -473,6 +473,56 @@ exports.acceptFundingOffer = async (req, res) => {
 	}
 };
 
+exports.withdrawFundingOffer = async (req, res) => {
+	try {
+		const { offerId } = req.params;
+		const parsedOfferId = Number.parseInt(offerId, 10);
+
+		if (!Number.isInteger(parsedOfferId)) {
+			return res.status(400).json({ error: "Invalid funding offer id" });
+		}
+
+		const investorRes = await pool.query(
+			"SELECT investor_id FROM investors WHERE user_id = $1",
+			[req.user.user_id]
+		);
+
+		if (investorRes.rows.length === 0) {
+			return res.status(404).json({ message: "Investor profile not found" });
+		}
+
+		const requestRes = await pool.query(
+			`SELECT investment_request_id, status
+			 FROM investment_requests
+			 WHERE investment_request_id = $1 AND investor_id = $2`,
+			[parsedOfferId, investorRes.rows[0].investor_id]
+		);
+
+		if (requestRes.rows.length === 0) {
+			return res.status(404).json({ error: "Funding offer not found" });
+		}
+
+		if (requestRes.rows[0].status !== "pending") {
+			return res.status(409).json({ error: "Only pending funding offers can be withdrawn" });
+		}
+
+		const updatedRes = await pool.query(
+			`UPDATE investment_requests
+			 SET status = 'withdrawn'
+			 WHERE investment_request_id = $1
+			 RETURNING *`,
+			[parsedOfferId]
+		);
+
+		return res.json({
+			message: "Funding offer withdrawn",
+			offer: updatedRes.rows[0],
+		});
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
 // UC_20: Get Investment Portfolio
 exports.getPortfolio = async (req, res) => {
 	try {

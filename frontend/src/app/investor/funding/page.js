@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/investor/Sidebar";
-import { getInvestorFundingOffers } from "@/lib/investorApi";
+import { acceptInvestorFundingOffer, getInvestorFundingOffers } from "@/lib/investorApi";
 
 function formatCurrency(value) {
   const amount = Number(value || 0);
@@ -50,6 +50,14 @@ function initials(name = "") {
   return parts.slice(0, 2).map((part) => part[0]).join("").toUpperCase();
 }
 
+function acceptButtonLabel(status, isAccepting) {
+  if (isAccepting) return "Accepting...";
+  const normalized = String(status || "pending").toLowerCase();
+  if (normalized === "pending") return "Accept";
+  if (["approved", "accepted"].includes(normalized)) return "Accepted";
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
 export default function FundingRequests() {
   const [offers, setOffers] = useState([]);
   const [search, setSearch] = useState("");
@@ -57,6 +65,8 @@ export default function FundingRequests() {
   const [sort, setSort] = useState("newest");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [acceptingId, setAcceptingId] = useState(null);
 
   useEffect(() => {
     let ignore = false;
@@ -79,6 +89,26 @@ export default function FundingRequests() {
       ignore = true;
     };
   }, []);
+
+  async function handleAcceptOffer(offerId) {
+    try {
+      setAcceptingId(offerId);
+      setActionError("");
+      const data = await acceptInvestorFundingOffer(offerId);
+      const updatedOffer = data.offer || {};
+      setOffers((currentOffers) =>
+        currentOffers.map((offer) =>
+          offer.investment_request_id === offerId
+            ? { ...offer, ...updatedOffer, status: updatedOffer.status || "approved" }
+            : offer,
+        ),
+      );
+    } catch (err) {
+      setActionError(err.message || "Failed to accept funding request.");
+    } finally {
+      setAcceptingId(null);
+    }
+  }
 
   const filteredOffers = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -173,6 +203,12 @@ export default function FundingRequests() {
               </div>
             </div>
 
+            {actionError && (
+              <div className="mb-5 bg-red-50 border border-red-100 rounded-xl p-4 text-sm font-semibold text-red-700">
+                {actionError}
+              </div>
+            )}
+
             {loading ? (
               <div className="bg-white border border-gray-100 rounded-xl p-10 text-center text-gray-500 font-semibold shadow-sm">
                 Loading funding requests...
@@ -188,6 +224,7 @@ export default function FundingRequests() {
               <div className="flex flex-col gap-5 mb-12">
                 {filteredOffers.map((offer) => {
                   const status = offer.status || "pending";
+                  const isPending = String(status).toLowerCase() === "pending";
                   return (
                     <div key={offer.investment_request_id} className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 hover:shadow-md transition">
                       <div className="flex items-start gap-6 min-w-0">
@@ -227,9 +264,14 @@ export default function FundingRequests() {
                           <Link href={`/investor/messages?startupId=${offer.startup_id}`} className="px-4 py-2 border border-gray-200 text-gray-600 text-xs font-bold rounded-lg hover:bg-gray-50 transition">
                             Negotiate
                           </Link>
-                          <Link href={`/investor/offers/new?startupId=${offer.startup_id}`} className="px-4 py-2 bg-[#0a4d3c] text-white text-xs font-bold rounded-lg hover:bg-[#07382b] transition">
-                            New Offer
-                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => handleAcceptOffer(offer.investment_request_id)}
+                            disabled={!isPending || acceptingId === offer.investment_request_id}
+                            className="px-4 py-2 bg-[#0a4d3c] text-white text-xs font-bold rounded-lg hover:bg-[#07382b] transition disabled:bg-gray-200 disabled:text-gray-500 disabled:cursor-not-allowed"
+                          >
+                            {acceptButtonLabel(status, acceptingId === offer.investment_request_id)}
+                          </button>
                         </div>
                       </div>
                     </div>
