@@ -159,8 +159,12 @@ http://localhost:5000/api
 ### UC_13b: Create Investor Profile
 - **POST** `/investors/profile`
 - **Auth:** Investor only
-- **Body:** `{ investor_type, organization_name, investment_budget, preferred_industry, investment_stage, country, portfolio_size }`
+- **Body:** `{ investor_type, organization_name?, investment_budget? | investment_range?, preferred_industry?, investment_stage? | startup_stage?, location_preference?, linked_in_or_website?, bio?, personal_verification?, country?, portfolio_size? }`
 - **Response:** `{ investor_id, user_id, ... }`
+
+- **GET** `/investors/profile`
+- **Auth:** Investor only
+- **Response:** `{ investor }`
 
 ### UC_14: View Startup List (Curated)
 - **GET** `/investors/startups`
@@ -175,7 +179,7 @@ http://localhost:5000/api
 - **Response:** `{ startups: [], total, filters }`
 
 ### UC_16: Receive AI Startup Recommendations
-- **GET** `/investors/:investorId/recommendations`
+- **GET** `/investors/recommendations`
 - **Auth:** Investor only
 - **Query:** `{ limit }`
 - **Response:** `{ recommendations: [{ startup, score, reason }] }`
@@ -188,8 +192,12 @@ http://localhost:5000/api
 ### UC_18: Send Funding Offer to Startup
 - **POST** `/investors/funding-offers`
 - **Auth:** Investor only
-- **Body:** `{ startup_id, project_id?, amount, equity_percentage, terms, message }`
-- **Response:** `{ offer_id, status, created_at }`
+- **Body:** `{ project_id, requested_amount | amount, proposal_message? | message? }` or `{ startup_id, requested_amount | amount, proposal_message? | message? }`
+- **Response:** `{ message, offer }`
+
+- **GET** `/investors/funding-offers`
+- **Auth:** Investor only
+- **Response:** `{ funding_offers: [] }`
 
 ### UC_19: Accept/Reject Funding Requests
 - **GET** `/investors/funding-requests`
@@ -252,7 +260,7 @@ http://localhost:5000/api
 - **POST** `/investors/startups/:startupId/feedback`
 - **Auth:** Investor only
 - **Body:** `{ rating, comment }`
-- **Response:** `{ feedback_id, created_at }`
+- **Response:** `{ feedback }`
 
 ### UC_26: View Investment Reports
 - **GET** `/investors/reports/portfolio`

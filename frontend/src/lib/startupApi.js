@@ -14,6 +14,40 @@ export async function getStartupProfile() {
   return apiFetch("/startups/me");
 }
 
+export async function getStartupDashboardInfo() {
+  return apiFetch("/startups/dashboard/info");
+}
+
+export async function getStartupDashboardStatus() {
+  return apiFetch("/startups/dashboard/status");
+}
+
+export async function getStartupProjectProgress() {
+  return apiFetch("/startups/dashboard/project-progress");
+}
+
+export async function getStartupFundingSummary() {
+  return apiFetch("/startups/dashboard/funding-summary");
+}
+
+export async function getStartupDocumentsStatus() {
+  return apiFetch("/startups/dashboard/documents-status");
+}
+
+export async function getStartupLatestFeedback(params = {}) {
+  const query = buildQuery(params);
+  return apiFetch(`/startups/dashboard/feedback${query ? `?${query}` : ""}`);
+}
+
+export async function getStartupUpcomingEvents() {
+  return apiFetch("/startups/dashboard/events");
+}
+
+export async function getStartupRecentActivity(params = {}) {
+  const query = buildQuery(params);
+  return apiFetch(`/startups/dashboard/activity${query ? `?${query}` : ""}`);
+}
+
 export async function updateStartupProfile(payload) {
   return apiPutForm("/startups/profile", payload);
 }

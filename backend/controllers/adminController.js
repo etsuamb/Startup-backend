@@ -19,6 +19,12 @@ async function ensureUserApprovalSchema() {
 	await pool.query(
 		"ALTER TABLE startups ADD COLUMN IF NOT EXISTS is_listed BOOLEAN DEFAULT FALSE",
 	);
+	await pool.query(
+		"ALTER TABLE mentors ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE",
+	);
+	await pool.query(
+		"ALTER TABLE investors ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE",
+	);
 }
 
 /** Keep directory listing flags aligned with account approval decisions. */
@@ -26,7 +32,7 @@ async function syncStartupListingForUser(client, userId, { approved, rejected })
 	if (approved) {
 		await client.query(
 			`UPDATE startups
-			 SET admin_status = 'Pending', is_listed = false
+			 SET admin_status = 'Active', is_listed = true
 			 WHERE user_id = $1`,
 			[userId],
 		);
@@ -537,18 +543,37 @@ exports.removeStartupListing = async (req, res) => {
 	}
 };
 
-// PUT /api/admin/startups/:startupId/approve  -> set is_listed = true (create column if missing)
+// PUT /api/admin/startups/:startupId/approve  -> make startup visible in investor discovery
 exports.approveStartup = async (req, res) => {
 	const { startupId } = req.params;
 	const admin = req.user;
 	try {
-		// ensure column exists
-		await pool.query("ALTER TABLE startups ADD COLUMN IF NOT EXISTS is_listed BOOLEAN DEFAULT FALSE");
-		const rr = await pool.query('UPDATE startups SET is_listed = true WHERE startup_id = $1 RETURNING *', [startupId]);
+		await ensureUserApprovalSchema();
+		const ownerRes = await pool.query(
+			`SELECT s.user_id, u.is_approved, u.is_active
+			 FROM startups s
+			 JOIN users u ON u.user_id = s.user_id
+			 WHERE s.startup_id = $1`,
+			[startupId],
+		);
+		if (!ownerRes.rowCount) return res.status(404).json({ message: 'Startup not found' });
+		const owner = ownerRes.rows[0];
+		if (!owner.is_approved || !owner.is_active) {
+			return res.status(400).json({
+				message: 'Approve and activate the startup owner account before listing this startup.',
+			});
+		}
+
+		const rr = await pool.query(
+			`UPDATE startups
+			 SET is_listed = true, admin_status = 'Active'
+			 WHERE startup_id = $1
+			 RETURNING *`,
+			[startupId],
+		);
 		if (!rr.rowCount) return res.status(404).json({ message: 'Startup not found' });
 		// notify owner
-		const uidRes = await pool.query('SELECT user_id FROM startups WHERE startup_id = $1', [startupId]);
-		const uid = uidRes.rows[0] && uidRes.rows[0].user_id;
+		const uid = owner.user_id;
 		if (uid) {
 			await pool.query(`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id) VALUES ($1,$2,$3,$4,$5,$6)`, [uid, 'startup', 'Startup listing approved', 'Your startup listing has been approved and is now visible.', 'startups', startupId]);
 		}
@@ -565,8 +590,14 @@ exports.unapproveStartup = async (req, res) => {
 	const admin = req.user;
 	const { reason } = req.body || {};
 	try {
-		await pool.query("ALTER TABLE startups ADD COLUMN IF NOT EXISTS is_listed BOOLEAN DEFAULT FALSE");
-		const rr = await pool.query('UPDATE startups SET is_listed = false WHERE startup_id = $1 RETURNING *', [startupId]);
+		await ensureUserApprovalSchema();
+		const rr = await pool.query(
+			`UPDATE startups
+			 SET is_listed = false, admin_status = 'Pending'
+			 WHERE startup_id = $1
+			 RETURNING *`,
+			[startupId],
+		);
 		if (!rr.rowCount) return res.status(404).json({ message: 'Startup not found' });
 		const uidRes = await pool.query('SELECT user_id FROM startups WHERE startup_id = $1', [startupId]);
 		const uid = uidRes.rows[0] && uidRes.rows[0].user_id;

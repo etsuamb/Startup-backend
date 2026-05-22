@@ -28,15 +28,15 @@ export default function StartupDashboard() {
           getDashboardEvents(),
           getNotifications(),
         ]);
-        setStartup(profileRes.startup || null);
-        setProjects(projectsRes.projects || []);
-        setDocuments(documentsRes.documents || []);
-        setActivities(activitiesRes.activity || []);
-        setFeedback(feedbackRes.feedback?.[0] || null);
-        setEvents(eventsRes.events || []);
-        setNotifications(notificationsRes.notifications || []);
+        setStartup(profileRes.startup ?? null);
+        setProjects(projectsRes.projects ?? []);
+        setDocuments(documentsRes.documents ?? []);
+        setActivities(activitiesRes.activity ?? []);
+        setFeedback(feedbackRes.feedback?.[0] ?? null);
+        setEvents(eventsRes.events ?? []);
+        setNotifications(notificationsRes.notifications ?? []);
       } catch (err) {
-        setError(err.message || "Unable to load dashboard data.");
+        setError(err.message ?? "Unable to load dashboard data.");
       } finally {
         setLoading(false);
       }
@@ -46,9 +46,9 @@ export default function StartupDashboard() {
   }, []);
 
   const projectCount = projects.length;
-  const totalFundingNeeded = useMemo(() => Number(startup?.funding_needed || 0), [startup]);
+  const totalFundingNeeded = useMemo(() => Number(startup?.funding_needed ?? 0), [startup]);
   const amountRaised = useMemo(
-    () => projects.reduce((sum, project) => sum + Number(project.amount_raised || 0), 0),
+    () => projects.reduce((sum, project) => sum + Number(project.amount_raised ?? 0), 0),
     [projects],
   );
   const progressPercent = useMemo(() => {
@@ -57,19 +57,19 @@ export default function StartupDashboard() {
   }, [amountRaised, totalFundingNeeded]);
   const uploadedDocs = documents.length;
   const missingDocs = Math.max(0, 4 - uploadedDocs);
-  const mentorName = feedback?.from_name || "Mentor";
-  const mentorTitle = feedback?.source || "Feedback";
+  const mentorName = feedback?.from_name ?? "Mentor";
+  const mentorTitle = feedback?.source ?? "Feedback";
   const mentorInitials = mentorName
     .split(" ")
     .map((item) => item[0])
     .join("");
-  const activity1Title = activities[0]?.headline || "No recent activity";
-  const activity1Detail = activities[0]?.detail || "";
-  const activity2Title = activities[1]?.headline || "";
-  const activity2Detail = activities[1]?.detail || "";
-  const activity3Title = activities[2]?.headline || "";
-  const activity3Detail = activities[2]?.detail || "";
-  const upcomingEvent = events[0] || null;
+  const activity1Title = activities[0]?.headline ?? "No recent activity";
+  const activity1Detail = activities[0]?.detail ?? "";
+  const activity2Title = activities[1]?.headline ?? "";
+  const activity2Detail = activities[1]?.detail ?? "";
+  const activity3Title = activities[2]?.headline ?? "";
+  const activity3Detail = activities[2]?.detail ?? "";
+  const upcomingEvent = events[0] ?? null;
 
   if (loading) {
     return (
@@ -129,11 +129,11 @@ export default function StartupDashboard() {
             </div>
             <Link href="/startup/settings" className="flex items-center gap-3 hover:opacity-80 transition">
               <div className="hidden sm:flex flex-col items-end">
-                <span className="text-xs font-bold text-gray-900">{startup?.startup_name || "My Startup"}</span>
+                <span className="text-xs font-bold text-gray-900">{startup?.startup_name ?? "My Startup"}</span>
               </div>
               <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden shrink-0 border border-gray-200">
                 <div className="w-full h-full bg-[#115b4c] text-white flex items-center justify-center font-bold text-[10px]">
-                  {startup?.startup_name?.split(" ").map((item) => item[0]).slice(0, 2).join("") || "ST"}
+                  {startup?.startup_name?.split(" ").map((item) => item[0]).slice(0, 2).join("") ?? "ST"}
                 </div>
               </div>
             </Link>
@@ -141,7 +141,7 @@ export default function StartupDashboard() {
         </header>
         <div className="px-4 sm:px-8 pb-12 w-full max-w-[1200px] mx-auto">
           <div className="mb-8 mt-2">
-            <h1 className="text-2xl font-bold text-gray-900 mb-1 tracking-tight">Welcome back, {startup?.startup_name || "founder"}.</h1>
+            <h1 className="text-2xl font-bold text-gray-900 mb-1 tracking-tight">Welcome back, {startup?.startup_name ?? "founder"}.</h1>
             <p className="text-xs text-gray-500 font-medium">Your venture is performing well. You have {missingDocs > 0 ? `${missingDocs} missing documents` : "no pending document tasks"}.</p>
           </div>
           {error && (
@@ -176,7 +176,7 @@ export default function StartupDashboard() {
                       <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
                     </div>
                   </div>
-                  <span className="text-[10px] font-bold text-[#0f3d32]">{startup?.business_stage || "Active"}</span>
+                  <span className="text-[10px] font-bold text-[#0f3d32]">{startup?.business_stage ?? "Active"}</span>
                 </div>
                 <div className="flex flex-col items-center gap-2">
                   <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-300">
@@ -222,7 +222,8 @@ export default function StartupDashboard() {
               </div>
               <div className="flex gap-12">
                 <div>
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase
+                    tracking-widest mb-1">
                     <div className="w-1.5 h-1.5 bg-gray-300 rounded-full"></div>
                     Raised so far
                   </div>
@@ -269,9 +270,9 @@ export default function StartupDashboard() {
               </div>
             </div>
             <div className="bg-white rounded-[20px] p-6 shadow-sm border border-gray-100 relative overflow-hidden flex flex-col justify-between">
-              <div className="absolute -top-4 -right-2 text-[#f3f4f6] text-[100px] leading-none font-serif select-none pointer-events-none">"</div>
+              <div className="absolute -top-4 -right-2 text-[#f3f4f6] text-[100px] leading-none font-serif select-none pointer-events-none">&quot;</div>
               <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 relative z-10">Latest Feedback</h3>
-              <p className="text-sm text-gray-800 font-medium italic mb-6 leading-relaxed relative z-10">{feedback?.body || "No feedback yet. Keep working on your startup!"}</p>
+              <p className="text-sm text-gray-800 font-medium italic mb-6 leading-relaxed relative z-10">{feedback?.body ?? "No feedback yet. Keep working on your startup!"}</p>
               <div className="flex items-center gap-3 relative z-10">
                 <div className="w-8 h-8 rounded-full bg-[#1e293b] text-white flex items-center justify-center font-bold text-xs shrink-0">{mentorInitials}</div>
                 <div>
@@ -287,7 +288,7 @@ export default function StartupDashboard() {
                 <span className="bg-[#165042] text-[#bdf0db] text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full">Tomorrow</span>
               </div>
               <div className="relative z-10 mb-4">
-                <h3 className="font-bold text-white text-sm mb-1.5 leading-tight">{upcomingEvent?.subject || upcomingEvent?.agenda || "No upcoming events"}</h3>
+                <h3 className="font-bold text-white text-sm mb-1.5 leading-tight">{upcomingEvent?.subject ?? upcomingEvent?.agenda ?? "No upcoming events"}</h3>
                 <p className="text-[11px] text-[#8ba39e] leading-snug">{upcomingEvent?.mentor_name ? `with ${upcomingEvent.mentor_name}` : ""}</p>
               </div>
               <div className="relative z-10 flex justify-between items-center mt-auto">
