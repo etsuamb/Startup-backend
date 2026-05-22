@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Sidebar from "@/components/investor/Sidebar";
 import {
@@ -30,7 +30,7 @@ function initials(name) {
 		.toUpperCase();
 }
 
-export default function SendFundingOffer() {
+function SendFundingOfferContent() {
 	const searchParams = useSearchParams();
 	const startupIdFromUrl = searchParams.get("startupId");
 	const [startups, setStartups] = useState([]);
@@ -321,5 +321,13 @@ export default function SendFundingOffer() {
 				</main>
 			</div>
 		</div>
+	);
+}
+
+export default function SendFundingOffer() {
+	return (
+		<Suspense fallback={<p className="p-8 text-gray-500">Loading...</p>}>
+			<SendFundingOfferContent />
+		</Suspense>
 	);
 }

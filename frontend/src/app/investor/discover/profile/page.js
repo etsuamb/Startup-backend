@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Sidebar from "@/components/investor/Sidebar";
 import { getInvestorStartupDetails } from "@/lib/investorApi";
@@ -51,7 +51,7 @@ function StatCard({ label, value, detail }) {
 	);
 }
 
-export default function StartupProfile() {
+function StartupProfileContent() {
 	const searchParams = useSearchParams();
 	const startupId = searchParams.get("startupId");
 	const [startup, setStartup] = useState(null);
@@ -290,5 +290,13 @@ export default function StartupProfile() {
 				</main>
 			</div>
 		</div>
+	);
+}
+
+export default function StartupProfile() {
+	return (
+		<Suspense fallback={<p className="p-8 text-gray-500">Loading...</p>}>
+			<StartupProfileContent />
+		</Suspense>
 	);
 }

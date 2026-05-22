@@ -42,4 +42,5 @@ export function getInvestorPortfolio() {
 }
 
 export function createInvestorFundingOffer(payload) {
-	return apiPostJson("/investors/funding-offers"
+	return apiPostJson("/investors/funding-offers", payload);
+}
