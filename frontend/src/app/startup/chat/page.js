@@ -370,7 +370,7 @@ export default function StartupInvestorChatPage() {
               </form>
             </section>
           </div>
-        </section>
+        </div>
       </main>
     </div>
   );

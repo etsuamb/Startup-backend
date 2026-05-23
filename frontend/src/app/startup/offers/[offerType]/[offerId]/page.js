@@ -38,7 +38,8 @@ export default function OfferDetailsPage() {
   async function handleAction(action) {
     try {
       setUpdating(true);
-      await updateOfferStatus(offerType, offerId, action);
+      const status = action === "accept" ? "accepted" : "rejected";
+      await updateOfferStatus(offerType, offerId, status);
       setShowConfirmDialog(null);
       await fetchOfferDetails();
     } catch (err) {

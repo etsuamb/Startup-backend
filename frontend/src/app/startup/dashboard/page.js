@@ -2,8 +2,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import AiMentorWidget from "@/components/startup/AiMentorWidget";
+import NotificationBell from "@/components/NotificationBell";
 import Sidebar from "@/components/startup/Sidebar";
-import { getDocuments, getMyProjects, getStartupProfile, getDashboardActivities, getDashboardFeedback, getDashboardEvents, getNotifications } from "@/lib/startupApi";
+import { getDocuments, getMyProjects, getStartupProfile, getDashboardActivities, getDashboardFeedback, getDashboardEvents } from "@/lib/startupApi";
 
 export default function StartupDashboard() {
   const [startup, setStartup] = useState(null);
@@ -12,22 +13,19 @@ export default function StartupDashboard() {
   const [activities, setActivities] = useState([]);
   const [feedback, setFeedback] = useState(null);
   const [events, setEvents] = useState([]);
-  const [notifications, setNotifications] = useState([]);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [profileRes, projectsRes, documentsRes, activitiesRes, feedbackRes, eventsRes, notificationsRes] = await Promise.all([
+        const [profileRes, projectsRes, documentsRes, activitiesRes, feedbackRes, eventsRes] = await Promise.all([
           getStartupProfile(),
           getMyProjects(),
           getDocuments(),
           getDashboardActivities(),
           getDashboardFeedback(),
           getDashboardEvents(),
-          getNotifications(),
         ]);
         setStartup(profileRes.startup ?? null);
         setProjects(projectsRes.projects ?? []);
@@ -35,7 +33,6 @@ export default function StartupDashboard() {
         setActivities(activitiesRes.activity ?? []);
         setFeedback(feedbackRes.feedback?.[0] ?? null);
         setEvents(eventsRes.events ?? []);
-        setNotifications(notificationsRes.notifications ?? []);
       } catch (err) {
         setError(err.message ?? "Unable to load dashboard data.");
       } finally {
@@ -97,37 +94,7 @@ export default function StartupDashboard() {
             <input type="text" placeholder="Search resources..." className="w-full pl-10 pr-4 py-2 bg-white border border-gray-100 rounded-full text-xs outline-none focus:ring-2 focus:ring-[#0f3d32]/20 shadow-sm transition" />
           </div>
           <div className="flex items-center gap-6 ml-auto">
-            <div className="relative">
-              <button 
-                className="text-gray-400 hover:text-gray-600 transition relative"
-                onClick={() => setShowNotifications(!showNotifications)}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-                {notifications.some(n => !n.is_read) && (
-                  <div className="absolute top-0 right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full"></div>
-                )}
-              </button>
-              {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 z-50">
-                  <div className="p-4 border-b border-gray-100">
-                    <h3 className="font-bold text-gray-900 text-sm">Notifications</h3>
-                  </div>
-                  <div className="max-h-96 overflow-y-auto">
-                    {notifications.length === 0 ? (
-                      <div className="p-4 text-center text-gray-500 text-sm">No notifications</div>
-                    ) : (
-                      notifications.map((notification) => (
-                        <div key={notification.notification_id} className={`p-4 border-b border-gray-50 hover:bg-gray-50 ${!notification.is_read ? 'bg-blue-50' : ''}`}>
-                          <h4 className="font-bold text-gray-900 text-xs mb-1">{notification.title}</h4>
-                          <p className="text-gray-600 text-xs">{notification.message}</p>
-                          <p className="text-gray-400 text-[10px] mt-1">{new Date(notification.created_at).toLocaleDateString()}</p>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+            <NotificationBell />
             <Link href="/startup/settings" className="flex items-center gap-3 hover:opacity-80 transition">
               <div className="hidden sm:flex flex-col items-end">
                 <span className="text-xs font-bold text-gray-900">{startup?.startup_name ?? "My Startup"}</span>

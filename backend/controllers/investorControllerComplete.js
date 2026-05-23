@@ -1,4 +1,41 @@
 const pool = require("../config/db");
+const bcrypt = require("bcrypt");
+
+const hasStrongPassword = (password) => {
+	return typeof password === "string" && /(?=.*[A-Z])(?=.*[!@#$%^&*])(?=.*\d).{8,}/.test(password);
+};
+
+const cleanText = (value) => {
+	if (value === undefined) return undefined;
+	if (value === null) return null;
+	const trimmed = String(value).trim();
+	return trimmed || null;
+};
+
+const optionalNumber = (value, fieldName, integer = false) => {
+	if (value === undefined) return { ok: true, value: undefined };
+	if (value === null || value === "") return { ok: true, value: null };
+	const parsed = Number(value);
+	if (Number.isNaN(parsed) || parsed < 0 || (integer && !Number.isInteger(parsed))) {
+		return {
+			ok: false,
+			error: `${fieldName} must be a ${integer ? "non-negative integer" : "non-negative number"}`,
+		};
+	}
+	return { ok: true, value: parsed };
+};
+
+const optionalBoolean = (value, currentValue) => {
+	if (value === undefined) return currentValue;
+	if (typeof value === "boolean") return value;
+	if (typeof value === "number") return value === 1;
+	const normalized = String(value).trim().toLowerCase();
+	return ["true", "1", "yes", "on"].includes(normalized);
+};
+
+async function ensureInvestorSettingsSchema(client = pool) {
+	await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_enabled BOOLEAN NOT NULL DEFAULT FALSE");
+}
 
 async function ensureInvestmentRequestDirectionSchema(client = pool) {
 	await client.query("ALTER TABLE investment_requests ALTER COLUMN project_id DROP NOT NULL");
@@ -72,8 +109,10 @@ exports.createInvestorProfile = async (req, res) => {
 
 exports.getMyInvestorProfile = async (req, res) => {
 	try {
+		await ensureInvestorSettingsSchema();
 		const result = await pool.query(
-			`SELECT i.*, u.first_name, u.last_name, u.email, u.phone_number, u.is_approved, u.is_active
+			`SELECT i.*, u.first_name, u.last_name, u.email, u.phone_number, u.is_approved, u.is_active,
+			        u.two_factor_enabled
 			 FROM investors i
 			 JOIN users u ON u.user_id = i.user_id
 			 WHERE i.user_id = $1`,
@@ -87,6 +126,191 @@ exports.getMyInvestorProfile = async (req, res) => {
 		res.json({ investor: result.rows[0] });
 	} catch (err) {
 		res.status(500).json({ error: err.message });
+	}
+};
+
+exports.getInvestorSettings = async (req, res) => {
+	try {
+		await ensureInvestorSettingsSchema();
+		const result = await pool.query(
+			`SELECT i.investor_id, i.investor_type, i.organization_name, i.investment_budget,
+			        i.preferred_industry, i.investment_stage, i.location_preference,
+			        i.linked_in_or_website, i.bio, i.country, i.portfolio_size,
+			        i.is_approved AS investor_is_approved, i.created_at,
+			        u.user_id, u.first_name, u.last_name, u.email, u.phone_number,
+			        u.is_approved AS user_is_approved, u.is_active, u.two_factor_enabled,
+			        u.updated_at
+			 FROM investors i
+			 JOIN users u ON u.user_id = i.user_id
+			 WHERE i.user_id = $1`,
+			[req.user.user_id]
+		);
+
+		if (result.rows.length === 0) {
+			return res.status(404).json({ message: "Investor profile not found" });
+		}
+
+		return res.json({ settings: result.rows[0], investor: result.rows[0] });
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
+exports.updateInvestorSettings = async (req, res) => {
+	const client = await pool.connect();
+	try {
+		await ensureInvestorSettingsSchema(client);
+		const userId = req.user.user_id;
+		const body = req.body || {};
+		const budget = optionalNumber(body.investment_budget ?? body.investment_range, "investment_budget");
+		const portfolioSize = optionalNumber(body.portfolio_size, "portfolio_size", true);
+
+		if (!budget.ok) return res.status(400).json({ error: budget.error });
+		if (!portfolioSize.ok) return res.status(400).json({ error: portfolioSize.error });
+
+		const existing = await client.query(
+			`SELECT i.*, u.first_name, u.last_name, u.phone_number, u.two_factor_enabled
+			 FROM investors i
+			 JOIN users u ON u.user_id = i.user_id
+			 WHERE i.user_id = $1`,
+			[userId]
+		);
+		if (existing.rows.length === 0) {
+			return res.status(404).json({ message: "Investor profile not found" });
+		}
+
+		const current = existing.rows[0];
+		const firstName = cleanText(body.first_name);
+		const lastName = cleanText(body.last_name);
+		const phoneNumber = cleanText(body.phone_number);
+
+		if (firstName === null) return res.status(400).json({ error: "first_name cannot be empty" });
+		if (lastName === null) return res.status(400).json({ error: "last_name cannot be empty" });
+
+		const investorType = cleanText(body.investor_type);
+		if (investorType === null) return res.status(400).json({ error: "investor_type cannot be empty" });
+
+		let website = cleanText(body.linked_in_or_website ?? body.website);
+		if (website && !website.startsWith("http://") && !website.startsWith("https://")) {
+			website = `https://${website}`;
+		}
+
+		const twoFactorRaw = body.two_factor_enabled ?? body.twoFactorAuth;
+		const twoFactorEnabled = optionalBoolean(twoFactorRaw, current.two_factor_enabled);
+
+		await client.query("BEGIN");
+
+		await client.query(
+			`UPDATE users SET
+			    first_name = $1,
+			    last_name = $2,
+			    phone_number = $3,
+			    two_factor_enabled = $4,
+			    updated_at = CURRENT_TIMESTAMP
+			 WHERE user_id = $5`,
+			[
+				firstName !== undefined ? firstName : current.first_name,
+				lastName !== undefined ? lastName : current.last_name,
+				phoneNumber !== undefined ? phoneNumber : current.phone_number,
+				twoFactorEnabled,
+				userId,
+			]
+		);
+
+		await client.query(
+			`UPDATE investors SET
+			    investor_type = $1,
+			    organization_name = $2,
+			    investment_budget = $3,
+			    preferred_industry = $4,
+			    investment_stage = $5,
+			    location_preference = $6,
+			    linked_in_or_website = $7,
+			    bio = $8,
+			    country = $9,
+			    portfolio_size = $10
+			 WHERE user_id = $11`,
+			[
+				investorType !== undefined ? investorType : current.investor_type,
+				cleanText(body.organization_name) !== undefined ? cleanText(body.organization_name) : current.organization_name,
+				budget.value !== undefined ? budget.value : current.investment_budget,
+				cleanText(body.preferred_industry) !== undefined ? cleanText(body.preferred_industry) : current.preferred_industry,
+				cleanText(body.investment_stage ?? body.startup_stage) !== undefined
+					? cleanText(body.investment_stage ?? body.startup_stage)
+					: current.investment_stage,
+				cleanText(body.location_preference ?? body.preferred_location) !== undefined
+					? cleanText(body.location_preference ?? body.preferred_location)
+					: current.location_preference,
+				website !== undefined ? website : current.linked_in_or_website,
+				cleanText(body.bio) !== undefined ? cleanText(body.bio) : current.bio,
+				cleanText(body.country) !== undefined ? cleanText(body.country) : current.country,
+				portfolioSize.value !== undefined ? portfolioSize.value : current.portfolio_size,
+				userId,
+			]
+		);
+
+		const result = await client.query(
+			`SELECT i.*, u.first_name, u.last_name, u.email, u.phone_number, u.is_approved, u.is_active,
+			        u.two_factor_enabled
+			 FROM investors i
+			 JOIN users u ON u.user_id = i.user_id
+			 WHERE i.user_id = $1`,
+			[userId]
+		);
+
+		await client.query("COMMIT");
+		return res.json({
+			message: "Investor settings updated",
+			settings: result.rows[0],
+			investor: result.rows[0],
+		});
+	} catch (err) {
+		await client.query("ROLLBACK").catch(() => {});
+		return res.status(500).json({ error: err.message });
+	} finally {
+		client.release();
+	}
+};
+
+exports.changeInvestorPassword = async (req, res) => {
+	try {
+		const { current_password, currentPassword, new_password, newPassword } = req.body || {};
+		const current = current_password || currentPassword;
+		const next = new_password || newPassword;
+
+		if (!current || !next) {
+			return res.status(400).json({ message: "Current and new password are required" });
+		}
+
+		if (!hasStrongPassword(next)) {
+			return res.status(400).json({
+				message:
+					"Password must be at least 8 characters and include 1 capital letter, 1 special character, and 1 number",
+			});
+		}
+
+		const user = await pool.query(
+			"SELECT user_id, password_hash FROM users WHERE user_id = $1 AND role = 'Investor'",
+			[req.user.user_id]
+		);
+		if (user.rows.length === 0) {
+			return res.status(404).json({ message: "Investor account not found" });
+		}
+
+		const matches = await bcrypt.compare(current, user.rows[0].password_hash);
+		if (!matches) {
+			return res.status(401).json({ message: "Current password is incorrect" });
+		}
+
+		const hashedPassword = await bcrypt.hash(next, 10);
+		await pool.query(
+			"UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2",
+			[hashedPassword, req.user.user_id]
+		);
+
+		return res.json({ message: "Password changed successfully" });
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
 	}
 };
 
@@ -511,6 +735,27 @@ exports.sendFundingOffer = async (req, res) => {
 
 		await ensureInvestmentRequestDirectionSchema();
 
+		const existingOpenOffer = await pool.query(
+			`SELECT investment_request_id, initiated_by, status
+			 FROM investment_requests
+			 WHERE startup_id = $1
+			   AND investor_id = $2
+			   AND ($3::int IS NULL OR project_id = $3)
+			   AND status IN ('pending', 'approved', 'accepted')
+			 ORDER BY created_at DESC
+			 LIMIT 1`,
+			[startup_id, investor_id_pk, projectId]
+		);
+
+		if (existingOpenOffer.rowCount > 0) {
+			const existing = existingOpenOffer.rows[0];
+			const direction = existing.initiated_by === "investor" ? "your existing offer" : "the startup's existing request";
+			return res.status(409).json({
+				error: `There is already an open investment record for this startup/project. Respond to ${direction} instead of creating a second offer.`,
+				offer: existing,
+			});
+		}
+
 		// Create investment request
 		const result = await pool.query(
 			`INSERT INTO investment_requests (startup_id, investor_id, project_id, requested_amount, proposal_message, status, initiated_by)
@@ -601,7 +846,8 @@ exports.acceptFundingOffer = async (req, res) => {
 		}
 
 		const requestRes = await client.query(
-			`SELECT investment_request_id, startup_id, investor_id, project_id, requested_amount, status
+			`SELECT investment_request_id, startup_id, investor_id, project_id, requested_amount, status,
+			        COALESCE(initiated_by, 'startup') AS initiated_by
 			 FROM investment_requests
 			 WHERE investment_request_id = $1 AND investor_id = $2
 			 FOR UPDATE`,
@@ -614,6 +860,11 @@ exports.acceptFundingOffer = async (req, res) => {
 		}
 
 		const request = requestRes.rows[0];
+		if (request.initiated_by !== "startup") {
+			await client.query("ROLLBACK");
+			return res.status(403).json({ error: "Investor-created offers must be answered by the startup" });
+		}
+
 		if (request.status !== "pending") {
 			await client.query("ROLLBACK");
 			return res.status(409).json({ error: "Only pending funding offers can be accepted" });
@@ -643,6 +894,13 @@ exports.acceptFundingOffer = async (req, res) => {
 				[request.requested_amount, request.project_id]
 			);
 		}
+
+		await client.query(
+			`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id)
+			 SELECT s.user_id, 'investment', 'Investment request accepted', 'An investor accepted your investment request.', 'investment_requests', $1
+			 FROM startups s WHERE s.startup_id = $2`,
+			[parsedOfferId, request.startup_id]
+		);
 
 		await client.query("COMMIT");
 		return res.json({
@@ -678,7 +936,7 @@ exports.withdrawFundingOffer = async (req, res) => {
 		}
 
 		const requestRes = await pool.query(
-			`SELECT investment_request_id, status
+			`SELECT investment_request_id, status, COALESCE(initiated_by, 'startup') AS initiated_by
 			 FROM investment_requests
 			 WHERE investment_request_id = $1 AND investor_id = $2`,
 			[parsedOfferId, investorRes.rows[0].investor_id]
@@ -686,6 +944,10 @@ exports.withdrawFundingOffer = async (req, res) => {
 
 		if (requestRes.rows.length === 0) {
 			return res.status(404).json({ error: "Funding offer not found" });
+		}
+
+		if (requestRes.rows[0].initiated_by !== "investor") {
+			return res.status(403).json({ error: "Startup-created requests cannot be withdrawn by the investor" });
 		}
 
 		if (requestRes.rows[0].status !== "pending") {

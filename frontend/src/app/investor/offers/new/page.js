@@ -30,6 +30,18 @@ function initials(name) {
 		.toUpperCase();
 }
 
+function existingOfferCopy(offer) {
+	const isInvestorOffer = offer?.initiated_by === "investor";
+	return {
+		title: isInvestorOffer ? "You already sent an offer" : "This startup already sent you a request",
+		body: isInvestorOffer
+			? "Review or withdraw the existing offer instead of creating another one for the same startup and project."
+			: "Open the startup request and accept or reject it. You do not need to send a second offer.",
+		primaryHref: isInvestorOffer ? "/investor/offers" : "/investor/funding",
+		primaryLabel: isInvestorOffer ? "View your offers" : "Review startup request",
+	};
+}
+
 function SendFundingOfferContent() {
 	const searchParams = useSearchParams();
 	const startupIdFromUrl = searchParams.get("startupId");
@@ -46,6 +58,7 @@ function SendFundingOfferContent() {
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState("");
 	const [success, setSuccess] = useState("");
+	const [conflict, setConflict] = useState(null);
 
 	useEffect(() => {
 		let alive = true;
@@ -119,6 +132,7 @@ function SendFundingOfferContent() {
 		event.preventDefault();
 		setError("");
 		setSuccess("");
+		setConflict(null);
 
 		if (!selectedStartupId) {
 			setError("Select a startup before sending an offer.");
@@ -148,11 +162,20 @@ function SendFundingOfferContent() {
 
 			setSuccess("Funding offer sent successfully.");
 		} catch (err) {
+			if (err.status === 409 && err.data?.offer) {
+				setConflict({
+					message: err.message || "An active offer or request already exists.",
+					offer: err.data.offer,
+				});
+				return;
+			}
 			setError(err.message || "Unable to send funding offer.");
 		} finally {
 			setSubmitting(false);
 		}
 	}
+
+	const conflictCopy = conflict ? existingOfferCopy(conflict.offer) : null;
 
 	return (
 		<div className="flex h-screen bg-[#f8f9fa] font-sans text-gray-900 overflow-hidden">
@@ -182,6 +205,36 @@ function SendFundingOfferContent() {
 						) : null}
 						{success ? (
 							<div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-800">{success}</div>
+						) : null}
+						{conflict ? (
+							<div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 shadow-sm">
+								<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+									<div>
+										<div className="flex flex-wrap items-center gap-2 mb-2">
+											<h2 className="text-sm font-black text-amber-950">{conflictCopy.title}</h2>
+											<span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-700 ring-1 ring-amber-200">
+												{conflict.offer?.status || "active"}
+											</span>
+										</div>
+										<p className="text-sm font-medium text-amber-900">{conflict.message}</p>
+										<p className="mt-1 text-xs text-amber-800">{conflictCopy.body}</p>
+									</div>
+									<div className="flex shrink-0 flex-wrap gap-2">
+										<Link
+											href={conflictCopy.primaryHref}
+											className="inline-flex items-center justify-center rounded-lg bg-[#0a4d3c] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#07382b]"
+										>
+											{conflictCopy.primaryLabel}
+										</Link>
+										<Link
+											href="/investor/offers"
+											className="inline-flex items-center justify-center rounded-lg border border-amber-200 bg-white px-4 py-2 text-xs font-bold text-amber-900 transition hover:bg-amber-100"
+										>
+											All offers
+										</Link>
+									</div>
+								</div>
+							</div>
 						) : null}
 
 						<div className="bg-[#f8f9fa] border border-gray-200 rounded-2xl p-6 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6">

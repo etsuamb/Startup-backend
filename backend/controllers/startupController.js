@@ -1,5 +1,12 @@
 const pool = require("../config/db");
 
+async function ensureInvestmentRequestDirectionSchema(client = pool) {
+  await client.query("ALTER TABLE investment_requests ALTER COLUMN project_id DROP NOT NULL");
+  await client.query("ALTER TABLE investment_requests ADD COLUMN IF NOT EXISTS initiated_by VARCHAR(20) NOT NULL DEFAULT 'startup'");
+  await client.query("ALTER TABLE investment_requests DROP CONSTRAINT IF EXISTS investment_requests_initiated_by_check");
+  await client.query("ALTER TABLE investment_requests ADD CONSTRAINT investment_requests_initiated_by_check CHECK (initiated_by IN ('startup', 'investor'))");
+}
+
 // Create startup profile
 exports.createStartupProfile = async (req, res) => {
   try {
@@ -659,6 +666,7 @@ function groupDocumentsIntoFolders(documents) {
 // Get all offers (investment and mentorship) for a startup
 exports.getStartupOffers = async (req, res) => {
   try {
+    await ensureInvestmentRequestDirectionSchema();
     const userId = req.user.user_id;
 
     const startupResult = await pool.query(
@@ -681,25 +689,9 @@ exports.getStartupOffers = async (req, res) => {
           ir.created_at,
           ir.requested_amount as amount,
           ir.proposal_message as message,
-          CASE
-            WHEN EXISTS (
-              SELECT 1
-              FROM notifications n
-              WHERE n.reference_type = 'investment_requests'
-                AND n.reference_id = ir.investment_request_id
-                AND n.title = 'New Funding Offer'
-            )
-            THEN 'incoming'
-            ELSE 'sent'
-          END as source_direction,
-          CASE
-            WHEN EXISTS (
-              SELECT 1
-              FROM notifications n
-              WHERE n.reference_type = 'investment_requests'
-                AND n.reference_id = ir.investment_request_id
-                AND n.title = 'New Funding Offer'
-            )
+          COALESCE(ir.initiated_by, 'startup') as initiated_by,
+          CASE WHEN COALESCE(ir.initiated_by, 'startup') = 'investor' THEN 'incoming' ELSE 'sent' END as source_direction,
+          CASE WHEN COALESCE(ir.initiated_by, 'startup') = 'investor'
             THEN 'Investor made this offer'
             ELSE 'Startup sent this investment request'
           END as source_label,
@@ -795,6 +787,7 @@ exports.getStartupOffers = async (req, res) => {
 // Get detailed information about a specific offer
 exports.getOfferDetails = async (req, res) => {
   try {
+    await ensureInvestmentRequestDirectionSchema();
     const userId = req.user.user_id;
     const { offerId, offerType } = req.params;
 
@@ -818,25 +811,9 @@ exports.getOfferDetails = async (req, res) => {
           ir.created_at,
           ir.requested_amount as amount,
           ir.proposal_message as message,
-          CASE
-            WHEN EXISTS (
-              SELECT 1
-              FROM notifications n
-              WHERE n.reference_type = 'investment_requests'
-                AND n.reference_id = ir.investment_request_id
-                AND n.title = 'New Funding Offer'
-            )
-            THEN 'incoming'
-            ELSE 'sent'
-          END as source_direction,
-          CASE
-            WHEN EXISTS (
-              SELECT 1
-              FROM notifications n
-              WHERE n.reference_type = 'investment_requests'
-                AND n.reference_id = ir.investment_request_id
-                AND n.title = 'New Funding Offer'
-            )
+          COALESCE(ir.initiated_by, 'startup') as initiated_by,
+          CASE WHEN COALESCE(ir.initiated_by, 'startup') = 'investor' THEN 'incoming' ELSE 'sent' END as source_direction,
+          CASE WHEN COALESCE(ir.initiated_by, 'startup') = 'investor'
             THEN 'Investor made this offer'
             ELSE 'Startup sent this investment request'
           END as source_label,
@@ -940,6 +917,7 @@ exports.getOfferDetails = async (req, res) => {
 // Accept or reject an offer
 exports.updateOfferStatus = async (req, res) => {
   try {
+    await ensureInvestmentRequestDirectionSchema();
     const userId = req.user.user_id;
     const { offerId, offerType } = req.params;
     const { status } = req.body;
@@ -963,17 +941,7 @@ exports.updateOfferStatus = async (req, res) => {
       const nextStatus = status === 'accepted' ? 'approved' : status;
       const requestResult = await pool.query(
         `SELECT ir.*,
-          CASE
-            WHEN EXISTS (
-              SELECT 1
-              FROM notifications n
-              WHERE n.reference_type = 'investment_requests'
-                AND n.reference_id = ir.investment_request_id
-                AND n.title = 'New Funding Offer'
-            )
-            THEN 'incoming'
-            ELSE 'sent'
-         END as source_direction
+          CASE WHEN COALESCE(ir.initiated_by, 'startup') = 'investor' THEN 'incoming' ELSE 'sent' END as source_direction
          FROM investment_requests ir
          WHERE ir.investment_request_id = $1 AND ir.startup_id = $2`,
         [offerId, startupId],
@@ -992,15 +960,52 @@ exports.updateOfferStatus = async (req, res) => {
         return res.status(409).json({ error: "Only pending offers can be updated" });
       }
 
-      const updateResult = await pool.query(
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+
+        const updateResult = await client.query(
         `UPDATE investment_requests
          SET status = $1
          WHERE investment_request_id = $2
          RETURNING *`,
         [nextStatus, offerId],
-      );
+        );
 
-      return res.json({ offer: updateResult.rows[0] });
+        if (nextStatus === 'approved') {
+          const investmentResult = await client.query(
+            `INSERT INTO investments (investment_request_id, amount, status, closed_at)
+             VALUES ($1, $2, 'completed', CURRENT_TIMESTAMP)
+             ON CONFLICT (investment_request_id) DO NOTHING
+             RETURNING investment_id`,
+            [offerId, requestResult.rows[0].requested_amount],
+          );
+
+          if (investmentResult.rowCount > 0 && requestResult.rows[0].project_id) {
+            await client.query(
+              `UPDATE projects
+               SET amount_raised = COALESCE(amount_raised, 0) + $1
+               WHERE project_id = $2`,
+              [requestResult.rows[0].requested_amount, requestResult.rows[0].project_id],
+            );
+          }
+
+          await client.query(
+            `INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id)
+             SELECT i.user_id, 'investment', 'Funding offer accepted', 'A startup accepted your funding offer.', 'investment_requests', $1
+             FROM investors i WHERE i.investor_id = $2`,
+            [offerId, requestResult.rows[0].investor_id],
+          );
+        }
+
+        await client.query("COMMIT");
+        return res.json({ offer: updateResult.rows[0] });
+      } catch (err) {
+        await client.query("ROLLBACK").catch(() => {});
+        throw err;
+      } finally {
+        client.release();
+      }
     }
 
     if (offerType === 'mentorship') {

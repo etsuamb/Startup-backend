@@ -1,4 +1,10 @@
 import { apiFetch, apiPatchJson, apiPostJson, apiPutJson, apiPostForm, apiPutForm } from "./api";
+export {
+  getNotifications,
+  getUnreadNotificationCount,
+  markAllNotificationsRead,
+  markNotificationAsRead,
+} from "./notificationApi";
 
 function buildQuery(params) {
   const searchParams = new URLSearchParams();
@@ -182,19 +188,6 @@ export async function setInvestorVideoScreenShare(conversationId, action) {
   return apiPostJson(`/chat/conversations/${conversationId}/video/screen-share`, { action });
 }
 
-export async function getNotifications(params = {}) {
-  const query = buildQuery(params);
-  return apiFetch(`/notifications?${query}`);
-}
-
-export async function markNotificationAsRead(notificationId) {
-  return apiPutJson(`/notifications/${notificationId}`, { is_read: true });
-}
-
-export async function markAllNotificationsRead() {
-  return apiPutJson("/notifications/mark-all-read", {});
-}
-
 export async function getDashboardActivities(params = {}) {
   const query = buildQuery(params);
   return apiFetch(`/startup-dashboard/activity?${query}`);
@@ -241,6 +234,9 @@ export async function updateOfferStatus(offerType, offerId, status) {
 }
 
 export async function sendAiMentorMessage(payload) {
+  if (payload instanceof FormData) {
+    return apiPostForm("/ai-mentor/chat", payload);
+  }
   return apiPostJson("/ai-mentor/chat", payload);
 }
 
