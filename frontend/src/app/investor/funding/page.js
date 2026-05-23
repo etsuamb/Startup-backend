@@ -76,7 +76,12 @@ export default function FundingRequests() {
         setLoading(true);
         setError("");
         const data = await getInvestorFundingOffers();
-        if (!ignore) setOffers(Array.isArray(data.funding_offers) ? data.funding_offers : []);
+        if (!ignore) {
+          const startupRequests = Array.isArray(data.funding_offers)
+            ? data.funding_offers.filter((offer) => String(offer.initiated_by || "startup").toLowerCase() === "startup")
+            : [];
+          setOffers(startupRequests);
+        }
       } catch (err) {
         if (!ignore) setError(err.message || "Failed to load funding requests.");
       } finally {
@@ -164,7 +169,7 @@ export default function FundingRequests() {
 
           <div className="flex items-center gap-3">
             <Link href="/investor/offers/new" className="px-5 py-2 bg-[#0a4d3c] text-white text-sm font-bold rounded-lg hover:bg-[#07382b] transition shadow-sm">
-              Create Request
+              Create Offer
             </Link>
             <div className="w-8 h-8 rounded-full bg-[#0a4d3c] text-white shrink-0 flex items-center justify-center text-xs font-black">
               IN
@@ -177,7 +182,7 @@ export default function FundingRequests() {
             <div className="flex flex-col lg:flex-row lg:justify-between lg:items-end gap-4 mb-8">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 tracking-tight mb-2">Funding Requests</h1>
-                <p className="text-gray-500 text-[15px]">Track the funding offers you have sent to approved startups.</p>
+                <p className="text-gray-500 text-[15px]">Review investment requests sent by startups and accept the ones you want to fund.</p>
               </div>
               <div className="flex items-center gap-3">
                 <select
@@ -280,8 +285,8 @@ export default function FundingRequests() {
               </div>
             ) : (
               <div className="bg-white border border-gray-100 rounded-xl p-10 text-center shadow-sm mb-12">
-                <h2 className="text-lg font-bold text-gray-900 mb-2">No funding requests found</h2>
-                <p className="text-sm text-gray-500 mb-5">Create a request from an approved startup profile or clear your filters.</p>
+                <h2 className="text-lg font-bold text-gray-900 mb-2">No startup requests found</h2>
+                <p className="text-sm text-gray-500 mb-5">Startup-sent requests will appear here. Use Offers to manage proposals you sent.</p>
                 <Link href="/investor/discover" className="inline-flex px-5 py-2.5 bg-[#0a4d3c] text-white text-xs font-bold rounded-lg hover:bg-[#07382b] transition">
                   Discover Startups
                 </Link>

@@ -1,5 +1,12 @@
 const pool = require("../config/db");
 
+async function ensureInvestmentRequestDirectionSchema(client = pool) {
+  await client.query("ALTER TABLE investment_requests ALTER COLUMN project_id DROP NOT NULL");
+  await client.query("ALTER TABLE investment_requests ADD COLUMN IF NOT EXISTS initiated_by VARCHAR(20) NOT NULL DEFAULT 'startup'");
+  await client.query("ALTER TABLE investment_requests DROP CONSTRAINT IF EXISTS investment_requests_initiated_by_check");
+  await client.query("ALTER TABLE investment_requests ADD CONSTRAINT investment_requests_initiated_by_check CHECK (initiated_by IN ('startup', 'investor'))");
+}
+
 // Create startup profile
 exports.createStartupProfile = async (req, res) => {
   try {
@@ -705,6 +712,7 @@ async function notifyUser(client, userId, type, title, message, referenceType, r
 // Get all offers (investment and mentorship) for a startup
 exports.getStartupOffers = async (req, res) => {
   try {
+    await ensureInvestmentRequestDirectionSchema();
     const userId = req.user.user_id;
 
     const startupResult = await pool.query(
@@ -727,9 +735,25 @@ exports.getStartupOffers = async (req, res) => {
           ir.created_at,
           ir.requested_amount as amount,
           ir.proposal_message as message,
-          ${INVESTMENT_SOURCE_DIRECTION_SQL} as source_direction,
           CASE
-            WHEN ${INVESTMENT_INCOMING_EXISTS}
+            WHEN EXISTS (
+              SELECT 1
+              FROM notifications n
+              WHERE n.reference_type = 'investment_requests'
+                AND n.reference_id = ir.investment_request_id
+                AND n.title = 'New Funding Offer'
+            )
+            THEN 'incoming'
+            ELSE 'sent'
+          END as source_direction,
+          CASE
+            WHEN EXISTS (
+              SELECT 1
+              FROM notifications n
+              WHERE n.reference_type = 'investment_requests'
+                AND n.reference_id = ir.investment_request_id
+                AND n.title = 'New Funding Offer'
+            )
             THEN 'Investor made this offer'
             ELSE 'Startup sent this investment request'
           END as source_label,
@@ -826,6 +850,7 @@ exports.getStartupOffers = async (req, res) => {
 // Get detailed information about a specific offer
 exports.getOfferDetails = async (req, res) => {
   try {
+    await ensureInvestmentRequestDirectionSchema();
     const userId = req.user.user_id;
     const { offerId, offerType } = req.params;
 
@@ -849,10 +874,25 @@ exports.getOfferDetails = async (req, res) => {
           ir.created_at,
           ir.requested_amount as amount,
           ir.proposal_message as message,
-          ir.project_id,
-          ${INVESTMENT_SOURCE_DIRECTION_SQL} as source_direction,
           CASE
-            WHEN ${INVESTMENT_INCOMING_EXISTS}
+            WHEN EXISTS (
+              SELECT 1
+              FROM notifications n
+              WHERE n.reference_type = 'investment_requests'
+                AND n.reference_id = ir.investment_request_id
+                AND n.title = 'New Funding Offer'
+            )
+            THEN 'incoming'
+            ELSE 'sent'
+          END as source_direction,
+          CASE
+            WHEN EXISTS (
+              SELECT 1
+              FROM notifications n
+              WHERE n.reference_type = 'investment_requests'
+                AND n.reference_id = ir.investment_request_id
+                AND n.title = 'New Funding Offer'
+            )
             THEN 'Investor made this offer'
             ELSE 'Startup sent this investment request'
           END as source_label,
@@ -966,6 +1006,7 @@ exports.getOfferDetails = async (req, res) => {
 exports.updateOfferStatus = async (req, res) => {
   const client = await pool.connect();
   try {
+    await ensureInvestmentRequestDirectionSchema();
     const userId = req.user.user_id;
     const { offerId, offerType } = req.params;
     const rawStatus = String(req.body?.status || "").trim().toLowerCase();
@@ -998,8 +1039,17 @@ exports.updateOfferStatus = async (req, res) => {
       const nextStatus = status === "accepted" ? "approved" : "rejected";
       const requestResult = await client.query(
         `SELECT ir.*,
-          ${INVESTMENT_SOURCE_DIRECTION_SQL} as source_direction,
-          i.user_id AS investor_user_id
+          CASE
+            WHEN EXISTS (
+              SELECT 1
+              FROM notifications n
+              WHERE n.reference_type = 'investment_requests'
+                AND n.reference_id = ir.investment_request_id
+                AND n.title = 'New Funding Offer'
+            )
+            THEN 'incoming'
+            ELSE 'sent'
+         END as source_direction
          FROM investment_requests ir
          JOIN investors i ON i.investor_id = ir.investor_id
          WHERE ir.investment_request_id = $1 AND ir.startup_id = $2`,
@@ -1024,26 +1074,15 @@ exports.updateOfferStatus = async (req, res) => {
         return res.status(409).json({ error: "Only pending offers can be updated" });
       }
 
-      const updateResult = await client.query(
+      const updateResult = await pool.query(
         `UPDATE investment_requests
          SET status = $1
          WHERE investment_request_id = $2
          RETURNING *`,
         [nextStatus, offerId],
-      );
+        );
 
-      await notifyUser(
-        client,
-        row.investor_user_id,
-        "investment",
-        status === "accepted" ? "Investment Offer Accepted" : "Investment Offer Rejected",
-        `${startupName || "A startup"} ${status === "accepted" ? "accepted" : "rejected"} your funding offer.`,
-        "investment_requests",
-        Number(offerId),
-      );
-
-      await client.query("COMMIT");
-      return res.json({ offer: updateResult.rows[0], message: `Offer ${status}` });
+      return res.json({ offer: updateResult.rows[0] });
     }
 
     if (offerType === "mentorship") {

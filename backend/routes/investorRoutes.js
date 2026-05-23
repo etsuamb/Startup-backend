@@ -24,6 +24,27 @@ router.get(
 );
 
 router.get(
+	"/settings",
+	authenticate,
+	authorizeRoles("Investor"),
+	investorController.getInvestorSettings,
+);
+
+router.put(
+	"/settings",
+	authenticate,
+	authorizeRoles("Investor"),
+	investorController.updateInvestorSettings,
+);
+
+router.patch(
+	"/settings/password",
+	authenticate,
+	authorizeRoles("Investor"),
+	investorController.changeInvestorPassword,
+);
+
+router.get(
 	"/startups",
 	authenticate,
 	requireApproval,

@@ -119,14 +119,26 @@ exports.updateNotificationSettings = async (req, res) => {
 // GET /api/notifications
 exports.listNotifications = async (req, res) => {
 	const userId = req.user.user_id;
-	const { limit = 50, offset = 0 } = req.query;
+	const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+	const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
 	try {
-		const r = await pool.query(
+		const [notifications, unread] = await Promise.all([
+			pool.query(
 			`SELECT notification_id, notification_type, title, message, is_read, reference_type, reference_id, created_at
        FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
 			[userId, limit, offset],
-		);
-		return res.json({ notifications: r.rows });
+			),
+			pool.query(
+				"SELECT COUNT(*)::int AS unread FROM notifications WHERE user_id = $1 AND is_read = false",
+				[userId],
+			),
+		]);
+		return res.json({
+			notifications: notifications.rows,
+			unread: unread.rows[0].unread,
+			limit,
+			offset,
+		});
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -153,9 +165,14 @@ exports.markAsRead = async (req, res) => {
 exports.updateNotification = async (req, res) => {
 	const userId = req.user.user_id;
 	const { id } = req.params;
-	const { is_read } = req.body;
+	const { is_read } = req.body || {};
 	try {
-		const readValue = is_read === undefined ? true : Boolean(is_read);
+		const readValue =
+			is_read === undefined
+				? true
+				: typeof is_read === "boolean"
+					? is_read
+					: ["true", "1", "yes", "on"].includes(String(is_read).trim().toLowerCase());
 		const r = await pool.query(
 			"UPDATE notifications SET is_read = $1 WHERE notification_id = $2 AND user_id = $3 RETURNING notification_id, is_read, title, message, reference_type, reference_id",
 			[readValue, id, userId],

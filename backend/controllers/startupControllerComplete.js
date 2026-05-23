@@ -926,10 +926,42 @@ exports.createInvestmentRequest = async (req, res) => {
 
 		await ensureInvestmentRequestDirectionSchema();
 
+		const existingOpenOffer = await pool.query(
+			`SELECT investment_request_id, initiated_by, status
+			 FROM investment_requests
+			 WHERE startup_id = $1
+			   AND investor_id = $2
+			   AND ($3::int IS NULL OR project_id = $3)
+			   AND status IN ('pending', 'approved', 'accepted')
+			 ORDER BY created_at DESC
+			 LIMIT 1`,
+			[startup_id, investor_id, projectId]
+		);
+
+		if (existingOpenOffer.rowCount > 0) {
+			const existing = existingOpenOffer.rows[0];
+			const direction = existing.initiated_by === "startup" ? "your existing request" : "the investor's existing offer";
+			return res.status(409).json({
+				error: `There is already an open investment record for this investor/project. Respond to ${direction} instead of creating a second request.`,
+				offer: existing,
+			});
+		}
+
 		const result = await pool.query(
 			`INSERT INTO investment_requests (startup_id, investor_id, project_id, requested_amount, proposal_message, initiated_by)
 			 VALUES ($1, $2, $3, $4, $5, 'startup') RETURNING *`,
 			[startup_id, investor_id, projectId, requested_amount, proposal_message]
+		);
+
+		await pool.query(
+			`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id)
+			 SELECT user_id, 'investment', 'New Investment Request', $1, 'investment_requests', $2
+			 FROM investors WHERE investor_id = $3`,
+			[
+				`A startup sent you an investment request for ${requested_amount}.`,
+				result.rows[0].investment_request_id,
+				investor_id,
+			]
 		);
 
 		res.status(201).json(result.rows[0]);

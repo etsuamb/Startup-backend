@@ -12,6 +12,8 @@ function formatTime(value) {
 
 export default function AiMentorWidget() {
   const bottomRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const recognitionRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [sessionId, setSessionId] = useState(null);
   const [sessions, setSessions] = useState([]);
@@ -19,11 +21,13 @@ export default function AiMentorWidget() {
     {
       id: "welcome",
       sender: "ai",
-      message: "Hi, I am your AI mentor. Ask me about your pitch, funding readiness, market validation, or investor preparation.",
+      message: "Hi, I can help with StartupConnect features, dashboard navigation, documents, investors, mentors, notifications, and startup advice. Ask me anything about using the app.",
       created_at: new Date().toISOString(),
     },
   ]);
   const [input, setInput] = useState("");
+  const [files, setFiles] = useState([]);
+  const [listening, setListening] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -37,6 +41,10 @@ export default function AiMentorWidget() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, open]);
+
+  useEffect(() => {
+    return () => recognitionRef.current?.abort?.();
+  }, []);
 
   async function loadSession(nextSessionId) {
     try {
@@ -53,22 +61,30 @@ export default function AiMentorWidget() {
   async function handleSubmit(event) {
     event.preventDefault();
     const text = input.trim();
-    if (!text || loading) return;
+    if ((!text && files.length === 0) || loading) return;
 
     const userMessage = {
       id: `local-${Date.now()}`,
       sender: "startup",
-      message: text,
+      message: files.length
+        ? `${text || "Please review the attached file(s)."}\n\n${files.map((file) => `[Attached file: ${file.name}]`).join("\n")}`
+        : text,
       created_at: new Date().toISOString(),
     };
 
     setMessages((current) => [...current, userMessage]);
     setInput("");
+    const outgoingFiles = files;
+    setFiles([]);
     setLoading(true);
     setError("");
 
     try {
-      const data = await sendAiMentorMessage({ sessionId, message: text });
+      const payload = new FormData();
+      if (sessionId) payload.append("sessionId", sessionId);
+      payload.append("message", text);
+      outgoingFiles.forEach((file) => payload.append("files", file));
+      const data = await sendAiMentorMessage(payload);
       setSessionId(data.sessionId);
       setMessages((current) => [
         ...current,
@@ -89,6 +105,51 @@ export default function AiMentorWidget() {
     }
   }
 
+  function handleFilesSelected(event) {
+    const selected = Array.from(event.target.files || []);
+    const nextFiles = [...files, ...selected].slice(0, 5);
+    setFiles(nextFiles);
+    event.target.value = "";
+  }
+
+  function removeFile(index) {
+    setFiles((current) => current.filter((_, fileIndex) => fileIndex !== index));
+  }
+
+  function toggleVoiceInput() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setError("Voice input is not supported in this browser.");
+      return;
+    }
+
+    if (listening) {
+      recognitionRef.current?.stop?.();
+      setListening(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map((result) => result[0]?.transcript || "")
+        .join(" ")
+        .trim();
+      if (transcript) setInput(transcript);
+    };
+    recognition.onerror = () => {
+      setListening(false);
+      setError("Voice input stopped. Please try again.");
+    };
+    recognition.onend = () => setListening(false);
+    recognitionRef.current = recognition;
+    setListening(true);
+    recognition.start();
+  }
+
   function startNewChat() {
     setSessionId(null);
     setError("");
@@ -96,22 +157,22 @@ export default function AiMentorWidget() {
       {
         id: "welcome",
         sender: "ai",
-        message: "New chat started. What startup challenge should we work on first?",
+        message: "New chat started. Ask me about the app, your startup workflow, documents, investors, mentors, or funding readiness.",
         created_at: new Date().toISOString(),
       },
     ]);
   }
 
   return (
-    <div className="fixed bottom-8 right-8 z-50">
+    <div className="fixed bottom-4 right-4 z-50 sm:bottom-6 sm:right-6">
       {open ? (
-        <div className="mb-4 flex h-[620px] w-[380px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
-          <div className="flex items-center justify-between bg-[#0f3d32] px-5 py-4 text-white">
+        <div className="mb-3 flex h-[min(620px,calc(100vh-6rem))] w-[min(420px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
+          <div className="flex shrink-0 items-center justify-between bg-[#0f3d32] px-4 py-3 text-white sm:px-5 sm:py-4">
             <div>
               <h2 className="text-sm font-bold">AI Mentor</h2>
-              <p className="text-[11px] text-white/70">StartupConnect Ethiopia</p>
+              <p className="text-[11px] text-white/70">App help and startup mentor</p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               <button type="button" onClick={startNewChat} className="rounded-lg bg-white/10 px-3 py-1.5 text-[11px] font-bold hover:bg-white/15">
                 New
               </button>
@@ -124,7 +185,7 @@ export default function AiMentorWidget() {
           </div>
 
           {sessions.length ? (
-            <div className="flex gap-2 overflow-x-auto border-b border-gray-100 px-4 py-3">
+            <div className="flex shrink-0 gap-2 overflow-x-auto border-b border-gray-100 px-4 py-3">
               {sessions.slice(0, 5).map((session) => (
                 <button
                   key={session.id}
@@ -142,7 +203,7 @@ export default function AiMentorWidget() {
             </div>
           ) : null}
 
-          <div className="flex-1 space-y-4 overflow-y-auto bg-gray-50 p-4">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-gray-50 p-4">
             {messages.map((message) => {
               const outgoing = message.sender === "startup";
               return (
@@ -170,20 +231,55 @@ export default function AiMentorWidget() {
 
           {error ? <div className="border-t border-red-100 bg-red-50 px-4 py-2 text-xs font-semibold text-red-700">{error}</div> : null}
 
-          <form onSubmit={handleSubmit} className="flex gap-2 border-t border-gray-100 bg-white p-4">
-            <input
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              placeholder="Ask your AI mentor..."
-              className="min-w-0 flex-1 rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#0f3d32]/40 focus:ring-2 focus:ring-[#0f3d32]/10"
-            />
-            <button
-              type="submit"
-              disabled={!input.trim() || loading}
-              className="rounded-xl bg-[#0f3d32] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#0a2921] disabled:bg-gray-300"
-            >
-              Send
-            </button>
+          <form onSubmit={handleSubmit} className="shrink-0 border-t border-gray-100 bg-white p-3">
+            {files.length ? (
+              <div className="mb-2 flex max-h-20 flex-wrap gap-2 overflow-y-auto">
+                {files.map((file, index) => (
+                  <button
+                    type="button"
+                    key={`${file.name}-${index}`}
+                    onClick={() => removeFile(index)}
+                    className="max-w-full truncate rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-[11px] font-semibold text-gray-600 hover:bg-gray-100"
+                    title="Remove file"
+                  >
+                    {file.name}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <div className="flex items-end gap-2">
+              <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFilesSelected} />
+              <button type="button" onClick={() => fileInputRef.current?.click()} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50" aria-label="Attach file">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.586-6.586a4 4 0 10-5.657-5.657L5.757 10.757a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+              </button>
+              <button type="button" onClick={toggleVoiceInput} className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-gray-600 hover:bg-gray-50 ${listening ? "border-red-300 bg-red-50 text-red-600" : "border-gray-200"}`} aria-label="Voice input">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18.75a6 6 0 006-6h-1.5a4.5 4.5 0 01-9 0H6a6 6 0 006 6zm0 0V22m-3 0h6M12 15a3 3 0 003-3V5a3 3 0 10-6 0v7a3 3 0 003 3z" />
+                </svg>
+              </button>
+              <textarea
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    event.currentTarget.form?.requestSubmit();
+                  }
+                }}
+                rows={1}
+                placeholder={listening ? "Listening..." : "Ask about the app or your startup..."}
+                className="max-h-24 min-h-11 min-w-0 flex-1 resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#0f3d32]/40 focus:ring-2 focus:ring-[#0f3d32]/10"
+              />
+              <button
+                type="submit"
+                disabled={(!input.trim() && files.length === 0) || loading}
+                className="h-11 shrink-0 rounded-xl bg-[#0f3d32] px-4 text-sm font-bold text-white transition hover:bg-[#0a2921] disabled:bg-gray-300"
+              >
+                Send
+              </button>
+            </div>
           </form>
         </div>
       ) : null}

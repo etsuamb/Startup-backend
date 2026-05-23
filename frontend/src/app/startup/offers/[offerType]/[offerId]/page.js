@@ -51,7 +51,6 @@ export default function OfferDetailsPage() {
   async function handleAction(action) {
     try {
       setUpdating(true);
-      setActionError(null);
       await updateOfferStatus(offerType, offerId, action);
       setShowConfirmDialog(null);
       await fetchOfferDetails();

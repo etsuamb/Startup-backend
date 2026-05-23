@@ -1,7 +1,16 @@
 const router = require("express").Router();
+const multer = require("multer");
 const pool = require("../config/db");
 const { authenticate, authorizeRoles } = require("../middleware/authMiddleware");
 const { generateMentorResponse } = require("../services/aiMentorService");
+
+const upload = multer({
+	storage: multer.memoryStorage(),
+	limits: {
+		fileSize: 5 * 1024 * 1024,
+		files: 5,
+	},
+});
 
 async function ensureAiMentorSchema() {
 	await pool.query(`
@@ -111,19 +120,51 @@ Bio: ${investor.bio || "Not provided"}
 `;
 }
 
+function buildFileContext(files = []) {
+	if (!Array.isArray(files) || files.length === 0) return "";
+
+	const summaries = files.map((file, index) => {
+		const textLike =
+			(file.mimetype || "").startsWith("text/") ||
+			["application/json", "application/xml", "text/csv"].includes(file.mimetype);
+		const content = textLike
+			? file.buffer.toString("utf8", 0, Math.min(file.buffer.length, 12000))
+			: "";
+
+		return [
+			`File ${index + 1}: ${file.originalname}`,
+			`Type: ${file.mimetype || "unknown"}`,
+			`Size: ${file.size || 0} bytes`,
+			content
+				? `Content preview:\n${content}`
+				: "Content preview: binary file uploaded; use filename, type, and user instructions to guide your response.",
+		].join("\n");
+	});
+
+	return `\n\nAttached files for this message:\n${summaries.join("\n\n---\n\n")}`;
+}
+
 router.post(
 	"/chat",
 	authenticate,
 	authorizeRoles("Startup", "Investor"),
+	upload.array("files", 5),
 	async (req, res) => {
 		try {
 			await ensureAiMentorSchema();
 
 			const { sessionId, message } = req.body || {};
 			const cleanMessage = String(message || "").trim();
+			const fileContext = buildFileContext(req.files);
+			const messageForAi = `${cleanMessage || "Please review the attached file(s) and provide useful guidance."}${fileContext}`;
+			const storedMessage = fileContext
+				? `${cleanMessage || "Please review the attached file(s)."}\n\n${req.files
+					.map((file) => `[Attached file: ${file.originalname} (${file.mimetype || "unknown"}, ${file.size || 0} bytes)]`)
+					.join("\n")}`
+				: cleanMessage;
 
-			if (!cleanMessage) {
-				return res.status(400).json({ error: "message is required" });
+			if (!cleanMessage && !req.files?.length) {
+				return res.status(400).json({ error: "message or file is required" });
 			}
 
 			if (cleanMessage.length > 2000) {
@@ -152,7 +193,7 @@ router.post(
 			}
 
 			if (!activeSessionId) {
-				const title = cleanMessage.slice(0, 60) || "AI Mentor Chat";
+				const title = cleanMessage.slice(0, 60) || req.files?.[0]?.originalname?.slice(0, 60) || "AI Mentor Chat";
 				const sessionResult = await pool.query(
 					`INSERT INTO ai_mentor_sessions (${ownerColumn}, user_role, title)
 					 VALUES ($1, $2, $3)
@@ -165,7 +206,7 @@ router.post(
 			await pool.query(
 				`INSERT INTO ai_mentor_messages (session_id, sender, message)
 				 VALUES ($1, 'startup', $2)`,
-				[activeSessionId, cleanMessage],
+				[activeSessionId, storedMessage],
 			);
 
 			const historyResult = await pool.query(
@@ -180,7 +221,7 @@ router.post(
 			const reply = await generateMentorResponse({
 				profileContext: isInvestor ? buildInvestorProfile(profile) : buildStartupProfile(profile),
 				chatHistory: historyResult.rows,
-				userMessage: cleanMessage,
+				userMessage: messageForAi,
 			});
 
 			const aiMessageResult = await pool.query(

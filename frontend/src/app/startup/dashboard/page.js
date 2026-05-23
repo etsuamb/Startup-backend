@@ -3,54 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import AiMentorWidget from "@/components/startup/AiMentorWidget";
+import NotificationBell from "@/components/NotificationBell";
 import Sidebar from "@/components/startup/Sidebar";
-import ViewableFileTrigger from "@/components/startup/ViewableFileTrigger";
-import {
-  getDashboardActivities,
-  getDocuments,
-  getDashboardFeedback,
-  getInvestorRecommendations,
-  getMentorRecommendations,
-  getMyProjects,
-  getNotifications,
-  getStartupDashboardStatus,
-  getStartupFundingSummary,
-  getStartupOffers,
-  getStartupProfile,
-} from "@/lib/startupApi";
-
-function formatCurrency(value) {
-  const n = Number(value) || 0;
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(n);
-}
-
-function formatTeamSize(size) {
-  if (size == null || size === "") return "Not set";
-  const n = Number(size);
-  if (Number.isNaN(n)) return String(size);
-  if (n <= 5) return "1–5";
-  if (n <= 10) return "5–10";
-  if (n <= 25) return "11–25";
-  if (n <= 50) return "26–50";
-  return `${n}+`;
-}
-
-function investorDisplayName(investor) {
-  return (
-    investor?.organization_name ||
-    `${investor?.first_name || ""} ${investor?.last_name || ""}`.trim() ||
-    "Investor"
-  );
-}
-
-function mentorDisplayName(mentor) {
-  return `${mentor?.first_name || ""} ${mentor?.last_name || ""}`.trim() || "Mentor";
-}
+import { getDocuments, getMyProjects, getStartupProfile, getDashboardActivities, getDashboardFeedback, getDashboardEvents, getNotifications } from "@/lib/startupApi";
 
 export default function StartupDashboard() {
   const [startup, setStartup] = useState(null);
@@ -60,63 +15,38 @@ export default function StartupDashboard() {
   const [documents, setDocuments] = useState([]);
   const [offers, setOffers] = useState([]);
   const [activities, setActivities] = useState([]);
+  const [feedback, setFeedback] = useState(null);
+  const [events, setEvents] = useState([]);
   const [notifications, setNotifications] = useState([]);
-  const [investorMatches, setInvestorMatches] = useState([]);
-  const [mentorMatches, setMentorMatches] = useState([]);
-  const [feedbackItems, setFeedbackItems] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
-  const loadData = useCallback(async (isRefresh = false) => {
-    try {
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
-      setError(null);
-
-      const [
-        profileRes,
-        statusRes,
-        fundingRes,
-        projectsRes,
-        documentsRes,
-        offersRes,
-        activitiesRes,
-        notificationsRes,
-        investorRecRes,
-        mentorRecRes,
-        feedbackRes,
-      ] = await Promise.all([
-        getStartupProfile(),
-        getStartupDashboardStatus(),
-        getStartupFundingSummary(),
-        getMyProjects(),
-        getDocuments(),
-        getStartupOffers().catch(() => ({ offers: [] })),
-        getDashboardActivities({ limit: 8 }),
-        getNotifications(),
-        getInvestorRecommendations({ limit: 3 }).catch(() => ({ recommendations: [] })),
-        getMentorRecommendations().catch(() => ({ recommendations: [] })),
-        getDashboardFeedback({ limit: 10 }).catch(() => ({ feedback: [] })),
-      ]);
-
-      setStartup(profileRes.startup ?? null);
-      setDashboardStatus(statusRes);
-      setFunding(fundingRes);
-      setProjects(projectsRes.projects ?? []);
-      setDocuments(documentsRes.documents ?? []);
-      setOffers(offersRes.offers ?? []);
-      setActivities(activitiesRes.activity ?? []);
-      setNotifications(notificationsRes.notifications ?? []);
-      setInvestorMatches(investorRecRes.recommendations ?? []);
-      setMentorMatches(mentorRecRes.recommendations ?? []);
-      setFeedbackItems(feedbackRes.feedback ?? []);
-    } catch (err) {
-      setError(err.message ?? "Unable to load dashboard data.");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [profileRes, projectsRes, documentsRes, activitiesRes, feedbackRes, eventsRes, notificationsRes] = await Promise.all([
+          getStartupProfile(),
+          getMyProjects(),
+          getDocuments(),
+          getDashboardActivities(),
+          getDashboardFeedback(),
+          getDashboardEvents(),
+          getNotifications(),
+        ]);
+        setStartup(profileRes.startup ?? null);
+        setProjects(projectsRes.projects ?? []);
+        setDocuments(documentsRes.documents ?? []);
+        setActivities(activitiesRes.activity ?? []);
+        setFeedback(feedbackRes.feedback?.[0] ?? null);
+        setEvents(eventsRes.events ?? []);
+        setNotifications(notificationsRes.notifications ?? []);
+      } catch (err) {
+        setError(err.message ?? "Unable to load dashboard data.");
+      } finally {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -265,19 +195,15 @@ export default function StartupDashboard() {
               className="w-full pl-10 pr-4 py-2.5 bg-[#f6f8f9] border border-gray-100 rounded-full text-sm outline-none focus:ring-2 focus:ring-[#0f3d32]/20"
             />
           </div>
-          <div className="flex items-center gap-5 ml-auto">
+          <div className="flex items-center gap-6 ml-auto">
             <div className="relative">
-              <button
-                type="button"
-                className="text-gray-400 hover:text-gray-600 transition relative p-1"
+              <button 
+                className="text-gray-400 hover:text-gray-600 transition relative"
                 onClick={() => setShowNotifications(!showNotifications)}
-                aria-label="Notifications"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                {stats.newMessages > 0 && (
-                  <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full" />
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                {notifications.some(n => !n.is_read) && (
+                  <div className="absolute top-0 right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full"></div>
                 )}
               </button>
               {showNotifications && (
@@ -287,15 +213,13 @@ export default function StartupDashboard() {
                   </div>
                   <div className="max-h-96 overflow-y-auto">
                     {notifications.length === 0 ? (
-                      <p className="p-4 text-center text-gray-500 text-sm">No notifications</p>
+                      <div className="p-4 text-center text-gray-500 text-sm">No notifications</div>
                     ) : (
-                      notifications.slice(0, 10).map((notification) => (
-                        <div
-                          key={notification.notification_id}
-                          className={`p-4 border-b border-gray-50 ${!notification.is_read ? "bg-blue-50" : ""}`}
-                        >
+                      notifications.map((notification) => (
+                        <div key={notification.notification_id} className={`p-4 border-b border-gray-50 hover:bg-gray-50 ${!notification.is_read ? 'bg-blue-50' : ''}`}>
                           <h4 className="font-bold text-gray-900 text-xs mb-1">{notification.title}</h4>
                           <p className="text-gray-600 text-xs">{notification.message}</p>
+                          <p className="text-gray-400 text-[10px] mt-1">{new Date(notification.created_at).toLocaleDateString()}</p>
                         </div>
                       ))
                     )}

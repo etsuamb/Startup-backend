@@ -1,4 +1,4 @@
-import { apiFetch, apiFetchBlob, apiPatchJson, apiPostForm, apiPostJson } from "./api";
+import { apiFetch, apiFetchBlob, apiPatchJson, apiPostForm, apiPostJson, apiPutJson } from "./api";
 
 function toQuery(params = {}) {
   const query = new URLSearchParams();
@@ -12,6 +12,18 @@ function toQuery(params = {}) {
 
 export function getInvestorProfile() {
   return apiFetch("/investors/profile");
+}
+
+export function getInvestorSettings() {
+  return apiFetch("/investors/settings");
+}
+
+export function updateInvestorSettings(payload) {
+  return apiPutJson("/investors/settings", payload);
+}
+
+export function changeInvestorPassword(payload) {
+  return apiPatchJson("/investors/settings/password", payload);
 }
 
 export function getInvestorStartups(params = {}) {
@@ -107,6 +119,9 @@ export function downloadInvestorChatFile(conversationId, messageId) {
 }
 
 export function sendInvestorAiMentorMessage(payload) {
+	if (payload instanceof FormData) {
+		return apiPostForm("/ai-mentor/chat", payload);
+	}
 	return apiPostJson("/ai-mentor/chat", payload);
 }
 
