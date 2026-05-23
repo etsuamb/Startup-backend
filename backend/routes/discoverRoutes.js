@@ -8,8 +8,8 @@ const discoverController = require("../controllers/discoverController");
 
 router.use(authenticate, authorizeRoles("Startup"));
 
-router.get("/mentors", discoverController.searchMentors);
-router.get("/investors", discoverController.searchInvestors);
+router.get("/mentors", requireApproval, discoverController.searchMentors);
+router.get("/investors", requireApproval, discoverController.searchInvestors);
 
 router.post(
 	"/mentors/:mentorId/request",

@@ -65,3 +65,11 @@ exports.requireApproval = async (req, res, next) => {
 		return res.status(500).json({ error: err.message });
 	}
 };
+
+// Startups must be admin-approved; other roles pass through unchanged.
+exports.requireApprovalIfStartup = async (req, res, next) => {
+	if (req.user?.role !== "Startup") {
+		return next();
+	}
+	return exports.requireApproval(req, res, next);
+};

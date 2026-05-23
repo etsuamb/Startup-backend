@@ -6,6 +6,7 @@ const upload = multer({ dest: "uploads/" });
 const {
   authenticate,
   authorizeRoles,
+  requireApproval,
 } = require("../middleware/authMiddleware");
 
 const startupController = require("../controllers/startupController");
@@ -87,7 +88,11 @@ router.post(
 
 router.use(
   "/mentor-chat",
-  buildMentorChatRoutes([authenticate, authorizeRoles("Startup")]),
+  buildMentorChatRoutes([
+    authenticate,
+    authorizeRoles("Startup"),
+    requireApproval,
+  ]),
 );
 
 // Create startup profile
@@ -154,6 +159,7 @@ router.patch(
   "/offers/:offerType/:offerId",
   authenticate,
   authorizeRoles("Startup"),
+  requireApproval,
   startupController.updateOfferStatus,
 );
 

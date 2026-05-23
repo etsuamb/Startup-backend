@@ -235,13 +235,16 @@ exports.sendMentorshipProposal = async (req, res) => {
 
 		if (startupUserRes.rows.length > 0) {
 			await pool.query(
-				"INSERT INTO notifications (user_id, notification_type, title, message) VALUES ($1, $2, $3, $4)",
+				`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
 				[
 					startupUserRes.rows[0].user_id,
 					"mentorship",
 					"Mentorship Proposal",
 					subject,
-				]
+					"mentorship_requests",
+					result.rows[0].mentorship_request_id,
+				],
 			);
 		}
 

@@ -1,136 +1,150 @@
 "use client";
+
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import Sidebar from "@/components/startup/Sidebar";
-import { getStartupProfile, createMentorshipRequest, getStartupOffers } from "@/lib/startupApi";
+import StartupApplicationLayout from "@/components/startup/StartupApplicationLayout";
+import { PendingApprovalBlock } from "@/components/startup/PendingApprovalNotice";
+import { useStartupApproval } from "@/hooks/useStartupApproval";
+import { buildMentorshipMessage } from "@/lib/applicationFormUtils";
+import {
+  createMentorshipRequest,
+  getDocuments,
+  getMyProjects,
+  getStartupOffers,
+  getStartupProfile,
+  searchMentors,
+} from "@/lib/startupApi";
 import { buildSentOfferLookup, getSentMentorOffer } from "@/lib/offerUtils";
-
-const INDUSTRIES = [
-  "Agriculture",
-  "Agro-processing",
-  "Construction",
-  "Education",
-  "Energy",
-  "Environment and Water",
-  "Finance and Insurance",
-  "Food and Beverage",
-  "Health and Wellness",
-  "ICT / Technology",
-  "Logistics and Transportation",
-  "Manufacturing",
-  "Media and Entertainment",
-  "Mining and Extractives",
-  "Professional Services",
-  "Real Estate",
-  "Retail and Consumer Goods",
-  "Tourism and Hospitality",
-  "Textiles and Apparel",
-];
 
 export default function MentorOfferPage() {
   const params = useParams();
-  const router = useRouter();
   const { mentorId } = params;
-  
+
+  const [mentor, setMentor] = useState(null);
   const [startup, setStartup] = useState(null);
+  const [projects, setProjects] = useState([]);
+  const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  const [existingOffer, setExistingOffer] = useState(null);
+  const { pending, loading: approvalLoading } = useStartupApproval();
 
   const [formData, setFormData] = useState({
     startup_name: "",
     industry: "",
-    description: "",
+    project_id: "",
     payment_offer: "",
+    use_of_funds: "",
+    milestones: "",
+    message: "",
   });
-
   const [validationErrors, setValidationErrors] = useState({});
-  const [existingOffer, setExistingOffer] = useState(null);
 
   useEffect(() => {
-    fetchStartupProfile();
-  }, []);
+    fetchData();
+  }, [mentorId]);
 
-  async function fetchStartupProfile() {
+  async function fetchData() {
     try {
       setLoading(true);
-      const [response, offersData] = await Promise.all([
+      setError(null);
+      const [startupRes, projectsRes, docsRes, searchRes, offersData] = await Promise.all([
         getStartupProfile(),
+        getMyProjects().catch(() => ({ projects: [] })),
+        getDocuments().catch(() => ({ documents: [] })),
+        searchMentors({ query: "" }),
         getStartupOffers().catch(() => ({ offers: [] })),
       ]);
+
       const lookup = buildSentOfferLookup(offersData.offers || []);
       setExistingOffer(getSentMentorOffer(lookup, mentorId));
-      setStartup(response.startup);
-      setFormData(prev => ({
-        ...prev,
-        startup_name: response.startup.startup_name || "",
-        industry: response.startup.industry || "",
-      }));
+
+      const found = searchRes.mentors?.find((m) => m.mentor_id === parseInt(mentorId, 10));
+      if (!found) {
+        setError("Mentor not found.");
+        return;
+      }
+
+      setMentor(found);
+      const s = startupRes.startup || startupRes;
+      setStartup(s);
+      setProjects(projectsRes.projects || []);
+      setDocuments(docsRes.documents || []);
+
+      const firstProject = (projectsRes.projects || [])[0];
+      setFormData({
+        startup_name: s.startup_name || "",
+        industry: s.industry || "",
+        project_id: firstProject ? String(firstProject.project_id) : "",
+        payment_offer: found.session_pricing ? String(found.session_pricing) : "",
+        use_of_funds: "",
+        milestones: "",
+        message: "",
+      });
     } catch (err) {
-      console.error("Failed to fetch startup profile:", err);
-      setError("Failed to load startup profile. Please try again.");
+      setError(err.message || "Failed to load application data.");
     } finally {
       setLoading(false);
     }
   }
 
-  function handleChange(e) {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    setValidationErrors(prev => ({ ...prev, [name]: "" }));
+  function handleChange(name, value) {
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    setValidationErrors((prev) => ({ ...prev, [name]: "" }));
   }
 
   function validateForm() {
     const errors = {};
-    
-    if (!formData.startup_name.trim()) {
-      errors.startup_name = "Startup name is required";
+    const payment = parseFloat(formData.payment_offer);
+    if (!Number.isFinite(payment) || payment <= 0) {
+      errors.payment_offer = "Enter a valid payment offer";
     }
-    
-    if (!formData.industry) {
-      errors.industry = "Industry is required";
+    if (!formData.use_of_funds.trim()) {
+      errors.use_of_funds = "Describe your mentorship goals";
+    } else if (formData.use_of_funds.trim().length < 30) {
+      errors.use_of_funds = "Please provide at least 30 characters";
     }
-    
-    if (!formData.description.trim()) {
-      errors.description = "Description is required";
-    } else if (formData.description.length < 50) {
-      errors.description = "Description must be at least 50 characters";
-    } else if (formData.description.length > 500) {
-      errors.description = "Description must not exceed 500 characters";
+    const body = buildMentorshipMessage({
+      goals: formData.use_of_funds,
+      milestones: formData.milestones,
+      message: formData.message,
+      paymentOffer: formData.payment_offer,
+    });
+    if (body.length < 50) {
+      errors.use_of_funds = "Add more detail about your goals and expectations";
     }
-    
-    if (!formData.payment_offer.trim()) {
-      errors.payment_offer = "Payment offer is required";
-    }
-    
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
+
+    const startupName = formData.startup_name || startup?.startup_name || "Startup";
+    const messageBody = buildMentorshipMessage({
+      goals: formData.use_of_funds,
+      milestones: formData.milestones,
+      message: formData.message,
+      paymentOffer: formData.payment_offer,
+    });
 
     try {
       setSubmitting(true);
       setError(null);
-      
       await createMentorshipRequest({
-        mentor_id: parseInt(mentorId),
-        subject: `Mentorship Request from ${formData.startup_name}`,
-        message: `${formData.description}\n\nPayment Offer: $${formData.payment_offer}`,
+        mentor_id: parseInt(mentorId, 10),
+        subject: `Mentorship request from ${startupName}`,
+        message: messageBody,
       });
-      
       setSuccess(true);
     } catch (err) {
-      console.error("Failed to submit mentorship request:", err);
       if (err.status === 409) {
-        setError(err.message || "You already have an active mentorship request with this mentor.");
+        setError(err.message || "You already have an active request with this mentor.");
         const offerId = err.data?.existing_offer?.id;
         if (offerId) {
           setExistingOffer({
@@ -140,22 +154,32 @@ export default function MentorOfferPage() {
           });
         }
       } else {
-        setError("Failed to submit mentorship request. Please try again.");
+        setError(err.message || "Failed to submit request. Please try again.");
       }
     } finally {
       setSubmitting(false);
     }
   }
 
+  const documentsHref = formData.project_id
+    ? `/startup/project/documents?project=${formData.project_id}`
+    : "/startup/project/documents";
+
+  if (!approvalLoading && pending) {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] font-sans text-gray-900 flex">
+        <Sidebar />
+        <PendingApprovalBlock title="Mentorship applications unavailable" />
+      </div>
+    );
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f4f7f9] font-sans text-gray-900 flex">
+      <div className="min-h-screen bg-[#f8fafc] font-sans text-gray-900 flex">
         <Sidebar />
         <main className="flex-grow flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0f3d32] mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading...</p>
-          </div>
+          <p className="text-sm text-gray-500">Loading application…</p>
         </main>
       </div>
     );
@@ -163,11 +187,11 @@ export default function MentorOfferPage() {
 
   if (existingOffer) {
     return (
-      <div className="min-h-screen bg-[#f4f7f9] font-sans text-gray-900 flex">
+      <div className="min-h-screen bg-[#f8fafc] font-sans text-gray-900 flex">
         <Sidebar />
-        <main className="flex-grow flex items-center justify-center">
-          <div className="text-center max-w-md px-4">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Offer already sent</h2>
+        <main className="flex-grow flex items-center justify-center px-4">
+          <div className="text-center max-w-md">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Request already sent</h2>
             <p className="text-gray-600 mb-6">
               You already have an active mentorship request with this mentor
               {existingOffer.status ? ` (${existingOffer.status})` : ""}.
@@ -175,13 +199,13 @@ export default function MentorOfferPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
               <Link
                 href={`/startup/offers/mentorship/${existingOffer.id}`}
-                className="inline-flex items-center justify-center rounded-full bg-[#0f3d32] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#0b2a1d]"
+                className="inline-flex items-center justify-center rounded-xl bg-[#0f3d32] px-6 py-3 text-sm font-bold text-white hover:bg-[#0a2921]"
               >
-                View existing offer
+                View request
               </Link>
               <Link
                 href="/startup/discover"
-                className="inline-flex items-center justify-center rounded-full border border-gray-300 bg-white px-6 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                className="inline-flex items-center justify-center rounded-xl border border-gray-200 px-6 py-3 text-sm font-bold text-gray-700 hover:bg-gray-50"
               >
                 Back to Discover
               </Link>
@@ -194,22 +218,22 @@ export default function MentorOfferPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-[#f4f7f9] font-sans text-gray-900 flex">
+      <div className="min-h-screen bg-[#f8fafc] font-sans text-gray-900 flex">
         <Sidebar />
-        <main className="flex-grow flex items-center justify-center">
+        <main className="flex-grow flex items-center justify-center px-4">
           <div className="text-center max-w-md">
             <div className="rounded-full bg-[#dcfce7] w-20 h-20 flex items-center justify-center mx-auto mb-6">
               <svg className="w-10 h-10 text-[#166534]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Mentorship Request Sent!</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Request submitted</h2>
             <p className="text-gray-600 mb-6">
-              Your mentorship request has been submitted successfully. The mentor will review your request and get back to you soon.
+              Your mentorship request was sent successfully. The mentor will review it soon.
             </p>
             <Link
               href="/startup/discover"
-              className="inline-flex items-center justify-center rounded-full bg-[#0f3d32] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#0b2a1d]"
+              className="inline-flex items-center justify-center rounded-xl bg-[#0f3d32] px-6 py-3 text-sm font-bold text-white hover:bg-[#0a2921]"
             >
               Back to Discover
             </Link>
@@ -219,139 +243,41 @@ export default function MentorOfferPage() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-[#f4f7f9] font-sans text-gray-900 flex">
-      <Sidebar />
-      <main className="flex-grow flex flex-col overflow-y-auto">
-        <header className="px-4 sm:px-8 py-8 bg-gradient-to-r from-[#0f3d32] via-[#115b4c] to-[#184f45] text-white sticky top-0 z-10 shadow-sm">
-          <div className="max-w-[1200px] mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm uppercase tracking-[0.32em] text-[#b8f0d9]">Make an offer</p>
-              <h1 className="mt-3 text-4xl font-black tracking-tight">Mentorship Offer</h1>
-              <p className="mt-3 max-w-2xl text-sm text-[#d2f8e3]">
-                Submit a mentorship request to this mentor with your startup details and offer.
-              </p>
-            </div>
-            <Link
-              href="/startup/discover"
-              className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/20"
-            >
-              ← Back to discover
+  if (!mentor) {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] font-sans text-gray-900 flex">
+        <Sidebar />
+        <main className="flex-grow flex items-center justify-center px-4">
+          <div className="text-center">
+            <p className="text-red-600 mb-4">{error || "Mentor not found"}</p>
+            <Link href="/startup/discover" className="text-sm font-bold text-[#0f3d32] hover:underline">
+              Back to Discover
             </Link>
           </div>
-        </header>
+        </main>
+      </div>
+    );
+  }
 
-        <div className="px-4 sm:px-10 py-10 w-full max-w-[800px] mx-auto pb-24">
-          {error && (
-            <div className="mb-6 rounded-[28px] border border-red-200 bg-red-50 p-5 text-sm text-red-700 shadow-sm">
-              {error}
-            </div>
-          )}
-
-          <div className="rounded-[32px] border border-gray-100 bg-white p-8 shadow-sm">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Startup Name
-                </label>
-                <input
-                  type="text"
-                  name="startup_name"
-                  value={formData.startup_name}
-                  onChange={handleChange}
-                  placeholder="Enter your startup name"
-                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-white text-sm text-gray-900 outline-none transition focus:border-[#0f3d32] focus:ring-2 focus:ring-[#0f3d32]/20"
-                />
-                {validationErrors.startup_name && (
-                  <p className="mt-2 text-xs text-red-600">{validationErrors.startup_name}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Industry
-                </label>
-                <select
-                  name="industry"
-                  value={formData.industry}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-white text-sm text-gray-900 outline-none transition focus:border-[#0f3d32] focus:ring-2 focus:ring-[#0f3d32]/20"
-                >
-                  <option value="">Select your industry</option>
-                  {INDUSTRIES.map(industry => (
-                    <option key={industry} value={industry}>{industry}</option>
-                  ))}
-                </select>
-                {validationErrors.industry && (
-                  <p className="mt-2 text-xs text-red-600">{validationErrors.industry}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Description of Mentorship Needed
-                </label>
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  rows="5"
-                  placeholder="Describe what kind of mentorship you're looking for, specific areas where you need guidance, and what you hope to achieve..."
-                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-white text-sm text-gray-900 outline-none transition focus:border-[#0f3d32] focus:ring-2 focus:ring-[#0f3d32]/20 resize-none"
-                />
-                <div className="flex justify-between mt-2">
-                  <p className="text-xs text-gray-500">
-                    Minimum 50 characters, maximum 500 characters
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {formData.description.length}/500
-                  </p>
-                </div>
-                {validationErrors.description && (
-                  <p className="mt-2 text-xs text-red-600">{validationErrors.description}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Payment Offer (USD)
-                </label>
-                <input
-                  type="number"
-                  name="payment_offer"
-                  value={formData.payment_offer}
-                  onChange={handleChange}
-                  placeholder="Enter your payment offer"
-                  min="0"
-                  step="0.01"
-                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-white text-sm text-gray-900 outline-none transition focus:border-[#0f3d32] focus:ring-2 focus:ring-[#0f3d32]/20"
-                />
-                <p className="mt-2 text-xs text-gray-500">
-                  Enter the amount you're willing to pay for mentorship sessions
-                </p>
-                {validationErrors.payment_offer && (
-                  <p className="mt-2 text-xs text-red-600">{validationErrors.payment_offer}</p>
-                )}
-              </div>
-
-              <div className="flex gap-4 pt-4">
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="flex-1 inline-flex items-center justify-center rounded-2xl bg-[#0f3d32] px-8 py-4 text-sm font-semibold text-white transition hover:bg-[#0b2a1d] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {submitting ? "Submitting..." : "Submit Mentorship Request"}
-                </button>
-                <Link
-                  href="/startup/discover"
-                  className="inline-flex items-center justify-center rounded-2xl border border-gray-300 bg-white px-8 py-4 text-sm font-semibold text-gray-700 transition hover:border-gray-400 hover:bg-gray-50"
-                >
-                  Cancel
-                </Link>
-              </div>
-            </form>
-          </div>
-        </div>
+  return (
+    <div className="min-h-screen bg-[#f8fafc] font-sans text-gray-900 flex">
+      <Sidebar />
+      <main className="flex-grow flex flex-col overflow-y-auto min-h-0">
+        <StartupApplicationLayout
+          kind="mentorship"
+          contact={mentor}
+          startup={startup}
+          projects={projects}
+          documents={documents}
+          formData={formData}
+          validationErrors={validationErrors}
+          onChange={handleChange}
+          onSubmit={handleSubmit}
+          submitting={submitting}
+          error={error}
+          changeContactHref={`/startup/discover/mentor/${mentorId}`}
+          documentsUploadHref={documentsHref}
+        />
       </main>
     </div>
   );

@@ -37,8 +37,24 @@ router.get(
 	"/chapa/verify/:txRef",
 	authenticate,
 	requireApproval,
-	authorizeRoles("Investor"),
+	authorizeRoles("Investor", "Startup"),
 	paymentController.verifyChapaPayment,
+);
+
+router.get(
+	"/mentorship-items",
+	authenticate,
+	requireApproval,
+	authorizeRoles("Startup"),
+	paymentController.getMentorshipPaymentItems,
+);
+
+router.post(
+	"/chapa/mentorship-hosted",
+	authenticate,
+	requireApproval,
+	authorizeRoles("Startup"),
+	paymentController.createStartupMentorshipChapaPayment,
 );
 
 module.exports = router;

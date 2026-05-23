@@ -30,20 +30,42 @@ async function ensureUserApprovalSchema() {
 /** Keep directory listing flags aligned with account approval decisions. */
 async function syncStartupListingForUser(client, userId, { approved, rejected }) {
 	if (approved) {
+		const roleRes = await client.query(
+			"SELECT role FROM users WHERE user_id = $1",
+			[userId],
+		);
+		const role = roleRes.rows[0]?.role;
+
 		await client.query(
 			`UPDATE startups
 			 SET admin_status = 'Active', is_listed = true
 			 WHERE user_id = $1`,
 			[userId],
 		);
-		await client.query(
-			`UPDATE mentors SET is_approved = false WHERE user_id = $1`,
-			[userId],
-		);
-		await client.query(
-			`UPDATE investors SET is_approved = false WHERE user_id = $1`,
-			[userId],
-		);
+
+		if (role === "Mentor") {
+			await client.query(
+				`UPDATE mentors SET is_approved = true WHERE user_id = $1`,
+				[userId],
+			);
+		} else {
+			await client.query(
+				`UPDATE mentors SET is_approved = false WHERE user_id = $1`,
+				[userId],
+			);
+		}
+
+		if (role === "Investor") {
+			await client.query(
+				`UPDATE investors SET is_approved = true WHERE user_id = $1`,
+				[userId],
+			);
+		} else {
+			await client.query(
+				`UPDATE investors SET is_approved = false WHERE user_id = $1`,
+				[userId],
+			);
+		}
 		return;
 	}
 	if (rejected) {

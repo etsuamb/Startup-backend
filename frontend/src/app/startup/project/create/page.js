@@ -4,7 +4,9 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Sidebar from "@/components/startup/Sidebar";
-import { createProject, getProjectDetails, updateProject } from "@/lib/startupApi";
+import { createProject, getProjectDetails, getStartupProfile, updateProject } from "@/lib/startupApi";
+import { PendingApprovalBlock } from "@/components/startup/PendingApprovalNotice";
+import { useStartupApproval } from "@/hooks/useStartupApproval";
 
 export default function StartupProjectCreate() {
   const router = useRouter();
@@ -26,6 +28,14 @@ export default function StartupProjectCreate() {
   const [success, setSuccess] = useState(null);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [showErrorPopup, setShowErrorPopup] = useState(false);
+  const [profile, setProfile] = useState(null);
+  const { pending, loading: approvalLoading } = useStartupApproval();
+
+  useEffect(() => {
+    getStartupProfile()
+      .then((data) => setProfile(data?.startup || data || null))
+      .catch(() => setProfile(null));
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -120,6 +130,26 @@ export default function StartupProjectCreate() {
     router.push("/startup/project");
   }
 
+  const founderName =
+    profile?.founder_full_name ||
+    [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") ||
+    "Founder";
+  const founderInitials = founderName
+    .split(" ")
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  if (!approvalLoading && pending) {
+    return (
+      <div className="min-h-screen bg-[#f6f8f9] font-sans text-gray-900 flex">
+        <Sidebar />
+        <PendingApprovalBlock title="Project creation unavailable" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f6f8f9] font-sans text-gray-900 flex">
       <Sidebar />
@@ -142,11 +172,11 @@ export default function StartupProjectCreate() {
 
             <div className="flex items-center gap-3 border-l border-gray-200 pl-6">
               <div className="hidden sm:flex flex-col items-end">
-                <span className="text-xs font-bold text-gray-900">Abebe Bikila</span>
+                <span className="text-xs font-bold text-gray-900">{founderName}</span>
                 <span className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Founder</span>
               </div>
               <div className="w-9 h-9 rounded-full bg-[#1e293b] text-white overflow-hidden shrink-0 flex items-center justify-center font-bold text-xs shadow-sm border border-gray-200">
-                AB
+                {founderInitials}
               </div>
             </div>
           </div>
@@ -164,12 +194,24 @@ export default function StartupProjectCreate() {
               <span className="text-xs font-bold text-[#0f3d32]">Step 1 Project Info</span>
             </div>
 
-            <div className="flex items-center gap-2 pb-4 border-b-2 border-transparent">
-              <div className="w-6 h-6 rounded-full bg-[#e2e8f0] text-gray-400 flex items-center justify-center font-bold text-[10px]">
-                2
+            {isEditMode && editProjectId ? (
+              <Link
+                href={`/startup/project/documents?project=${editProjectId}`}
+                className="flex items-center gap-2 pb-4 border-b-2 border-transparent hover:border-[#0f3d32]/30 transition"
+              >
+                <div className="w-6 h-6 rounded-full bg-[#e2e8f0] text-gray-400 flex items-center justify-center font-bold text-[10px]">
+                  2
+                </div>
+                <span className="text-xs font-bold text-gray-400">Step 2 Documents</span>
+              </Link>
+            ) : (
+              <div className="flex items-center gap-2 pb-4 border-b-2 border-transparent">
+                <div className="w-6 h-6 rounded-full bg-[#e2e8f0] text-gray-400 flex items-center justify-center font-bold text-[10px]">
+                  2
+                </div>
+                <span className="text-xs font-bold text-gray-400">Step 2 Documents</span>
               </div>
-              <span className="text-xs font-bold text-gray-400">Step 2 Documents</span>
-            </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">

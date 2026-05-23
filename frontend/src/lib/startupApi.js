@@ -60,12 +60,21 @@ export async function getMyProjects() {
   return apiFetch("/startups/projects");
 }
 
-export async function getDocuments() {
-  return apiFetch("/startups/documents");
+export async function getDocuments(params = {}) {
+  const query = buildQuery(params);
+  return apiFetch(`/startups/documents${query ? `?${query}` : ""}`);
 }
 
 export async function uploadDocument(formData) {
   return apiPostForm("/startups/documents", formData);
+}
+
+export async function deleteDocument(documentId) {
+  return apiFetch(`/startups/documents/${documentId}`, { method: "DELETE" });
+}
+
+export async function publishProject(projectId) {
+  return apiPostJson(`/startups/projects/${projectId}/publish`, {});
 }
 
 export async function searchInvestors(params = {}) {
@@ -125,6 +134,10 @@ export async function sendInvestorChatFile(conversationId, formData) {
   return apiPostForm(`/chat/conversations/${conversationId}/files`, formData);
 }
 
+export async function downloadInvestorChatFile(conversationId, messageId) {
+  return apiFetchBlob(`/chat/conversations/${conversationId}/files/${messageId}`);
+}
+
 export async function getInvestorVideoStatus(conversationId) {
   return apiFetch(`/chat/conversations/${conversationId}/video/status`);
 }
@@ -156,6 +169,10 @@ export async function sendMentorChatMessage(conversationId, body) {
 
 export async function sendMentorChatFile(conversationId, formData) {
   return apiPostForm(`/startups/mentor-chat/conversations/${conversationId}/files`, formData);
+}
+
+export async function downloadMentorChatFile(conversationId, messageId) {
+  return apiFetchBlob(`/startups/mentor-chat/conversations/${conversationId}/files/${messageId}`);
 }
 
 export async function getMentorVideoStatus(conversationId) {
@@ -237,7 +254,25 @@ export async function getOfferDetails(offerType, offerId) {
 }
 
 export async function updateOfferStatus(offerType, offerId, status) {
-  return apiPatchJson(`/startups/offers/${offerType}/${offerId}`, { status });
+  const normalized =
+    status === "accept" || status === "accepted"
+      ? "accepted"
+      : status === "reject" || status === "rejected"
+        ? "rejected"
+        : status;
+  return apiPatchJson(`/startups/offers/${offerType}/${offerId}`, { status: normalized });
+}
+
+export async function getMentorshipPaymentItems() {
+  return apiFetch("/payments/mentorship-items");
+}
+
+export async function createMentorshipChapaPayment(payload) {
+  return apiPostJson("/payments/chapa/mentorship-hosted", payload);
+}
+
+export async function verifyChapaPayment(txRef) {
+  return apiFetch(`/payments/chapa/verify/${encodeURIComponent(txRef)}`);
 }
 
 export async function sendAiMentorMessage(payload) {

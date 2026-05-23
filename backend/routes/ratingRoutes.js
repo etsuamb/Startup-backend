@@ -1,5 +1,9 @@
 const router = require("express").Router();
-const { authenticate, authorizeRoles } = require("../middleware/authMiddleware");
+const {
+  authenticate,
+  authorizeRoles,
+  requireApproval,
+} = require("../middleware/authMiddleware");
 const ratingController = require("../controllers/ratingController");
 
 // Create or update a rating (Startup rates Mentor)
@@ -7,6 +11,7 @@ router.post(
   "/",
   authenticate,
   authorizeRoles("Startup"),
+  requireApproval,
   ratingController.createOrUpdateRating
 );
 
@@ -21,6 +26,7 @@ router.get(
   "/check-eligibility/:mentorId",
   authenticate,
   authorizeRoles("Startup"),
+  requireApproval,
   ratingController.checkRatingEligibility
 );
 
@@ -29,6 +35,7 @@ router.get(
   "/my-ratings",
   authenticate,
   authorizeRoles("Startup"),
+  requireApproval,
   ratingController.getStartupGivenRatings
 );
 
@@ -45,6 +52,7 @@ router.delete(
   "/:reviewId",
   authenticate,
   authorizeRoles("Startup"),
+  requireApproval,
   ratingController.deleteRating
 );
 

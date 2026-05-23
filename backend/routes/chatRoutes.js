@@ -5,7 +5,11 @@ const upload = multer({
 	limits: { fileSize: 25 * 1024 * 1024 },
 });
 
-const { authenticate, authorizeRoles } = require("../middleware/authMiddleware");
+const {
+	authenticate,
+	authorizeRoles,
+	requireApprovalIfStartup,
+} = require("../middleware/authMiddleware");
 const chatController = require("../controllers/chatController");
 
 /**
@@ -47,7 +51,11 @@ function buildChatRoutes(accessMiddleware) {
 	return router;
 }
 
-const defaultAccess = [authenticate, authorizeRoles("Startup", "Investor")];
+const defaultAccess = [
+	authenticate,
+	requireApprovalIfStartup,
+	authorizeRoles("Startup", "Investor"),
+];
 const router = buildChatRoutes(defaultAccess);
 router.buildChatRoutes = buildChatRoutes;
 

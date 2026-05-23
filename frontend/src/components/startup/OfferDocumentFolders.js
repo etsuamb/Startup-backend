@@ -1,4 +1,5 @@
 import { formatBytes, formatFolderLabel } from "@/lib/offerUtils";
+import ViewableFileTrigger from "@/components/startup/ViewableFileTrigger";
 
 export default function OfferDocumentFolders({ folders = [], compact = false }) {
   if (!folders.length) {
@@ -26,17 +27,26 @@ export default function OfferDocumentFolders({ folders = [], compact = false }) 
             {folder.documents.map((doc) => (
               <li
                 key={`${folder.folder}-${doc.id}-${doc.file_name}`}
-                className="flex flex-col gap-1 rounded-xl border border-gray-100 bg-[#f8fafc] px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
+                className="rounded-xl border border-gray-100 bg-[#f8fafc] px-3 py-2.5 hover:border-[#0f3d32]/25 hover:bg-[#f0faf7] transition"
               >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-gray-900">{doc.file_name}</p>
-                  {doc.description && (
-                    <p className="mt-0.5 truncate text-xs text-gray-500">{doc.description}</p>
-                  )}
-                </div>
-                <p className="text-xs font-medium text-gray-500">
-                  {[doc.file_type, formatBytes(doc.file_size_bytes)].filter(Boolean).join(" • ")}
-                </p>
+                <ViewableFileTrigger
+                  filePath={doc.file_path}
+                  fileName={doc.file_name}
+                  fileType={doc.file_type}
+                  className="!cursor-pointer"
+                >
+                  <span className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between w-full">
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-gray-900">{doc.file_name}</span>
+                      {doc.description ? (
+                        <span className="mt-0.5 block truncate text-xs text-gray-500">{doc.description}</span>
+                      ) : null}
+                    </span>
+                    <span className="text-xs font-medium text-[#0f3d32] sm:text-gray-500">
+                      {[doc.file_type, formatBytes(doc.file_size_bytes), "View"].filter(Boolean).join(" • ")}
+                    </span>
+                  </span>
+                </ViewableFileTrigger>
               </li>
             ))}
           </ul>

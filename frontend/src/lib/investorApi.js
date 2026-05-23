@@ -69,14 +69,6 @@ export function verifyChapaPayment(txRef) {
 	return apiFetch(`/payments/chapa/verify/${encodeURIComponent(txRef)}`);
 }
 
-export function acceptInvestorFundingOffer(offerId) {
-	return apiPatchJson(`/investors/funding-offers/${offerId}/accept`, {});
-}
-
-export function withdrawInvestorFundingOffer(offerId) {
-	return apiPatchJson(`/investors/funding-offers/${offerId}/withdraw`, {});
-}
-
 export function getInvestorRatings(params = {}) {
 	const qs = toQuery(params);
 	return apiFetch(`/investors/ratings${qs ? `?${qs}` : ""}`);

@@ -1,219 +1,516 @@
 ﻿"use client";
-import { useEffect, useState } from "react";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Sidebar from "@/components/startup/Sidebar";
-import { searchInvestors, searchMentors, getStartupOffers } from "@/lib/startupApi";
+import {
+  getStartupOffers,
+  getStartupProfile,
+  searchInvestors,
+  searchMentors,
+} from "@/lib/startupApi";
 import { buildSentOfferLookup } from "@/lib/offerUtils";
 import DiscoverOfferButton from "@/components/startup/DiscoverOfferButton";
+import { PendingApprovalBanner } from "@/components/startup/PendingApprovalNotice";
+import { useStartupApproval } from "@/hooks/useStartupApproval";
+
+function initials(name) {
+  if (!name) return "??";
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
+
+function fmtBudget(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return "—";
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n);
+}
+
+function investorName(investor) {
+  return (
+    investor.organization_name ||
+    `${(investor.first_name || "").trim()} ${(investor.last_name || "").trim()}`.trim() ||
+    "Investor"
+  );
+}
+
+function mentorName(mentor) {
+  return `${mentor.first_name || ""} ${mentor.last_name || ""}`.trim() || "Mentor";
+}
+
+function investorTags(investor) {
+  const tags = [];
+  if (investor.investor_type) tags.push(investor.investor_type);
+  if (investor.investment_stage) tags.push(investor.investment_stage);
+  if (tags.length === 0 && investor.preferred_industry) tags.push("STRATEGIC");
+  return tags.slice(0, 3).map((t) => String(t).toUpperCase());
+}
+
+function isInvestorActive(investor) {
+  return investor.user_approved !== false && investor.investor_listed !== false;
+}
+
+function isMentorActive(mentor) {
+  return mentor.user_approved !== false && mentor.mentor_listed !== false;
+}
+
+function InvestorCard({ investor, offerLookup, approved }) {
+  const name = investorName(investor);
+  const location = investor.country || investor.location_preference || investor.location || "Ethiopia";
+  const active = isInvestorActive(investor);
+  const tags = investorTags(investor);
+  const amount = investor.investment_budget || investor.investment_range;
+  const sector = investor.preferred_industry || investor.industry || investor.sector || "—";
+  const description =
+    investor.bio ||
+    investor.experience ||
+    `Focuses on ${sector !== "—" ? sector : "early-stage"} opportunities across the region.`;
+
+  return (
+    <article className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm flex flex-col h-full hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="w-12 h-12 rounded-full bg-[#0f3d32] text-white flex items-center justify-center font-bold text-sm shrink-0">
+            {initials(name)}
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-lg font-bold text-gray-900 truncate">{name}</h3>
+            <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5">
+              <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              {location}
+            </p>
+          </div>
+        </div>
+        <span
+          className={`text-[10px] font-bold uppercase tracking-widest shrink-0 ${
+            active ? "text-[#16a34a]" : "text-gray-400"
+          }`}
+        >
+          {active ? "Active" : "Pending"}
+        </span>
+      </div>
+
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {tags.map((tag) => (
+            <span
+              key={tag}
+              className="text-[10px] font-bold uppercase tracking-wide text-[#1d4ed8] bg-[#eff6ff] px-2.5 py-1 rounded-md"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Investment amount</p>
+          <p className="mt-1 text-xl font-bold text-[#0f3d32]">{fmtBudget(amount)}</p>
+        </div>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Sector</p>
+          <p className="mt-1 text-sm font-bold text-gray-900 line-clamp-2">{sector}</p>
+        </div>
+      </div>
+
+      <p className="text-sm text-gray-600 line-clamp-2 mb-5 flex-grow">{description}</p>
+
+      <DiscoverOfferButton
+        type="investment"
+        contactId={investor.investor_id}
+        offerLookup={offerLookup}
+        variant="discover"
+        disabled={!approved}
+      />
+    </article>
+  );
+}
+
+function MentorCard({ mentor, offerLookup, approved }) {
+  const name = mentorName(mentor);
+  const location = mentor.location || mentor.country || mentor.city_location || "Ethiopia";
+  const active = isMentorActive(mentor);
+  const tags = [mentor.expertise, mentor.primary_industry, mentor.mentor_type]
+    .filter(Boolean)
+    .slice(0, 3)
+    .map((t) => String(t).toUpperCase());
+  const rate = mentor.hourly_rate || mentor.session_pricing;
+  const sector = mentor.primary_industry || mentor.expertise || "—";
+  const description =
+    mentor.bio ||
+    mentor.headline ||
+    `Experienced mentor in ${sector !== "—" ? sector : "startup growth"}.`;
+
+  return (
+    <article className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm flex flex-col h-full hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="w-12 h-12 rounded-full bg-[#1d4ed8] text-white flex items-center justify-center font-bold text-sm shrink-0">
+            {initials(name)}
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-lg font-bold text-gray-900 truncate">{name}</h3>
+            <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5">
+              <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              {location}
+            </p>
+          </div>
+        </div>
+        <span
+          className={`text-[10px] font-bold uppercase tracking-widest shrink-0 ${
+            active ? "text-[#16a34a]" : "text-gray-400"
+          }`}
+        >
+          {active ? "Active" : "Pending"}
+        </span>
+      </div>
+
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {tags.map((tag) => (
+            <span
+              key={tag}
+              className="text-[10px] font-bold uppercase tracking-wide text-[#1d4ed8] bg-[#eff6ff] px-2.5 py-1 rounded-md"
+            >
+              {tag.length > 24 ? `${tag.slice(0, 22)}…` : tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Session / rate</p>
+          <p className="mt-1 text-xl font-bold text-[#0f3d32]">{rate ? fmtBudget(rate) : "—"}</p>
+        </div>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Expertise</p>
+          <p className="mt-1 text-sm font-bold text-gray-900 line-clamp-2">{sector}</p>
+        </div>
+      </div>
+
+      <p className="text-sm text-gray-600 line-clamp-2 mb-5 flex-grow">{description}</p>
+
+      <DiscoverOfferButton
+        type="mentorship"
+        contactId={mentor.mentor_id}
+        offerLookup={offerLookup}
+        variant="discover"
+        disabled={!approved}
+      />
+    </article>
+  );
+}
 
 export default function StartupDiscoverPage() {
   const [investors, setInvestors] = useState([]);
   const [mentors, setMentors] = useState([]);
-  const [investorQuery, setInvestorQuery] = useState("");
-  const [mentorQuery, setMentorQuery] = useState("");
+  const [startup, setStartup] = useState(null);
+  const [globalSearch, setGlobalSearch] = useState("");
+  const [activeTab, setActiveTab] = useState("investors");
+  const [industry, setIndustry] = useState("");
+  const [location, setLocation] = useState("");
+  const [expertise, setExpertise] = useState("");
+  const [role, setRole] = useState("");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [offerLookup, setOfferLookup] = useState({ investors: new Map(), mentors: new Map() });
+  const { approved, pending, loading: approvalLoading } = useStartupApproval();
 
-  useEffect(() => {
-    async function load() {
-      try {
-        setLoading(true);
-        const [investorData, mentorData, offersData] = await Promise.all([
-          searchInvestors({ query: investorQuery }),
-          searchMentors({ query: mentorQuery }),
-          getStartupOffers().catch(() => ({ offers: [] })),
-        ]);
-        setInvestors(investorData.investors || []);
-        setMentors(mentorData.mentors || []);
-        setOfferLookup(buildSentOfferLookup(offersData.offers || []));
-      } catch (err) {
-        setError(err.message || "Unable to load discovery data.");
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [investorQuery, mentorQuery]);
-
-  async function handleSearch(event) {
-    event.preventDefault();
-    setError(null);
-    setLoading(true);
+  const loadData = useCallback(async (isRefresh = false) => {
     try {
-      const [investorData, mentorData, offersData] = await Promise.all([
-        searchInvestors({ query: investorQuery }),
-        searchMentors({ query: mentorQuery }),
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+      setError(null);
+
+      const search = globalSearch.trim() || undefined;
+      const investorParams = {
+        search,
+        industry: industry || undefined,
+        country: location || undefined,
+      };
+      const mentorParams = {
+        search,
+        country: location || undefined,
+        expertise: expertise || industry || undefined,
+      };
+
+      if (role) {
+        investorParams.search = investorParams.search
+          ? `${investorParams.search} ${role}`
+          : role;
+        mentorParams.search = mentorParams.search ? `${mentorParams.search} ${role}` : role;
+      }
+
+      const [investorData, mentorData, offersData, profileData] = await Promise.all([
+        searchInvestors(investorParams),
+        searchMentors(mentorParams),
         getStartupOffers().catch(() => ({ offers: [] })),
+        getStartupProfile().catch(() => ({ startup: null })),
       ]);
+
       setInvestors(investorData.investors || []);
       setMentors(mentorData.mentors || []);
       setOfferLookup(buildSentOfferLookup(offersData.offers || []));
+      setStartup(profileData.startup || null);
     } catch (err) {
-      setError(err.message || "Unable to refresh discovery data.");
+      setError(err.message || "Unable to load discovery data.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }
+  }, [globalSearch, industry, location, expertise, role]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const industryOptions = useMemo(() => {
+    const set = new Set();
+    investors.forEach((i) => i.preferred_industry && set.add(i.preferred_industry));
+    mentors.forEach((m) => {
+      if (m.primary_industry) set.add(m.primary_industry);
+      if (m.expertise) set.add(m.expertise);
+    });
+    return Array.from(set).sort();
+  }, [investors, mentors]);
+
+  const locationOptions = useMemo(() => {
+    const set = new Set();
+    investors.forEach((i) => i.country && set.add(i.country));
+    mentors.forEach((m) => {
+      if (m.country) set.add(m.country);
+      if (m.location) set.add(m.location);
+    });
+    return Array.from(set).sort();
+  }, [investors, mentors]);
+
+  const founderName =
+    startup?.founder_full_name ||
+    `${startup?.first_name || ""} ${startup?.last_name || ""}`.trim() ||
+    "Founder";
+
+  const founderTitle = [startup?.founder_role, startup?.startup_name].filter(Boolean).join(", ");
 
   return (
-    <div className="min-h-screen bg-[#f4f7f9] font-sans text-gray-900 flex">
+    <div className="min-h-screen bg-[#f6f8f9] font-sans text-gray-900 flex">
       <Sidebar />
       <main className="flex-grow flex flex-col overflow-y-auto">
-        <header className="px-4 sm:px-8 py-8 bg-gradient-to-r from-[#0f3d32] via-[#115b4c] to-[#184f45] text-white sticky top-0 z-10 shadow-sm">
-          <div className="max-w-[1200px] mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm uppercase tracking-[0.3em] text-[#b8f0d9]">Startup discovery</p>
-              <h1 className="mt-3 text-4xl font-black tracking-tight">Find the right investors & mentors</h1>
-              <p className="mt-3 max-w-2xl text-sm text-[#d2f8e3]">Search tailored investors and mentors that match your startup stage, industry, and growth goals.</p>
+        {/* Top bar */}
+        <header className="flex justify-between items-center gap-4 px-6 sm:px-8 py-5 bg-white border-b border-gray-100 sticky top-0 z-20">
+          <div className="relative flex-1 max-w-xl hidden sm:block">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
             </div>
-            <Link href="/startup/recommendations" className="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-bold text-[#0f3d32] shadow-lg shadow-[#0f3d32]/10 transition hover:bg-[#f0faf5]">
-              View recommendations
-            </Link>
+            <input
+              type="text"
+              value={globalSearch}
+              onChange={(e) => setGlobalSearch(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && loadData(true)}
+              placeholder="Search for opportunities..."
+              className="w-full pl-10 pr-4 py-2.5 bg-[#f6f8f9] border border-gray-100 rounded-full text-sm outline-none focus:ring-2 focus:ring-[#0f3d32]/20"
+            />
+          </div>
+          <div className="flex items-center gap-4 ml-auto">
+            <button
+              type="button"
+              onClick={() => loadData(true)}
+              disabled={refreshing}
+              className="text-sm font-semibold text-[#0f3d32] hover:underline disabled:opacity-50"
+            >
+              {refreshing ? "Refreshing…" : "Refresh"}
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:block text-right">
+                <p className="text-sm font-bold text-gray-900">{founderName}</p>
+                <p className="text-xs text-gray-500">{founderTitle || "Startup founder"}</p>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-[#115b4c] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                {initials(startup?.startup_name || founderName)}
+              </div>
+            </div>
           </div>
         </header>
 
-        <div className="px-4 sm:px-10 py-10 w-full max-w-[1200px] mx-auto pb-24">
-          <form onSubmit={handleSearch} className="grid gap-4 xl:grid-cols-[1.2fr_1.2fr_auto] items-end mb-10">
+        <div className="px-4 sm:px-8 py-10 w-full max-w-[1100px] mx-auto pb-24">
+          {/* Page title */}
+          <div className="text-center mb-10">
+            <h1 className="text-3xl sm:text-4xl font-bold text-[#0f3d32] tracking-tight">
+              Discover Investors and Mentors
+            </h1>
+            <p className="mt-3 text-sm text-gray-500 max-w-2xl mx-auto">
+              Connect with Ethiopia&apos;s leading investment firms and industry experts to scale your startup.
+            </p>
+          </div>
+
+          {/* Mobile search */}
+          <div className="sm:hidden mb-6">
+            <input
+              type="text"
+              value={globalSearch}
+              onChange={(e) => setGlobalSearch(e.target.value)}
+              placeholder="Search for opportunities..."
+              className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#0f3d32]/20"
+            />
+          </div>
+
+          {/* Filters */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              loadData(true);
+            }}
+            className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8"
+          >
             <label className="block">
-              <span className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">Investor search</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1 block">
+                Industry
+              </span>
+              <select
+                value={industry}
+                onChange={(e) => setIndustry(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-800 outline-none focus:ring-2 focus:ring-[#0f3d32]/20"
+              >
+                <option value="">All Industries</option>
+                {industryOptions.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1 block">
+                Location
+              </span>
+              <select
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-800 outline-none focus:ring-2 focus:ring-[#0f3d32]/20"
+              >
+                <option value="">All Locations</option>
+                {locationOptions.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1 block">
+                Subject / Expertise
+              </span>
               <input
-                value={investorQuery}
-                onChange={(e) => setInvestorQuery(e.target.value)}
-                placeholder="Search by focus, sector, or investor name"
-                className="mt-3 w-full rounded-3xl border border-gray-200 bg-white px-5 py-4 text-sm text-gray-900 shadow-sm outline-none transition focus:border-[#0f3d32] focus:ring-2 focus:ring-[#0f3d32]/20"
+                type="text"
+                value={expertise}
+                onChange={(e) => setExpertise(e.target.value)}
+                placeholder="Any type"
+                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-800 outline-none focus:ring-2 focus:ring-[#0f3d32]/20"
               />
             </label>
-
             <label className="block">
-              <span className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">Mentor search</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1 block">
+                Role
+              </span>
               <input
-                value={mentorQuery}
-                onChange={(e) => setMentorQuery(e.target.value)}
-                placeholder="Search by expertise, industry, or experience"
-                className="mt-3 w-full rounded-3xl border border-gray-200 bg-white px-5 py-4 text-sm text-gray-900 shadow-sm outline-none transition focus:border-[#0f3d32] focus:ring-2 focus:ring-[#0f3d32]/20"
+                type="text"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                placeholder="All"
+                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-800 outline-none focus:ring-2 focus:ring-[#0f3d32]/20"
               />
             </label>
-
-            <button
-              type="submit"
-              className="inline-flex h-14 items-center justify-center rounded-3xl bg-[#0f3d32] px-8 text-sm font-bold text-white shadow-lg shadow-[#0f3d32]/20 transition hover:bg-[#0a2921]"
-            >
-              Search
-            </button>
           </form>
 
-          {error && (
-            <div className="mb-6 rounded-[28px] border border-red-200 bg-red-50 p-5 text-sm text-red-700 shadow-sm">
-              {error}
+          <div className="flex items-center justify-between gap-4 mb-6 border-b border-gray-200">
+            <div className="flex gap-8">
+              <button
+                type="button"
+                onClick={() => setActiveTab("investors")}
+                className={`pb-3 text-sm font-bold transition border-b-2 -mb-px ${
+                  activeTab === "investors"
+                    ? "text-[#0f3d32] border-[#0f3d32]"
+                    : "text-gray-500 border-transparent hover:text-gray-700"
+                }`}
+              >
+                Investors
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("mentors")}
+                className={`pb-3 text-sm font-bold transition border-b-2 -mb-px ${
+                  activeTab === "mentors"
+                    ? "text-[#0f3d32] border-[#0f3d32]"
+                    : "text-gray-500 border-transparent hover:text-gray-700"
+                }`}
+              >
+                Mentors
+              </button>
             </div>
+            <Link
+              href="/startup/recommendations"
+              className="hidden sm:inline text-sm font-semibold text-[#0f3d32] hover:underline shrink-0"
+            >
+              AI Recommendations
+            </Link>
+          </div>
+
+          {!approvalLoading && pending && <PendingApprovalBanner className="mb-6" />}
+
+          {error && (
+            <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>
           )}
 
           {loading ? (
-            <div className="rounded-[30px] border border-gray-100 bg-white p-12 shadow-sm text-center text-gray-500">Loading discovery results…</div>
+            <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center text-gray-500 shadow-sm">
+              Loading discovery results…
+            </div>
+          ) : activeTab === "investors" ? (
+            investors.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-12 text-center text-sm text-gray-500">
+                No investors found. Try broader search terms like sector, location, or investment stage.
+              </div>
+            ) : (
+              <div className="grid gap-6 sm:grid-cols-2">
+                {investors.map((investor) => (
+                  <InvestorCard
+                    key={investor.investor_id}
+                    investor={investor}
+                    offerLookup={offerLookup}
+                    approved={approved}
+                  />
+                ))}
+              </div>
+            )
+          ) : mentors.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-12 text-center text-sm text-gray-500">
+              No mentors found. Try searching for a different skill, experience level, or industry.
+            </div>
           ) : (
-            <div className="grid gap-8">
-              <section className="rounded-[32px] bg-white border border-gray-100 p-8 shadow-sm">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
-                  <div>
-                    <p className="text-sm font-semibold uppercase tracking-[0.24em] text-gray-400">Investors</p>
-                    <h2 className="mt-2 text-2xl font-bold text-gray-900">Investor matches</h2>
-                    <p className="mt-2 text-sm text-gray-500">Explore investors who back startups like yours.</p>
-                  </div>
-                  <Link href="/startup/chat" className="inline-flex items-center gap-2 rounded-full border border-[#0f3d32] bg-[#f0faf5] px-5 py-3 text-sm font-semibold text-[#0f3d32] transition hover:bg-[#e1f4e7]">
-                    Message investors
-                  </Link>
-                </div>
-
-                {investors.length === 0 ? (
-                  <div className="rounded-[28px] border border-dashed border-gray-200 bg-[#fcfdfd] p-8 text-center text-sm text-gray-500">
-                    No investors found. Try broader search terms like sector, location, or investment stage.
-                  </div>
-                ) : (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {investors.slice(0, 6).map((investor) => (
-                      <div key={investor.investor_id} className="rounded-[28px] border border-gray-200 p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-                        <div className="flex items-center justify-between gap-4">
-                          <div>
-                            <h3 className="text-lg font-semibold text-gray-900">
-                              {investor.organization_name || `${(investor.first_name || "").trim()} ${(investor.last_name || "").trim()}`.trim() || "Investor"}
-                            </h3>
-                            <p className="mt-2 text-sm text-gray-500">{investor.industry || investor.sector || "Early-stage investment"}</p>
-                          </div>
-                          <div className="rounded-3xl bg-[#effaf4] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-[#0f3d32]">
-                            Investor
-                          </div>
-                        </div>
-                        <div className="mt-5 grid gap-2 text-sm text-gray-600">
-                          {investor.location && <p><span className="font-semibold text-gray-800">Location:</span> {investor.location}</p>}
-                          {investor.investment_range && <p><span className="font-semibold text-gray-800">Range:</span> {investor.investment_range}</p>}
-                          {investor.experience && <p><span className="font-semibold text-gray-800">Experience:</span> {investor.experience}</p>}
-                        </div>
-                        <div className="mt-6 flex flex-wrap gap-3">
-                          <Link href={`/startup/discover/investor/${investor.investor_id}`} className="rounded-full border border-[#0f3d32] px-4 py-2 text-xs font-semibold text-[#0f3d32] transition hover:bg-[#0f3d32] hover:text-white">
-                            View Details
-                          </Link>
-                          <DiscoverOfferButton
-                            type="investment"
-                            contactId={investor.investor_id}
-                            offerLookup={offerLookup}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </section>
-
-              <section className="rounded-[32px] bg-white border border-gray-100 p-8 shadow-sm">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
-                  <div>
-                    <p className="text-sm font-semibold uppercase tracking-[0.24em] text-gray-400">Mentors</p>
-                    <h2 className="mt-2 text-2xl font-bold text-gray-900">Mentor connections</h2>
-                    <p className="mt-2 text-sm text-gray-500">Find mentors aligned with your industry, growth stage, and goals.</p>
-                  </div>
-                  <Link href="/startup/discover" className="inline-flex items-center gap-2 rounded-full border border-[#0f3d32] bg-[#f0faf5] px-5 py-3 text-sm font-semibold text-[#0f3d32] transition hover:bg-[#e1f4e7]">
-                    Find mentors
-                  </Link>
-                </div>
-
-                {mentors.length === 0 ? (
-                  <div className="rounded-[28px] border border-dashed border-gray-200 bg-[#fcfdfd] p-8 text-center text-sm text-gray-500">
-                    No mentors found. Try searching for a different skill, experience level, or industry.
-                  </div>
-                ) : (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {mentors.slice(0, 6).map((mentor) => (
-                      <div key={mentor.mentor_id} className="rounded-[28px] border border-gray-200 p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-                        <div className="flex items-center justify-between gap-4">
-                          <div>
-                            <h3 className="text-lg font-semibold text-gray-900">{mentor.first_name || "Mentor"} {mentor.last_name || ""}</h3>
-                            <p className="mt-2 text-sm text-gray-500">{mentor.expertise || mentor.industry || "Experienced founder or advisor"}</p>
-                          </div>
-                          <div className="rounded-3xl bg-[#eef7ff] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-[#1d4f8c]">
-                            Mentor
-                          </div>
-                        </div>
-                        <div className="mt-5 grid gap-2 text-sm text-gray-600">
-                          {mentor.location && <p><span className="font-semibold text-gray-800">Location:</span> {mentor.location}</p>}
-                          {mentor.company && <p><span className="font-semibold text-gray-800">Company:</span> {mentor.company}</p>}
-                          {mentor.mentor_type && <p><span className="font-semibold text-gray-800">Type:</span> {mentor.mentor_type}</p>}
-                        </div>
-                        <div className="mt-6 flex flex-wrap gap-3">
-                          <Link href={`/startup/discover/mentor/${mentor.mentor_id}`} className="rounded-full border border-[#0f3d32] px-4 py-2 text-xs font-semibold text-[#0f3d32] transition hover:bg-[#0f3d32] hover:text-white">
-                            View Details
-                          </Link>
-                          <DiscoverOfferButton
-                            type="mentorship"
-                            contactId={mentor.mentor_id}
-                            offerLookup={offerLookup}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </section>
+            <div className="grid gap-6 sm:grid-cols-2">
+              {mentors.map((mentor) => (
+                <MentorCard
+                  key={mentor.mentor_id}
+                  mentor={mentor}
+                  offerLookup={offerLookup}
+                  approved={approved}
+                />
+              ))}
             </div>
           )}
         </div>

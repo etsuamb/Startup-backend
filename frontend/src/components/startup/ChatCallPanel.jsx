@@ -6,7 +6,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * Voice/video session panel for startup chat (investor or mentor).
  * api: { getStatus, start, join, end, screenShare }
  */
-export default function ChatCallPanel({ conversationId, partnerName, currentUserId, api, onError }) {
+export default function ChatCallPanel({
+  conversationId,
+  partnerName,
+  currentUserId,
+  api,
+  onError,
+  autoStartMode = null,
+}) {
   const [callState, setCallState] = useState({ status: "none", video_call: null, session_participants: [] });
   const [mediaMode, setMediaMode] = useState(null);
   const [localStream, setLocalStream] = useState(null);
@@ -14,6 +21,7 @@ export default function ChatCallPanel({ conversationId, partnerName, currentUser
   const [callBusy, setCallBusy] = useState(false);
   const localVideoRef = useRef(null);
   const screenVideoRef = useRef(null);
+  const autoStartedRef = useRef(false);
 
   const activeCall = ["ringing", "active"].includes(callState.status);
   const isInCall = Boolean(localStream);
@@ -71,12 +79,17 @@ export default function ChatCallPanel({ conversationId, partnerName, currentUser
     if (!conversationId) {
       setCallState({ status: "none", video_call: null, session_participants: [] });
       stopAllMedia();
+      autoStartedRef.current = false;
       return;
     }
     fetchVideoStatus();
     const id = window.setInterval(() => fetchVideoStatus(true), 5000);
     return () => window.clearInterval(id);
   }, [conversationId, fetchVideoStatus, stopAllMedia]);
+
+  useEffect(() => {
+    autoStartedRef.current = false;
+  }, [conversationId]);
 
   useEffect(() => {
     return () => stopAllMedia();
@@ -164,6 +177,13 @@ export default function ChatCallPanel({ conversationId, partnerName, currentUser
       await fetchVideoStatus(true);
     }
   }
+
+  useEffect(() => {
+    if (!autoStartMode || !conversationId || autoStartedRef.current || callBusy || isInCall) return;
+    autoStartedRef.current = true;
+    placeCall(autoStartMode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once when modal opens with mode
+  }, [autoStartMode, conversationId]);
 
   async function toggleScreenShare() {
     if (!conversationId || !api.screenShare) return;

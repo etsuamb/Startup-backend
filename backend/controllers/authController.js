@@ -494,6 +494,15 @@ exports.register = async (req, res) => {
 
 				startupProfile = startupInsertResult.rows[0];
 
+				await client.query(
+					`UPDATE startups
+					 SET is_listed = true, admin_status = 'Active'
+					 WHERE startup_id = $1`,
+					[startupProfile.startup_id],
+				);
+				startupProfile.is_listed = true;
+				startupProfile.admin_status = "Active";
+
 				uploadedDocs.push(
 					await saveDoc("startup", startupProfile.startup_id, req.files.founder_id[0], "Founder or representative ID"),
 				);
@@ -647,6 +656,12 @@ exports.register = async (req, res) => {
 				);
 
 				mentorProfile = mentorInsertResult.rows[0];
+
+				await client.query(
+					"UPDATE mentors SET is_approved = true WHERE mentor_id = $1",
+					[mentorProfile.mentor_id],
+				);
+				mentorProfile.is_approved = true;
 
 				const mentorDocMeta = [];
 				if (req.files && req.files.mentor_id && req.files.mentor_id.length) {

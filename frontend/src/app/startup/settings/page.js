@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Sidebar from "@/components/startup/Sidebar";
 import { getStartupProfile, updateStartupProfile, getNotificationSettings, updateNotificationSettings } from "@/lib/startupApi";
+import { openUploadedFileForView } from "@/lib/viewUploadedFile";
+import ViewableFileTrigger from "@/components/startup/ViewableFileTrigger";
 
 function fieldValue(value) {
   if (value === null || value === undefined) return "";
@@ -507,21 +509,24 @@ export default function StartupSettingsPage() {
                         <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">Other Documents</h3>
                         <ul className="space-y-2 rounded-2xl border border-gray-100 bg-[#f8fafc] p-4 text-sm">
                           {otherDocuments.map((doc) => (
-                            <li key={doc.document_id} className="flex justify-between gap-2 text-gray-700 items-center">
-                              <span className="truncate font-medium">{doc.description || doc.file_name}</span>
-                              <div className="flex items-center gap-3 shrink-0">
-                                <span className="text-xs text-gray-400">
-                                  {doc.created_at ? new Date(doc.created_at).toLocaleDateString() : ""}
+                            <li key={doc.document_id} className="rounded-xl hover:bg-white/80 transition">
+                              <ViewableFileTrigger
+                                filePath={doc.file_path}
+                                fileName={doc.file_name}
+                                fileType={doc.file_type}
+                                description={
+                                  doc.created_at
+                                    ? `Uploaded ${new Date(doc.created_at).toLocaleDateString()}`
+                                    : doc.description
+                                }
+                              >
+                                <span className="flex justify-between gap-2 text-gray-700 items-center w-full px-1 py-1">
+                                  <span className="truncate font-medium text-gray-900">
+                                    {doc.description || doc.file_name}
+                                  </span>
+                                  <span className="text-xs font-bold text-[#0f3d32] shrink-0">View</span>
                                 </span>
-                                <a
-                                  href={`/${doc.file_path.replace(/\\/g, "/")}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-xs font-bold text-[#0f3d32] hover:underline"
-                                >
-                                  View
-                                </a>
-                              </div>
+                              </ViewableFileTrigger>
                             </li>
                           ))}
                         </ul>
@@ -531,7 +536,17 @@ export default function StartupSettingsPage() {
                       <label className="block text-sm font-bold text-gray-900 mb-2">Pitch deck (PDF)</label>
                       {currentPitchDeck && !showPitchDeckInput ? (
                         <div className="flex items-center justify-between p-4 rounded-2xl border border-green-200 bg-green-50/40">
-                          <div className="flex items-center gap-3 min-w-0">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openUploadedFileForView({
+                                filePath: currentPitchDeck.file_path,
+                                fileName: currentPitchDeck.file_name,
+                                fileType: currentPitchDeck.file_type,
+                              })
+                            }
+                            className="flex items-center gap-3 min-w-0 text-left hover:opacity-80 transition"
+                          >
                             <svg className="w-8 h-8 text-[#0f3d32] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                             </svg>
@@ -541,16 +556,8 @@ export default function StartupSettingsPage() {
                                 Uploaded on {new Date(currentPitchDeck.created_at).toLocaleDateString()}
                               </p>
                             </div>
-                          </div>
+                          </button>
                           <div className="flex items-center gap-3 shrink-0 ml-4">
-                            <a
-                              href={`/${currentPitchDeck.file_path.replace(/\\/g, "/")}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs font-bold text-[#0f3d32] hover:underline"
-                            >
-                              View
-                            </a>
                             <button
                               type="button"
                               onClick={() => setShowPitchDeckInput(true)}
@@ -590,7 +597,17 @@ export default function StartupSettingsPage() {
                       <label className="block text-sm font-bold text-gray-900 mb-2">Business plan (PDF)</label>
                       {currentBusinessPlan && !showBusinessPlanInput ? (
                         <div className="flex items-center justify-between p-4 rounded-2xl border border-green-200 bg-green-50/40">
-                          <div className="flex items-center gap-3 min-w-0">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openUploadedFileForView({
+                                filePath: currentBusinessPlan.file_path,
+                                fileName: currentBusinessPlan.file_name,
+                                fileType: currentBusinessPlan.file_type,
+                              })
+                            }
+                            className="flex items-center gap-3 min-w-0 text-left hover:opacity-80 transition"
+                          >
                             <svg className="w-8 h-8 text-[#0f3d32] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                             </svg>
@@ -600,16 +617,8 @@ export default function StartupSettingsPage() {
                                 Uploaded on {new Date(currentBusinessPlan.created_at).toLocaleDateString()}
                               </p>
                             </div>
-                          </div>
+                          </button>
                           <div className="flex items-center gap-3 shrink-0 ml-4">
-                            <a
-                              href={`/${currentBusinessPlan.file_path.replace(/\\/g, "/")}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs font-bold text-[#0f3d32] hover:underline"
-                            >
-                              View
-                            </a>
                             <button
                               type="button"
                               onClick={() => setShowBusinessPlanInput(true)}

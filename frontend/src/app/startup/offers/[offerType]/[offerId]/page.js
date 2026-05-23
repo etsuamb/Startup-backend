@@ -5,6 +5,8 @@ import Link from "next/link";
 import Sidebar from "@/components/startup/Sidebar";
 import { getOfferDetails, updateOfferStatus } from "@/lib/startupApi";
 import OfferDocumentFolders from "@/components/startup/OfferDocumentFolders";
+import { PendingApprovalBanner } from "@/components/startup/PendingApprovalNotice";
+import { useStartupApproval } from "@/hooks/useStartupApproval";
 
 export default function OfferDetailsPage() {
   const params = useParams();
@@ -14,8 +16,10 @@ export default function OfferDetailsPage() {
   const [offer, setOffer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [actionError, setActionError] = useState(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(null);
   const [updating, setUpdating] = useState(false);
+  const { approved, pending, loading: approvalLoading } = useStartupApproval();
 
   useEffect(() => {
     fetchOfferDetails();
@@ -38,12 +42,13 @@ export default function OfferDetailsPage() {
   async function handleAction(action) {
     try {
       setUpdating(true);
+      setActionError(null);
       await updateOfferStatus(offerType, offerId, action);
       setShowConfirmDialog(null);
       await fetchOfferDetails();
     } catch (err) {
       console.error("Failed to update offer:", err);
-      setError("Failed to update offer. Please try again.");
+      setActionError(err.message || err.data?.error || "Failed to update offer. Please try again.");
     } finally {
       setUpdating(false);
     }
@@ -131,7 +136,10 @@ export default function OfferDetailsPage() {
   }
 
   const isInvestment = offerType === "investment";
-  const canAction = isInvestment && offer.source_direction === "incoming" && offer.status === "pending";
+  const canAction =
+    approved && offer.source_direction === "incoming" && offer.status === "pending";
+  const isAcceptedMentorship =
+    !isInvestment && ["accepted", "approved"].includes(String(offer.status || "").toLowerCase());
 
   return (
     <div className="min-h-screen bg-[#f4f7f9] font-sans text-gray-900 flex">
@@ -380,6 +388,39 @@ export default function OfferDetailsPage() {
               <OfferDocumentFolders folders={offer.document_folders || []} />
             </div>
 
+            {isAcceptedMentorship && (
+              <div className="rounded-[24px] border border-[#cfe8dc] bg-[#f0faf5] p-6 mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-[#0f3d32]">Mentorship is active</h3>
+                  <p className="mt-1 text-sm text-gray-600">Pay your mentor and leave a rating when you are ready.</p>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <Link
+                    href="/startup/payment"
+                    className="inline-flex items-center justify-center rounded-2xl bg-[#0f3d32] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#0b2a1d]"
+                  >
+                    Pay mentor
+                  </Link>
+                  <Link
+                    href={`/startup/ratings?mentorId=${offer.mentor_id}`}
+                    className="inline-flex items-center justify-center rounded-2xl border border-[#0f3d32] bg-white px-6 py-3 text-sm font-semibold text-[#0f3d32] transition hover:bg-[#f0faf5]"
+                  >
+                    Rate mentor
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {!approvalLoading && pending && (
+              <PendingApprovalBanner className="mb-6" />
+            )}
+
+            {actionError && (
+              <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                {actionError}
+              </div>
+            )}
+
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pt-6 border-t border-gray-200">
               <div className="flex gap-3">
                 {canAction && (
@@ -405,7 +446,9 @@ export default function OfferDetailsPage() {
               </div>
               <div className="rounded-3xl bg-[#eafdf3] px-6 py-4 text-sm text-[#0f3d32]">
                 {canAction
-                  ? "This investment offer is waiting for your response."
+                  ? isInvestment
+                    ? "This investment offer is waiting for your response."
+                    : "This mentorship proposal is waiting for your response."
                   : offer.source_direction === "sent"
                   ? "Your startup sent this request. The investor or mentor must respond to it."
                   : ["accepted", "approved"].includes(offer.status)

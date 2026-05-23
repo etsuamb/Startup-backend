@@ -3,6 +3,7 @@ const multer = require("multer");
 const {
 	authenticate,
 	authorizeRoles,
+	requireApproval,
 } = require("../middleware/authMiddleware");
 const startupController = require("../controllers/startupControllerComplete");
 
@@ -17,6 +18,7 @@ router.post(
 	"/projects",
 	authenticate,
 	authorizeRoles("Startup"),
+	requireApproval,
 	upload.single("cover_photo"),
 	startupController.createProject
 );
@@ -42,6 +44,7 @@ router.put(
 	"/projects/:projectId",
 	authenticate,
 	authorizeRoles("Startup"),
+	requireApproval,
 	upload.single("cover_photo"),
 	startupController.updateProject
 );
@@ -55,6 +58,7 @@ router.post(
 	"/documents",
 	authenticate,
 	authorizeRoles("Startup"),
+	requireApproval,
 	upload.single("file"),
 	startupController.uploadDocument
 );
@@ -67,6 +71,22 @@ router.get(
 	startupController.getDocuments
 );
 
+router.delete(
+	"/documents/:documentId",
+	authenticate,
+	authorizeRoles("Startup"),
+	requireApproval,
+	startupController.deleteDocument
+);
+
+router.post(
+	"/projects/:projectId/publish",
+	authenticate,
+	authorizeRoles("Startup"),
+	requireApproval,
+	startupController.publishProject
+);
+
 // ============================================
 // INVESTOR DISCOVERY
 // ============================================
@@ -76,6 +96,7 @@ router.get(
 	"/investors/search",
 	authenticate,
 	authorizeRoles("Startup"),
+	requireApproval,
 	startupController.searchInvestors
 );
 
@@ -84,6 +105,7 @@ router.get(
 	"/mentors/search",
 	authenticate,
 	authorizeRoles("Startup"),
+	requireApproval,
 	startupController.searchMentors
 );
 
@@ -92,6 +114,7 @@ router.get(
 	"/recommendations/investors",
 	authenticate,
 	authorizeRoles("Startup"),
+	requireApproval,
 	startupController.getInvestorRecommendations
 );
 
@@ -100,6 +123,7 @@ router.get(
 	"/recommendations/mentors",
 	authenticate,
 	authorizeRoles("Startup"),
+	requireApproval,
 	startupController.getMentorRecommendations
 );
 
@@ -112,6 +136,7 @@ router.post(
 	"/investment-requests",
 	authenticate,
 	authorizeRoles("Startup"),
+	requireApproval,
 	startupController.createInvestmentRequest
 );
 
@@ -124,6 +149,7 @@ router.post(
 	"/mentorship-requests",
 	authenticate,
 	authorizeRoles("Startup"),
+	requireApproval,
 	startupController.createMentorshipRequest
 );
 
@@ -136,6 +162,7 @@ router.post(
 	"/chat/investors/:investorId/send",
 	authenticate,
 	authorizeRoles("Startup"),
+	requireApproval,
 	startupController.sendMessage
 );
 
@@ -144,6 +171,7 @@ router.get(
 	"/chat/investors/:investorId/messages",
 	authenticate,
 	authorizeRoles("Startup"),
+	requireApproval,
 	startupController.getMessages
 );
 

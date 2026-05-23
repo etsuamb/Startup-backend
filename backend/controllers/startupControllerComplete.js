@@ -1,6 +1,103 @@
 const pool = require("../config/db");
 const multer = require("multer");
 const path = require("path");
+const fs = require("fs");
+
+const PROJECT_DOC_CATEGORIES = {
+	pitch_deck: {
+		label: "Pitch deck",
+		acceptMime: ["application/pdf"],
+		acceptExt: [".pdf"],
+		maxBytes: 10 * 1024 * 1024,
+		required: true,
+	},
+	business_plan: {
+		label: "Business plan",
+		acceptMime: ["application/pdf"],
+		acceptExt: [".pdf"],
+		maxBytes: 20 * 1024 * 1024,
+		required: true,
+	},
+	financial_doc: {
+		label: "Financial doc",
+		acceptMime: [
+			"application/pdf",
+			"application/vnd.ms-excel",
+			"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+		],
+		acceptExt: [".pdf", ".xls", ".xlsx"],
+		maxBytes: 10 * 1024 * 1024,
+		required: true,
+	},
+	demo_video: {
+		label: "Demo video",
+		acceptMime: ["video/mp4"],
+		acceptExt: [".mp4"],
+		maxBytes: 50 * 1024 * 1024,
+		required: true,
+	},
+};
+
+function resolveProjectDocCategory(body = {}) {
+	const key = String(body.document_category || "").trim().toLowerCase();
+	if (key && PROJECT_DOC_CATEGORIES[key]) return { key, ...PROJECT_DOC_CATEGORIES[key] };
+	const desc = String(body.description || "").trim().toLowerCase();
+	for (const [k, cfg] of Object.entries(PROJECT_DOC_CATEGORIES)) {
+		if (desc === cfg.label.toLowerCase()) return { key: k, ...cfg };
+	}
+	return null;
+}
+
+function validateProjectFile(file, category) {
+	if (!file || !category) {
+		return { ok: false, error: "Invalid upload request." };
+	}
+	const ext = path.extname(file.originalname || "").toLowerCase();
+	const mime = String(file.mimetype || "").toLowerCase();
+	const mimeOk =
+		category.acceptMime.includes(mime) ||
+		category.acceptExt.includes(ext);
+	if (!mimeOk) {
+		const formats =
+			category.key === "demo_video"
+				? "MP4"
+				: category.key === "financial_doc"
+					? "PDF or Excel"
+					: "PDF";
+		return {
+			ok: false,
+			error: `Invalid format. ${category.label} must be ${formats}.`,
+		};
+	}
+	if (file.size > category.maxBytes) {
+		const maxMb = Math.round(category.maxBytes / (1024 * 1024));
+		return {
+			ok: false,
+			error: `${category.label} exceeds the ${maxMb}MB size limit.`,
+		};
+	}
+	return { ok: true };
+}
+
+async function assertProjectOwnership(projectId, userId) {
+	const projectRes = await pool.query(
+		`SELECT p.project_id, p.status
+     FROM projects p
+     JOIN startups s ON p.startup_id = s.startup_id
+     WHERE p.project_id = $1 AND s.user_id = $2`,
+		[projectId, userId],
+	);
+	return projectRes.rows[0] || null;
+}
+
+function unlinkStoredFile(filePath) {
+	if (!filePath || String(filePath).startsWith("db://")) return;
+	try {
+		if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+	} catch {
+		/* ignore */
+	}
+}
 
 // UC_28: Create Startup Project
 exports.createProject = async (req, res) => {
@@ -42,12 +139,12 @@ exports.createProject = async (req, res) => {
 		const startup_id = startupRes.rows[0].startup_id;
 
 		const result = await pool.query(
-			`INSERT INTO projects (startup_id, project_title, industry, lifecycle_stage, description, problem_statement, solution_statement, expected_impact, cover_photo_path, funding_goal, start_date, end_date)
-				 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+			`INSERT INTO projects (startup_id, project_title, industry, lifecycle_stage, description, problem_statement, solution_statement, expected_impact, cover_photo_path, funding_goal, start_date, end_date, status)
+				 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'draft') RETURNING *`,
 			[startup_id, project_title, industry, lifecycle_stage, description, problem_statement, solution_statement, expected_impact, cover_photo_path, funding_goal, start_date, end_date]
 		);
 
-		res.status(201).json(result.rows[0]);
+		res.status(201).json({ ...result.rows[0], project_id: result.rows[0].project_id });
 	} catch (err) {
 		res.status(500).json({ error: err.message });
 	}
@@ -169,10 +266,9 @@ exports.uploadDocument = async (req, res) => {
 			return res.status(400).json({ error: "No file uploaded" });
 		}
 
-		// Get startup
 		const startupRes = await pool.query(
 			"SELECT startup_id FROM startups WHERE user_id = $1",
-			[userId]
+			[userId],
 		);
 
 		if (startupRes.rows.length === 0) {
@@ -180,16 +276,51 @@ exports.uploadDocument = async (req, res) => {
 		}
 
 		const startup_id = startupRes.rows[0].startup_id;
-		const file_path = req.file.path;
-		const file_name = req.file.originalname;
-		const file_type = req.file.mimetype;
-		const file_size_bytes = req.file.size;
 		const projectIdValue = project_id ? Number(project_id) : null;
 
+		if (!projectIdValue || Number.isNaN(projectIdValue)) {
+			return res.status(400).json({ error: "project_id is required for project documents." });
+		}
+
+		const project = await assertProjectOwnership(projectIdValue, userId);
+		if (!project) {
+			return res.status(403).json({ message: "Unauthorized or project not found" });
+		}
+
+		const category = resolveProjectDocCategory(req.body);
+		const docDescription = category ? category.label : description || null;
+
+		if (category) {
+			const validation = validateProjectFile(req.file, category);
+			if (!validation.ok) {
+				unlinkStoredFile(req.file.path);
+				return res.status(400).json({ error: validation.error });
+			}
+		}
+
+		const existing = await pool.query(
+			`SELECT document_id, file_path FROM documents
+       WHERE startup_id = $1 AND project_id = $2 AND LOWER(TRIM(description)) = LOWER(TRIM($3))`,
+			[startup_id, projectIdValue, docDescription],
+		);
+		for (const row of existing.rows) {
+			unlinkStoredFile(row.file_path);
+			await pool.query("DELETE FROM documents WHERE document_id = $1", [row.document_id]);
+		}
+
+		const storedPath = path.join("uploads", path.basename(req.file.path)).replace(/\\/g, "/");
 		const result = await pool.query(
 			`INSERT INTO documents (startup_id, project_id, file_name, file_path, file_type, file_size_bytes, description)
 			 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-			[startup_id, projectIdValue, file_name, file_path, file_type, file_size_bytes, description]
+			[
+				startup_id,
+				projectIdValue,
+				req.file.originalname,
+				storedPath,
+				req.file.mimetype,
+				req.file.size,
+				docDescription,
+			],
 		);
 
 		res.status(201).json(result.rows[0]);
@@ -202,22 +333,100 @@ exports.uploadDocument = async (req, res) => {
 exports.getDocuments = async (req, res) => {
 	try {
 		const userId = req.user.user_id;
+		const { project_id } = req.query;
 
 		const startupRes = await pool.query(
 			"SELECT startup_id FROM startups WHERE user_id = $1",
-			[userId]
+			[userId],
 		);
 
 		if (startupRes.rows.length === 0) {
 			return res.status(404).json({ message: "Startup profile not found" });
 		}
 
-		const result = await pool.query(
-			"SELECT * FROM documents WHERE startup_id = $1 ORDER BY created_at DESC",
-			[startupRes.rows[0].startup_id]
-		);
+		const params = [startupRes.rows[0].startup_id];
+		let query = `SELECT document_id, startup_id, project_id, file_name, file_path, file_type,
+                    file_size_bytes, description,
+                    COALESCE(verification_status, 'pending') AS verification_status,
+                    created_at
+             FROM documents WHERE startup_id = $1`;
+
+		if (project_id) {
+			params.push(Number(project_id));
+			query += ` AND project_id = $${params.length}`;
+		}
+
+		query += " ORDER BY created_at DESC";
+
+		const result = await pool.query(query, params);
 
 		res.json({ documents: result.rows });
+	} catch (err) {
+		res.status(500).json({ error: err.message });
+	}
+};
+
+exports.deleteDocument = async (req, res) => {
+	try {
+		const userId = req.user.user_id;
+		const documentId = Number(req.params.documentId);
+
+		const docRes = await pool.query(
+			`SELECT d.* FROM documents d
+       JOIN startups s ON s.startup_id = d.startup_id
+       WHERE d.document_id = $1 AND s.user_id = $2`,
+			[documentId, userId],
+		);
+
+		if (docRes.rows.length === 0) {
+			return res.status(404).json({ message: "Document not found" });
+		}
+
+		const doc = docRes.rows[0];
+		unlinkStoredFile(doc.file_path);
+		await pool.query("DELETE FROM documents WHERE document_id = $1", [documentId]);
+
+		res.json({ message: "Document deleted" });
+	} catch (err) {
+		res.status(500).json({ error: err.message });
+	}
+};
+
+exports.publishProject = async (req, res) => {
+	try {
+		const userId = req.user.user_id;
+		const projectId = Number(req.params.projectId);
+
+		const project = await assertProjectOwnership(projectId, userId);
+		if (!project) {
+			return res.status(403).json({ message: "Unauthorized or project not found" });
+		}
+
+		const docsRes = await pool.query(
+			`SELECT LOWER(TRIM(description)) AS description
+       FROM documents WHERE project_id = $1`,
+			[projectId],
+		);
+
+		const uploaded = new Set(docsRes.rows.map((r) => r.description));
+		const missing = Object.values(PROJECT_DOC_CATEGORIES)
+			.filter((c) => c.required)
+			.filter((c) => !uploaded.has(c.label.toLowerCase()))
+			.map((c) => c.label);
+
+		if (missing.length) {
+			return res.status(400).json({
+				error: "Upload all mandatory documents before publishing.",
+				missing,
+			});
+		}
+
+		const result = await pool.query(
+			`UPDATE projects SET status = 'active' WHERE project_id = $1 RETURNING *`,
+			[projectId],
+		);
+
+		res.json({ message: "Project published", project: result.rows[0] });
 	} catch (err) {
 		res.status(500).json({ error: err.message });
 	}
@@ -272,7 +481,15 @@ exports.searchInvestors = async (req, res) => {
 		const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
 		const offset = (pageNum - 1) * limitNum;
 
-		let query = "SELECT i.*, u.first_name, u.last_name, u.email FROM investors i JOIN users u ON i.user_id = u.user_id WHERE 1=1";
+		let query = `
+			SELECT i.*, u.first_name, u.last_name, u.email,
+			       u.is_approved AS user_approved,
+			       COALESCE(i.is_approved, false) AS investor_listed
+			FROM investors i
+			JOIN users u ON i.user_id = u.user_id
+			WHERE u.role = 'Investor'
+			  AND COALESCE(u.is_active, true) = true
+		`;
 		const params = [];
 
 		if (industry) {
@@ -290,9 +507,9 @@ exports.searchInvestors = async (req, res) => {
 			query += ` AND (i.organization_name ILIKE $${params.length} OR u.first_name ILIKE $${params.length})`;
 		}
 
-		const countQuery = query.replace(/SELECT i\.\*.*FROM/, "SELECT COUNT(*) as total FROM");
+		const countQuery = query.replace(/SELECT[\s\S]+?FROM/i, "SELECT COUNT(*)::int AS total FROM");
 		const countResult = await pool.query(countQuery, params);
-		const total = parseInt(countResult.rows[0].total);
+		const total = parseInt(countResult.rows[0].total, 10);
 
 		query += ` ORDER BY i.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
 		params.push(limitNum, offset);
@@ -318,7 +535,19 @@ exports.searchMentors = async (req, res) => {
 		const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
 		const offset = (pageNum - 1) * limitNum;
 
-		let query = "SELECT m.*, u.first_name, u.last_name, u.email FROM mentors m JOIN users u ON m.user_id = u.user_id WHERE u.is_approved = true";
+		// List mentors with completed profiles; approved mentors first, then pending account approval
+		let query = `
+			SELECT m.*, u.first_name, u.last_name, u.email,
+			       u.is_approved AS user_approved,
+			       COALESCE(m.is_approved, false) AS mentor_listed,
+			       m.current_organization AS company,
+			       COALESCE(m.city_location, m.country) AS location,
+			       m.professional_title AS mentor_type
+			FROM mentors m
+			JOIN users u ON m.user_id = u.user_id
+			WHERE u.role = 'Mentor'
+			  AND COALESCE(u.is_active, true) = true
+		`;
 		const params = [];
 
 		if (expertise) {
@@ -341,11 +570,11 @@ exports.searchMentors = async (req, res) => {
 			query += ` AND (m.headline ILIKE $${params.length} OR u.first_name ILIKE $${params.length})`;
 		}
 
-		const countQuery = query.replace(/SELECT m\.\*.*FROM/, "SELECT COUNT(*) as total FROM");
+		const countQuery = query.replace(/SELECT[\s\S]+?FROM/i, "SELECT COUNT(*)::int AS total FROM");
 		const countResult = await pool.query(countQuery, params);
-		const total = parseInt(countResult.rows[0].total);
+		const total = parseInt(countResult.rows[0].total, 10);
 
-		query += ` ORDER BY m.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+		query += ` ORDER BY (CASE WHEN u.is_approved = true AND COALESCE(m.is_approved, false) = true THEN 0 ELSE 1 END), m.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
 		params.push(limitNum, offset);
 
 		const result = await pool.query(query, params);

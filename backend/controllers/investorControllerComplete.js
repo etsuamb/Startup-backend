@@ -1,5 +1,28 @@
 const pool = require("../config/db");
 
+/** Startups visible to investors in discover/list/search (registered profiles; verified listed first). */
+const STARTUP_INVESTOR_JOIN = `
+  FROM startups s
+  JOIN users u ON s.user_id = u.user_id
+`;
+
+const STARTUP_INVESTOR_WHERE = `
+  WHERE u.role = 'Startup'
+    AND COALESCE(u.is_active, true) = true
+`;
+
+const STARTUP_INVESTOR_ORDER = `
+  ORDER BY (
+    CASE
+      WHEN u.is_approved = true
+       AND COALESCE(s.is_listed, false) = true
+       AND COALESCE(s.admin_status, 'Pending') IN ('Active', 'Funded')
+      THEN 0
+      ELSE 1
+    END
+  ), s.created_at DESC
+`;
+
 // UC_13b: Create/Update Investor Profile
 exports.createInvestorProfile = async (req, res) => {
 	try {
@@ -91,25 +114,20 @@ exports.listStartups = async (req, res) => {
 		const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
 		const offset = (pageNum - 1) * limitNum;
 
-		const visibilityWhere = `
-			u.is_approved = true
-			AND u.is_active = true
-			AND COALESCE(s.is_listed, false) = true
-			AND COALESCE(s.admin_status, 'Pending') IN ('Active', 'Funded')
-		`;
-
 		const countResult = await pool.query(
-			`SELECT COUNT(*) as total FROM startups s JOIN users u ON s.user_id = u.user_id WHERE ${visibilityWhere}`,
+			`SELECT COUNT(*)::int AS total ${STARTUP_INVESTOR_JOIN} ${STARTUP_INVESTOR_WHERE}`,
 		);
-		const total = parseInt(countResult.rows[0].total);
+		const total = parseInt(countResult.rows[0].total, 10);
 
 		const result = await pool.query(
 			`SELECT s.startup_id, s.startup_name, s.industry, s.description, s.business_stage, s.team_size,
-			 s.location, s.website, s.funding_needed, s.created_at
-			 FROM startups s
-			 JOIN users u ON s.user_id = u.user_id
-			 WHERE ${visibilityWhere}
-			 ORDER BY s.created_at DESC
+			 s.location, s.website, s.funding_needed, s.created_at, s.startup_tagline, s.region, s.city,
+			 u.is_approved AS user_approved,
+			 COALESCE(s.is_listed, false) AS is_listed,
+			 COALESCE(s.admin_status, 'Pending') AS admin_status
+			 ${STARTUP_INVESTOR_JOIN}
+			 ${STARTUP_INVESTOR_WHERE}
+			 ${STARTUP_INVESTOR_ORDER}
 			 LIMIT $1 OFFSET $2`,
 			[limitNum, offset]
 		);
@@ -138,12 +156,7 @@ exports.searchStartups = async (req, res) => {
 		const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
 		const offset = (pageNum - 1) * limitNum;
 
-		let query =
-			`SELECT s.* FROM startups s JOIN users u ON s.user_id = u.user_id
-			 WHERE u.is_approved = true
-			   AND u.is_active = true
-			   AND COALESCE(s.is_listed, false) = true
-			   AND COALESCE(s.admin_status, 'Pending') IN ('Active', 'Funded')`;
+		let query = `SELECT s.*, u.is_approved AS user_approved ${STARTUP_INVESTOR_JOIN} ${STARTUP_INVESTOR_WHERE}`;
 		const params = [];
 
 		if (industry) {
@@ -176,11 +189,11 @@ exports.searchStartups = async (req, res) => {
 			query += ` AND (s.startup_name ILIKE $${params.length} OR s.description ILIKE $${params.length})`;
 		}
 
-		const countQuery = query.replace(/SELECT s\.\*/, "SELECT COUNT(*) as total");
+		const countQuery = query.replace(/SELECT[\s\S]+?FROM/i, "SELECT COUNT(*)::int AS total FROM");
 		const countResult = await pool.query(countQuery, params);
-		const total = parseInt(countResult.rows[0].total);
+		const total = parseInt(countResult.rows[0].total, 10);
 
-		query += ` ORDER BY s.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+		query += ` ${STARTUP_INVESTOR_ORDER} LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
 		params.push(limitNum, offset);
 
 		const result = await pool.query(query, params);
@@ -309,11 +322,8 @@ exports.getStartupRecommendations = async (req, res) => {
 				  p.created_at DESC
 				LIMIT 1
 			 ) p ON true
-			 WHERE u.is_approved = true
-			   AND u.is_active = true
-			   AND COALESCE(s.is_listed, false) = true
-			   AND COALESCE(s.admin_status, 'Pending') IN ('Active', 'Funded')
-			 ORDER BY s.created_at DESC
+			 ${STARTUP_INVESTOR_WHERE}
+			 ${STARTUP_INVESTOR_ORDER}
 			 LIMIT 100`
 		);
 

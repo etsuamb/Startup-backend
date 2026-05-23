@@ -6,11 +6,62 @@ export default function DiscoverOfferButton({
   contactId,
   offerLookup,
   variant = "card",
+  disabled = false,
+  profileHref,
 }) {
   const existingOffer =
     type === "investment"
       ? getSentInvestorOffer(offerLookup, contactId)
       : getSentMentorOffer(offerLookup, contactId);
+
+  const offerHref =
+    type === "investment"
+      ? `/startup/discover/investor/${contactId}/offer`
+      : `/startup/discover/mentor/${contactId}/offer`;
+
+  const defaultProfileHref =
+    type === "investment"
+      ? `/startup/discover/investor/${contactId}`
+      : `/startup/discover/mentor/${contactId}`;
+
+  const viewHref = profileHref || defaultProfileHref;
+
+  if (variant === "discover") {
+    if (existingOffer) {
+      return (
+        <div className="grid grid-cols-2 gap-3">
+          {approvedViewLink(disabled, viewHref, "View Profile")}
+          <Link
+            href={`/startup/offers/${existingOffer.offerType}/${existingOffer.id}`}
+            className="inline-flex items-center justify-center rounded-lg bg-[#0f3d32] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#0a2921] transition text-center"
+          >
+            View application
+          </Link>
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-2 gap-3">
+        {approvedViewLink(disabled, viewHref, "View Profile")}
+        {disabled ? (
+          <span
+            className="inline-flex items-center justify-center rounded-lg bg-gray-200 px-4 py-2.5 text-sm font-bold text-gray-500 cursor-not-allowed text-center"
+            title="Available after admin approval"
+          >
+            Apply
+          </span>
+        ) : (
+          <Link
+            href={offerHref}
+            className="inline-flex items-center justify-center rounded-lg bg-[#0f3d32] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#0a2921] transition text-center"
+          >
+            Apply
+          </Link>
+        )}
+      </div>
+    );
+  }
 
   if (existingOffer) {
     const href = `/startup/offers/${existingOffer.offerType}/${existingOffer.id}`;
@@ -26,19 +77,43 @@ export default function DiscoverOfferButton({
     );
   }
 
-  const href =
-    type === "investment"
-      ? `/startup/discover/investor/${contactId}/offer`
-      : `/startup/discover/mentor/${contactId}/offer`;
-
   const className =
     variant === "primary"
       ? "inline-flex items-center justify-center rounded-2xl bg-[#0f3d32] px-8 py-4 text-sm font-semibold text-white transition hover:bg-[#0b2a1d]"
       : "rounded-full border border-gray-200 px-4 py-2 text-xs font-semibold text-gray-600 transition hover:bg-gray-100";
 
+  if (disabled) {
+    return (
+      <span
+        className={`${className} cursor-not-allowed opacity-50`}
+        title="Available after admin approval"
+      >
+        Make an Offer
+      </span>
+    );
+  }
+
   return (
-    <Link href={href} className={className}>
+    <Link href={offerHref} className={className}>
       Make an Offer
+    </Link>
+  );
+}
+
+function approvedViewLink(disabled, href, label) {
+  if (disabled) {
+    return (
+      <span className="inline-flex items-center justify-center rounded-lg border-2 border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-400 cursor-not-allowed text-center">
+        {label}
+      </span>
+    );
+  }
+  return (
+    <Link
+      href={href}
+      className="inline-flex items-center justify-center rounded-lg border-2 border-[#0f3d32] px-4 py-2.5 text-sm font-bold text-[#0f3d32] hover:bg-[#f0faf5] transition text-center"
+    >
+      {label}
     </Link>
   );
 }

@@ -436,7 +436,8 @@ exports.getMyStartupProfile = async (req, res) => {
   try {
     const userId = req.user.user_id;
     const result = await pool.query(
-      `SELECT s.*, u.first_name, u.last_name, u.email, u.phone_number
+      `SELECT s.*, u.first_name, u.last_name, u.email, u.phone_number,
+              u.is_approved, u.is_active
 			 FROM startups s
 			 JOIN users u ON u.user_id = s.user_id
 			 WHERE s.user_id = $1`,
@@ -656,6 +657,51 @@ function groupDocumentsIntoFolders(documents) {
   return Array.from(folderMap.values());
 }
 
+const INVESTMENT_INCOMING_EXISTS = `
+  EXISTS (
+    SELECT 1
+    FROM notifications n
+    INNER JOIN startups s ON s.startup_id = ir.startup_id AND n.user_id = s.user_id
+    WHERE n.reference_type = 'investment_requests'
+      AND n.reference_id = ir.investment_request_id
+      AND n.title = 'New Funding Offer'
+  )`;
+
+const MENTORSHIP_INCOMING_EXISTS = `
+  EXISTS (
+    SELECT 1
+    FROM notifications n
+    INNER JOIN startups s ON s.startup_id = mr.startup_id AND n.user_id = s.user_id
+    WHERE n.title = 'Mentorship Proposal'
+      AND (
+        n.reference_id = mr.mentorship_request_id
+        OR (
+          n.reference_type = 'mentorship_requests'
+          AND n.reference_id = mr.mentorship_request_id
+        )
+      )
+  )
+  OR NOT EXISTS (
+    SELECT 1
+    FROM notifications n
+    INNER JOIN mentors m ON m.mentor_id = mr.mentor_id
+    INNER JOIN users mu ON mu.user_id = m.user_id
+    WHERE n.user_id = mu.user_id
+      AND n.title = 'New Mentorship Request'
+      AND n.message = mr.subject
+  )`;
+
+const INVESTMENT_SOURCE_DIRECTION_SQL = `CASE WHEN ${INVESTMENT_INCOMING_EXISTS} THEN 'incoming' ELSE 'sent' END`;
+const MENTORSHIP_SOURCE_DIRECTION_SQL = `CASE WHEN ${MENTORSHIP_INCOMING_EXISTS} THEN 'incoming' ELSE 'sent' END`;
+
+async function notifyUser(client, userId, type, title, message, referenceType, referenceId) {
+  await client.query(
+    `INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [userId, type, title, message, referenceType || null, referenceId || null],
+  );
+}
+
 // Get all offers (investment and mentorship) for a startup
 exports.getStartupOffers = async (req, res) => {
   try {
@@ -681,25 +727,9 @@ exports.getStartupOffers = async (req, res) => {
           ir.created_at,
           ir.requested_amount as amount,
           ir.proposal_message as message,
+          ${INVESTMENT_SOURCE_DIRECTION_SQL} as source_direction,
           CASE
-            WHEN EXISTS (
-              SELECT 1
-              FROM notifications n
-              WHERE n.reference_type = 'investment_requests'
-                AND n.reference_id = ir.investment_request_id
-                AND n.title = 'New Funding Offer'
-            )
-            THEN 'incoming'
-            ELSE 'sent'
-          END as source_direction,
-          CASE
-            WHEN EXISTS (
-              SELECT 1
-              FROM notifications n
-              WHERE n.reference_type = 'investment_requests'
-                AND n.reference_id = ir.investment_request_id
-                AND n.title = 'New Funding Offer'
-            )
+            WHEN ${INVESTMENT_INCOMING_EXISTS}
             THEN 'Investor made this offer'
             ELSE 'Startup sent this investment request'
           END as source_label,
@@ -747,8 +777,9 @@ exports.getStartupOffers = async (req, res) => {
           mr.created_at,
           mr.subject,
           mr.message,
-          'sent' as source_direction,
+          ${MENTORSHIP_SOURCE_DIRECTION_SQL} as source_direction,
           CASE
+            WHEN ${MENTORSHIP_INCOMING_EXISTS} THEN 'Mentor sent this offer'
             WHEN mr.status = 'accepted' THEN 'Mentor accepted your request'
             WHEN mr.status = 'rejected' THEN 'Mentor rejected your request'
             ELSE 'Startup sent this mentorship request'
@@ -780,7 +811,7 @@ exports.getStartupOffers = async (req, res) => {
         amount: null,
         document_folders,
         document_count: document_folders.reduce((sum, folder) => sum + folder.documents.length, 0),
-        canStartupRespond: false,
+        canStartupRespond: offer.source_direction === "incoming" && offer.status === "pending",
         terms: offer.subject || "Mentorship request",
       });
     }
@@ -818,25 +849,9 @@ exports.getOfferDetails = async (req, res) => {
           ir.created_at,
           ir.requested_amount as amount,
           ir.proposal_message as message,
+          ${INVESTMENT_SOURCE_DIRECTION_SQL} as source_direction,
           CASE
-            WHEN EXISTS (
-              SELECT 1
-              FROM notifications n
-              WHERE n.reference_type = 'investment_requests'
-                AND n.reference_id = ir.investment_request_id
-                AND n.title = 'New Funding Offer'
-            )
-            THEN 'incoming'
-            ELSE 'sent'
-          END as source_direction,
-          CASE
-            WHEN EXISTS (
-              SELECT 1
-              FROM notifications n
-              WHERE n.reference_type = 'investment_requests'
-                AND n.reference_id = ir.investment_request_id
-                AND n.title = 'New Funding Offer'
-            )
+            WHEN ${INVESTMENT_INCOMING_EXISTS}
             THEN 'Investor made this offer'
             ELSE 'Startup sent this investment request'
           END as source_label,
@@ -887,8 +902,9 @@ exports.getOfferDetails = async (req, res) => {
           mr.created_at,
           mr.subject,
           mr.message,
-          'sent' as source_direction,
+          ${MENTORSHIP_SOURCE_DIRECTION_SQL} as source_direction,
           CASE
+            WHEN ${MENTORSHIP_INCOMING_EXISTS} THEN 'Mentor sent this offer'
             WHEN mr.status = 'accepted' THEN 'Mentor accepted your request'
             WHEN mr.status = 'rejected' THEN 'Mentor rejected your request'
             ELSE 'Startup sent this mentorship request'
@@ -939,17 +955,24 @@ exports.getOfferDetails = async (req, res) => {
 
 // Accept or reject an offer
 exports.updateOfferStatus = async (req, res) => {
+  const client = await pool.connect();
   try {
     const userId = req.user.user_id;
     const { offerId, offerType } = req.params;
-    const { status } = req.body;
+    const rawStatus = String(req.body?.status || "").trim().toLowerCase();
+    const status =
+      rawStatus === "accept" || rawStatus === "accepted"
+        ? "accepted"
+        : rawStatus === "reject" || rawStatus === "rejected"
+          ? "rejected"
+          : null;
 
-    if (!status || !['accepted', 'rejected'].includes(status)) {
+    if (!status) {
       return res.status(400).json({ error: "Status must be 'accepted' or 'rejected'" });
     }
 
-    const startupResult = await pool.query(
-      "SELECT startup_id FROM startups WHERE user_id = $1",
+    const startupResult = await client.query(
+      "SELECT startup_id, startup_name FROM startups WHERE user_id = $1",
       [userId],
     );
 
@@ -958,41 +981,41 @@ exports.updateOfferStatus = async (req, res) => {
     }
 
     const startupId = startupResult.rows[0].startup_id;
+    const startupName = startupResult.rows[0].startup_name;
 
-    if (offerType === 'investment') {
-      const nextStatus = status === 'accepted' ? 'approved' : status;
-      const requestResult = await pool.query(
+    await client.query("BEGIN");
+
+    if (offerType === "investment") {
+      const nextStatus = status === "accepted" ? "approved" : "rejected";
+      const requestResult = await client.query(
         `SELECT ir.*,
-          CASE
-            WHEN EXISTS (
-              SELECT 1
-              FROM notifications n
-              WHERE n.reference_type = 'investment_requests'
-                AND n.reference_id = ir.investment_request_id
-                AND n.title = 'New Funding Offer'
-            )
-            THEN 'incoming'
-            ELSE 'sent'
-         END as source_direction
+          ${INVESTMENT_SOURCE_DIRECTION_SQL} as source_direction,
+          i.user_id AS investor_user_id
          FROM investment_requests ir
+         JOIN investors i ON i.investor_id = ir.investor_id
          WHERE ir.investment_request_id = $1 AND ir.startup_id = $2`,
         [offerId, startupId],
       );
 
       if (requestResult.rowCount === 0) {
+        await client.query("ROLLBACK");
         return res.status(404).json({ error: "Investment offer not found" });
       }
 
-      const currentStatus = requestResult.rows[0].status;
-      if (requestResult.rows[0].source_direction !== 'incoming') {
-        return res.status(403).json({ error: "Startup-created investment requests must be answered by the investor" });
+      const row = requestResult.rows[0];
+      if (row.source_direction !== "incoming") {
+        await client.query("ROLLBACK");
+        return res.status(403).json({
+          error: "Startup-created investment requests must be answered by the investor",
+        });
       }
 
-      if (currentStatus !== 'pending') {
+      if (row.status !== "pending") {
+        await client.query("ROLLBACK");
         return res.status(409).json({ error: "Only pending offers can be updated" });
       }
 
-      const updateResult = await pool.query(
+      const updateResult = await client.query(
         `UPDATE investment_requests
          SET status = $1
          WHERE investment_request_id = $2
@@ -1000,42 +1023,78 @@ exports.updateOfferStatus = async (req, res) => {
         [nextStatus, offerId],
       );
 
-      return res.json({ offer: updateResult.rows[0] });
+      await notifyUser(
+        client,
+        row.investor_user_id,
+        "investment",
+        status === "accepted" ? "Investment Offer Accepted" : "Investment Offer Rejected",
+        `${startupName || "A startup"} ${status === "accepted" ? "accepted" : "rejected"} your funding offer.`,
+        "investment_requests",
+        Number(offerId),
+      );
+
+      await client.query("COMMIT");
+      return res.json({ offer: updateResult.rows[0], message: `Offer ${status}` });
     }
 
-    if (offerType === 'mentorship') {
-      const requestResult = await pool.query(
-        `SELECT * FROM mentorship_requests
-         WHERE mentorship_request_id = $1 AND startup_id = $2`,
+    if (offerType === "mentorship") {
+      const requestResult = await client.query(
+        `SELECT mr.*,
+          ${MENTORSHIP_SOURCE_DIRECTION_SQL} as source_direction,
+          m.user_id AS mentor_user_id
+         FROM mentorship_requests mr
+         JOIN mentors m ON m.mentor_id = mr.mentor_id
+         WHERE mr.mentorship_request_id = $1 AND mr.startup_id = $2`,
         [offerId, startupId],
       );
 
       if (requestResult.rowCount === 0) {
+        await client.query("ROLLBACK");
         return res.status(404).json({ error: "Mentorship offer not found" });
       }
 
-      const currentStatus = requestResult.rows[0].status;
-      if (currentStatus !== 'accepted') {
-        return res.status(409).json({ error: "Only accepted mentorship offers can be rejected" });
+      const row = requestResult.rows[0];
+      if (row.source_direction !== "incoming") {
+        await client.query("ROLLBACK");
+        return res.status(403).json({
+          error: "Mentorship requests you sent must be accepted or rejected by the mentor",
+        });
       }
 
-      if (status === 'accepted') {
-        return res.status(400).json({ error: "Mentorship offer is already accepted" });
+      if (row.status !== "pending") {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ error: "Only pending offers can be updated" });
       }
 
-      const updateResult = await pool.query(
+      const nextStatus = status === "accepted" ? "accepted" : "rejected";
+      const updateResult = await client.query(
         `UPDATE mentorship_requests
          SET status = $1
          WHERE mentorship_request_id = $2
          RETURNING *`,
-        [status, offerId],
+        [nextStatus, offerId],
       );
 
-      return res.json({ offer: updateResult.rows[0] });
+      await notifyUser(
+        client,
+        row.mentor_user_id,
+        "mentorship",
+        status === "accepted" ? "Mentorship Offer Accepted" : "Mentorship Offer Rejected",
+        `${startupName || "A startup"} ${status === "accepted" ? "accepted" : "rejected"} your mentorship proposal.`,
+        "mentorship_requests",
+        Number(offerId),
+      );
+
+      await client.query("COMMIT");
+      return res.json({ offer: updateResult.rows[0], message: `Offer ${status}` });
     }
 
-    res.status(400).json({ error: "Invalid offer type" });
+    await client.query("ROLLBACK");
+    return res.status(400).json({ error: "Invalid offer type" });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    await client.query("ROLLBACK").catch(() => {});
+    return res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 };
