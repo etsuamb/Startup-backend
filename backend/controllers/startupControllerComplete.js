@@ -653,9 +653,24 @@ exports.createInvestmentRequest = async (req, res) => {
 
 		const startup_id = startupRes.rows[0].startup_id;
 
-		let projectId = project_id ? Number(project_id) : null;
-		if (projectId && (!Number.isInteger(projectId) || projectId <= 0)) {
-			return res.status(400).json({ error: "project_id must be a valid integer" });
+		const existingOffer = await pool.query(
+			`SELECT investment_request_id, status
+			 FROM investment_requests
+			 WHERE startup_id = $1 AND investor_id = $2
+			   AND status IN ('pending', 'approved')
+			 LIMIT 1`,
+			[startup_id, investor_id],
+		);
+
+		if (existingOffer.rowCount > 0) {
+			return res.status(409).json({
+				error: "You already have an active investment request with this investor.",
+				existing_offer: {
+					offerType: "investment",
+					id: existingOffer.rows[0].investment_request_id,
+					status: existingOffer.rows[0].status,
+				},
+			});
 		}
 
 		// Validate project exists if provided
@@ -756,6 +771,26 @@ exports.createMentorshipRequest = async (req, res) => {
 		}
 
 		const startup_id = startupRes.rows[0].startup_id;
+
+		const existingRequest = await pool.query(
+			`SELECT mentorship_request_id, status
+			 FROM mentorship_requests
+			 WHERE startup_id = $1 AND mentor_id = $2
+			   AND status IN ('pending', 'accepted')
+			 LIMIT 1`,
+			[startup_id, mentor_id],
+		);
+
+		if (existingRequest.rowCount > 0) {
+			return res.status(409).json({
+				error: "You already have an active mentorship request with this mentor.",
+				existing_offer: {
+					offerType: "mentorship",
+					id: existingRequest.rows[0].mentorship_request_id,
+					status: existingRequest.rows[0].status,
+				},
+			});
+		}
 
 		const result = await pool.query(
 			`INSERT INTO mentorship_requests (startup_id, mentor_id, subject, message)

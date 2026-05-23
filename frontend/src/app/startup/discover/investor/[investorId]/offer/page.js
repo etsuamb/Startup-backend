@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Sidebar from "@/components/startup/Sidebar";
-import { getStartupProfile, getMyProjects, createInvestmentRequest } from "@/lib/startupApi";
+import { getStartupProfile, getMyProjects, createInvestmentRequest, getStartupOffers } from "@/lib/startupApi";
+import { buildSentOfferLookup, getSentInvestorOffer } from "@/lib/offerUtils";
 
 const INDUSTRIES = [
   "Agriculture",
@@ -65,6 +66,7 @@ export default function InvestorOfferPage() {
   });
 
   const [validationErrors, setValidationErrors] = useState({});
+  const [existingOffer, setExistingOffer] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -73,10 +75,13 @@ export default function InvestorOfferPage() {
   async function fetchData() {
     try {
       setLoading(true);
-      const [startupResponse, projectsResponse] = await Promise.all([
+      const [startupResponse, projectsResponse, offersData] = await Promise.all([
         getStartupProfile(),
         getMyProjects(),
+        getStartupOffers().catch(() => ({ offers: [] })),
       ]);
+      const lookup = buildSentOfferLookup(offersData.offers || []);
+      setExistingOffer(getSentInvestorOffer(lookup, investorId));
       setStartup(startupResponse.startup);
       setProjects(projectsResponse.projects || []);
       setFormData(prev => ({
@@ -151,14 +156,19 @@ export default function InvestorOfferPage() {
       setSuccess(true);
     } catch (err) {
       console.error("Failed to submit investment request:", err);
-      if (err.status === 409 && err.data?.offer) {
-        setConflict({
-          message: err.message || "An active offer or request already exists.",
-          offer: err.data.offer,
-        });
-        return;
+      if (err.status === 409) {
+        setError(err.message || "You already have an active investment request with this investor.");
+        const offerId = err.data?.existing_offer?.id;
+        if (offerId) {
+          setExistingOffer({
+            offerType: "investment",
+            id: offerId,
+            status: err.data?.existing_offer?.status,
+          });
+        }
+      } else {
+        setError("Failed to submit investment request. Please try again.");
       }
-      setError("Failed to submit investment request. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -172,6 +182,37 @@ export default function InvestorOfferPage() {
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0f3d32] mx-auto"></div>
             <p className="mt-4 text-gray-600">Loading...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (existingOffer) {
+    return (
+      <div className="min-h-screen bg-[#f4f7f9] font-sans text-gray-900 flex">
+        <Sidebar />
+        <main className="flex-grow flex items-center justify-center">
+          <div className="text-center max-w-md px-4">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Offer already sent</h2>
+            <p className="text-gray-600 mb-6">
+              You already have an active investment request with this investor
+              {existingOffer.status ? ` (${existingOffer.status})` : ""}.
+            </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+              <Link
+                href={`/startup/offers/investment/${existingOffer.id}`}
+                className="inline-flex items-center justify-center rounded-full bg-[#0f3d32] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#0b2a1d]"
+              >
+                View existing offer
+              </Link>
+              <Link
+                href="/startup/discover"
+                className="inline-flex items-center justify-center rounded-full border border-gray-300 bg-white px-6 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              >
+                Back to Discover
+              </Link>
+            </div>
           </div>
         </main>
       </div>

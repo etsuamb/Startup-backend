@@ -2,7 +2,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Sidebar from "@/components/startup/Sidebar";
-import { searchInvestors, searchMentors } from "@/lib/startupApi";
+import { searchInvestors, searchMentors, getStartupOffers } from "@/lib/startupApi";
+import { buildSentOfferLookup } from "@/lib/offerUtils";
+import DiscoverOfferButton from "@/components/startup/DiscoverOfferButton";
 
 export default function StartupDiscoverPage() {
   const [investors, setInvestors] = useState([]);
@@ -11,17 +13,20 @@ export default function StartupDiscoverPage() {
   const [mentorQuery, setMentorQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [offerLookup, setOfferLookup] = useState({ investors: new Map(), mentors: new Map() });
 
   useEffect(() => {
     async function load() {
       try {
         setLoading(true);
-        const [investorData, mentorData] = await Promise.all([
+        const [investorData, mentorData, offersData] = await Promise.all([
           searchInvestors({ query: investorQuery }),
           searchMentors({ query: mentorQuery }),
+          getStartupOffers().catch(() => ({ offers: [] })),
         ]);
         setInvestors(investorData.investors || []);
         setMentors(mentorData.mentors || []);
+        setOfferLookup(buildSentOfferLookup(offersData.offers || []));
       } catch (err) {
         setError(err.message || "Unable to load discovery data.");
       } finally {
@@ -36,12 +41,14 @@ export default function StartupDiscoverPage() {
     setError(null);
     setLoading(true);
     try {
-      const [investorData, mentorData] = await Promise.all([
+      const [investorData, mentorData, offersData] = await Promise.all([
         searchInvestors({ query: investorQuery }),
         searchMentors({ query: mentorQuery }),
+        getStartupOffers().catch(() => ({ offers: [] })),
       ]);
       setInvestors(investorData.investors || []);
       setMentors(mentorData.mentors || []);
+      setOfferLookup(buildSentOfferLookup(offersData.offers || []));
     } catch (err) {
       setError(err.message || "Unable to refresh discovery data.");
     } finally {
@@ -146,9 +153,11 @@ export default function StartupDiscoverPage() {
                           <Link href={`/startup/discover/investor/${investor.investor_id}`} className="rounded-full border border-[#0f3d32] px-4 py-2 text-xs font-semibold text-[#0f3d32] transition hover:bg-[#0f3d32] hover:text-white">
                             View Details
                           </Link>
-                          <Link href={`/startup/discover/investor/${investor.investor_id}/offer`} className="rounded-full border border-gray-200 px-4 py-2 text-xs font-semibold text-gray-600 transition hover:bg-gray-100">
-                            Make an Offer
-                          </Link>
+                          <DiscoverOfferButton
+                            type="investment"
+                            contactId={investor.investor_id}
+                            offerLookup={offerLookup}
+                          />
                         </div>
                       </div>
                     ))}
@@ -194,9 +203,11 @@ export default function StartupDiscoverPage() {
                           <Link href={`/startup/discover/mentor/${mentor.mentor_id}`} className="rounded-full border border-[#0f3d32] px-4 py-2 text-xs font-semibold text-[#0f3d32] transition hover:bg-[#0f3d32] hover:text-white">
                             View Details
                           </Link>
-                          <Link href={`/startup/discover/mentor/${mentor.mentor_id}/offer`} className="rounded-full border border-gray-200 px-4 py-2 text-xs font-semibold text-gray-600 transition hover:bg-gray-100">
-                            Make an Offer
-                          </Link>
+                          <DiscoverOfferButton
+                            type="mentorship"
+                            contactId={mentor.mentor_id}
+                            offerLookup={offerLookup}
+                          />
                         </div>
                       </div>
                     ))}

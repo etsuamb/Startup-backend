@@ -603,6 +603,66 @@ exports.searchPublicStartups = async (req, res) => {
   }
 };
 
+async function fetchContactDocumentFolders(contactType, contactId) {
+  if (!contactId) return [];
+
+  if (contactType === "mentor") {
+    const docs = await pool.query(
+      `SELECT * FROM (
+         SELECT document_id AS id,
+                COALESCE(description, 'document') AS document_type,
+                file_name, file_path, file_type, file_size_bytes, description, created_at
+         FROM documents WHERE mentor_id = $1
+         UNION ALL
+         SELECT mentor_document_id AS id,
+                document_type,
+                file_name, file_path, file_type, file_size_bytes, description, created_at
+         FROM mentor_documents WHERE mentor_id = $1
+       ) merged ORDER BY document_type, created_at DESC`,
+      [contactId],
+    );
+    return groupDocumentsIntoFolders(docs.rows);
+  }
+
+  if (contactType === "investor") {
+    const docs = await pool.query(
+      `SELECT document_id AS id,
+              COALESCE(description, file_type, 'document') AS document_type,
+              file_name, file_path, file_type, file_size_bytes, description, created_at
+       FROM documents
+       WHERE investor_id = $1
+       ORDER BY document_type, created_at DESC`,
+      [contactId],
+    );
+    return groupDocumentsIntoFolders(docs.rows);
+  }
+
+  return [];
+}
+
+function groupDocumentsIntoFolders(documents) {
+  const folderMap = new Map();
+  for (const doc of documents) {
+    const folderName = (doc.document_type || "other").trim() || "other";
+    if (!folderMap.has(folderName)) {
+      folderMap.set(folderName, {
+        folder: folderName,
+        documents: [],
+      });
+    }
+    folderMap.get(folderName).documents.push({
+      id: doc.id,
+      file_name: doc.file_name,
+      file_path: doc.file_path,
+      file_type: doc.file_type,
+      file_size_bytes: doc.file_size_bytes,
+      description: doc.description,
+      created_at: doc.created_at,
+    });
+  }
+  return Array.from(folderMap.values());
+}
+
 // Get all offers (investment and mentorship) for a startup
 exports.getStartupOffers = async (req, res) => {
   try {
@@ -656,17 +716,20 @@ exports.getStartupOffers = async (req, res) => {
       [startupId],
     );
 
-    investmentOffers.rows.forEach(offer => {
+    for (const offer of investmentOffers.rows) {
+      const document_folders = await fetchContactDocumentFolders("investor", offer.investor_id);
       offers.push({
         ...offer,
-        offerType: 'investment',
+        offerType: "investment",
         equity: null,
-        canStartupRespond: offer.source_direction === 'incoming' && offer.status === 'pending',
-        terms: offer.source_direction === 'incoming'
+        document_folders,
+        document_count: document_folders.reduce((sum, folder) => sum + folder.documents.length, 0),
+        canStartupRespond: offer.source_direction === "incoming" && offer.status === "pending",
+        terms: offer.source_direction === "incoming"
           ? `Funding offer for ${offer.project_title}`
           : `Investment request for ${offer.project_title}`,
       });
-    });
+    }
 
     const mentorshipOffers = await pool.query(
       `SELECT 
@@ -701,15 +764,18 @@ exports.getStartupOffers = async (req, res) => {
       [startupId],
     );
 
-    mentorshipOffers.rows.forEach(offer => {
+    for (const offer of mentorshipOffers.rows) {
+      const document_folders = await fetchContactDocumentFolders("mentor", offer.mentor_id);
       offers.push({
         ...offer,
-        offerType: 'mentorship',
+        offerType: "mentorship",
         amount: null,
+        document_folders,
+        document_count: document_folders.reduce((sum, folder) => sum + folder.documents.length, 0),
         canStartupRespond: false,
-        terms: offer.subject || 'Mentorship request',
+        terms: offer.subject || "Mentorship request",
       });
-    });
+    }
 
     offers.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     res.json({ offers });
@@ -779,7 +845,14 @@ exports.getOfferDetails = async (req, res) => {
         return res.status(404).json({ error: "Investment offer not found" });
       }
 
-      return res.json({ offer: result.rows[0] });
+      const offer = result.rows[0];
+      offer.document_folders = await fetchContactDocumentFolders("investor", offer.investor_id);
+      offer.document_count = offer.document_folders.reduce(
+        (sum, folder) => sum + folder.documents.length,
+        0,
+      );
+
+      return res.json({ offer });
     }
 
     if (offerType === 'mentorship') {
@@ -825,7 +898,14 @@ exports.getOfferDetails = async (req, res) => {
         return res.status(404).json({ error: "Mentorship offer not found" });
       }
 
-      return res.json({ offer: result.rows[0] });
+      const offer = result.rows[0];
+      offer.document_folders = await fetchContactDocumentFolders("mentor", offer.mentor_id);
+      offer.document_count = offer.document_folders.reduce(
+        (sum, folder) => sum + folder.documents.length,
+        0,
+      );
+
+      return res.json({ offer });
     }
 
     res.status(400).json({ error: "Invalid offer type" });

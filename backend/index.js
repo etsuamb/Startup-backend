@@ -75,6 +75,9 @@ app.use("/api/startup-dashboard", startupDashboardRoutes);
 const discoverRoutes = require("./routes/discoverRoutes");
 app.use("/api/startups/discover", discoverRoutes);
 
+const ratingRoutes = require("./routes/ratingRoutes");
+app.use("/api/ratings", ratingRoutes);
+
 // Start server LAST
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

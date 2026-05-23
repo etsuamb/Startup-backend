@@ -3,6 +3,7 @@ import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import Sidebar from "@/components/startup/Sidebar";
 import { getStartupOffers } from "@/lib/startupApi";
+import { formatFolderLabel } from "@/lib/offerUtils";
 
 export default function StartupOffersPage() {
   const [offers, setOffers] = useState([]);
@@ -269,17 +270,39 @@ export default function StartupOffersPage() {
                       </div>
                       <h3 className="mt-3 truncate text-base font-bold text-gray-950">{getOfferName(offer)}</h3>
                       <p className="mt-1 truncate text-sm text-gray-500">{getOfferSubtitle(offer)}</p>
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-500">
+                        {offer.offerType === "investment" && offer.project_title && (
+                          <span className="rounded-md bg-white/80 px-2 py-1">Project: {offer.project_title}</span>
+                        )}
+                        {offer.offerType === "mentorship" && offer.subject && (
+                          <span className="rounded-md bg-white/80 px-2 py-1">{offer.subject}</span>
+                        )}
+                        {offer.preferred_industry && (
+                          <span className="rounded-md bg-white/80 px-2 py-1">{offer.preferred_industry}</span>
+                        )}
+                        {offer.expertise && (
+                          <span className="rounded-md bg-white/80 px-2 py-1">{offer.expertise}</span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="min-w-0">
                       {offer.offerType === "investment" ? (
                         <p className="text-sm font-bold text-[#0f3d32]">{formatAmount(offer.amount)}</p>
                       ) : (
-                        <p className="text-sm font-bold text-violet-700">Mentorship</p>
+                        <p className="text-sm font-bold text-violet-700">Mentorship request</p>
                       )}
                       <p className="mt-1 line-clamp-2 text-sm text-gray-500">
                         {offer.message || offer.terms || "No message provided"}
                       </p>
+                      {offer.document_count > 0 && (
+                        <p className="mt-2 text-xs font-semibold text-gray-600">
+                          {offer.document_count} shared file{offer.document_count === 1 ? "" : "s"}
+                          {offer.document_folders?.length
+                            ? ` in ${offer.document_folders.map((folder) => formatFolderLabel(folder.folder)).join(", ")}`
+                            : ""}
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between gap-4 lg:justify-end">

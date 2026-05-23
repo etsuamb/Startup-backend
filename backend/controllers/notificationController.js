@@ -1,5 +1,121 @@
 const pool = require("../config/db");
 
+// GET /api/notifications/settings
+// Get notification settings for the current user
+exports.getNotificationSettings = async (req, res) => {
+  const userId = req.user.user_id;
+  try {
+    // Get user's notification preferences from user metadata or a separate table
+    // For now, we'll use a simple approach with user settings
+    const result = await pool.query(
+      `SELECT 
+        COALESCE((metadata->>'email_notifications')::boolean, true) AS email_notifications,
+        COALESCE((metadata->>'push_notifications')::boolean, true) AS push_notifications,
+        COALESCE((metadata->>'rating_notifications')::boolean, true) AS rating_notifications,
+        COALESCE((metadata->>'mentorship_notifications')::boolean, true) AS mentorship_notifications,
+        COALESCE((metadata->>'investment_notifications')::boolean, true) AS investment_notifications,
+        COALESCE((metadata->>'message_notifications')::boolean, true) AS message_notifications
+       FROM users 
+       WHERE user_id = $1`,
+      [userId],
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const settings = result.rows[0];
+    return res.json({
+      settings: {
+        email_notifications: settings.email_notifications,
+        push_notifications: settings.push_notifications,
+        rating_notifications: settings.rating_notifications,
+        mentorship_notifications: settings.mentorship_notifications,
+        investment_notifications: settings.investment_notifications,
+        message_notifications: settings.message_notifications,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+// PUT /api/notifications/settings
+// Update notification settings for the current user
+exports.updateNotificationSettings = async (req, res) => {
+  const userId = req.user.user_id;
+  const {
+    email_notifications,
+    push_notifications,
+    rating_notifications,
+    mentorship_notifications,
+    investment_notifications,
+    message_notifications,
+  } = req.body || {};
+
+  try {
+    // Build metadata update
+    const updates = [];
+    const params = [];
+    let paramIndex = 1;
+
+    if (email_notifications !== undefined) {
+      updates.push(`metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{email_notifications}', $${paramIndex}::jsonb)`);
+      params.push(JSON.stringify(email_notifications));
+      paramIndex++;
+    }
+    if (push_notifications !== undefined) {
+      updates.push(`metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{push_notifications}', $${paramIndex}::jsonb)`);
+      params.push(JSON.stringify(push_notifications));
+      paramIndex++;
+    }
+    if (rating_notifications !== undefined) {
+      updates.push(`metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{rating_notifications}', $${paramIndex}::jsonb)`);
+      params.push(JSON.stringify(rating_notifications));
+      paramIndex++;
+    }
+    if (mentorship_notifications !== undefined) {
+      updates.push(`metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{mentorship_notifications}', $${paramIndex}::jsonb)`);
+      params.push(JSON.stringify(mentorship_notifications));
+      paramIndex++;
+    }
+    if (investment_notifications !== undefined) {
+      updates.push(`metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{investment_notifications}', $${paramIndex}::jsonb)`);
+      params.push(JSON.stringify(investment_notifications));
+      paramIndex++;
+    }
+    if (message_notifications !== undefined) {
+      updates.push(`metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{message_notifications}', $${paramIndex}::jsonb)`);
+      params.push(JSON.stringify(message_notifications));
+      paramIndex++;
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: "No settings provided to update" });
+    }
+
+    // Initialize metadata if null and update
+    const updateQuery = `
+      UPDATE users 
+      SET metadata = COALESCE(metadata, '{}'::jsonb),
+          ${updates.join(", ")}
+      WHERE user_id = $${paramIndex}
+      RETURNING user_id`;
+    
+    params.push(userId);
+
+    const result = await pool.query(updateQuery, params);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    return res.json({ message: "Notification settings updated successfully" });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
 // GET /api/notifications
 exports.listNotifications = async (req, res) => {
 	const userId = req.user.user_id;

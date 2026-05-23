@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Sidebar from "@/components/startup/Sidebar";
-import { getStartupProfile, updateStartupProfile } from "@/lib/startupApi";
+import { getStartupProfile, updateStartupProfile, getNotificationSettings, updateNotificationSettings } from "@/lib/startupApi";
 
 function fieldValue(value) {
   if (value === null || value === undefined) return "";
@@ -85,6 +85,20 @@ export default function StartupSettingsPage() {
   const [fundingNeeded, setFundingNeeded] = useState("");
   const [adminStatus, setAdminStatus] = useState("");
 
+  // Notification settings state
+  const [notificationSettings, setNotificationSettings] = useState({
+    email_notifications: true,
+    push_notifications: true,
+    rating_notifications: true,
+    mentorship_notifications: true,
+    investment_notifications: true,
+    message_notifications: true,
+  });
+  const [loadingNotifications, setLoadingNotifications] = useState(true);
+  const [savingNotifications, setSavingNotifications] = useState(false);
+  const [notificationError, setNotificationError] = useState(null);
+  const [notificationSuccess, setNotificationSuccess] = useState(null);
+
   const formSetters = {
     setFirstName,
     setLastName,
@@ -129,9 +143,30 @@ export default function StartupSettingsPage() {
     }
   }, []);
 
+  const loadNotificationSettings = useCallback(async () => {
+    setLoadingNotifications(true);
+    setNotificationError(null);
+    try {
+      const data = await getNotificationSettings();
+      setNotificationSettings(data.settings || {
+        email_notifications: true,
+        push_notifications: true,
+        rating_notifications: true,
+        mentorship_notifications: true,
+        investment_notifications: true,
+        message_notifications: true,
+      });
+    } catch (err) {
+      setNotificationError(err.message || "Unable to load notification settings.");
+    } finally {
+      setLoadingNotifications(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadProfile();
-  }, [loadProfile]);
+    loadNotificationSettings();
+  }, [loadProfile, loadNotificationSettings]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -191,6 +226,29 @@ export default function StartupSettingsPage() {
       setSaving(false);
     }
   }
+
+  async function handleNotificationSettingsUpdate(event) {
+    event.preventDefault();
+    setNotificationError(null);
+    setNotificationSuccess(null);
+
+    setSavingNotifications(true);
+    try {
+      await updateNotificationSettings(notificationSettings);
+      setNotificationSuccess("Notification settings updated successfully.");
+    } catch (err) {
+      setNotificationError(err.message || "Unable to update notification settings.");
+    } finally {
+      setSavingNotifications(false);
+    }
+  }
+
+  const toggleNotification = (key) => {
+    setNotificationSettings(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
 
   return (
     <div className="min-h-screen bg-[#f8fafc] font-sans text-gray-900 flex">
@@ -335,71 +393,98 @@ export default function StartupSettingsPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-bold text-gray-900 mb-2">Description</label>
-                      <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} className={inputClass} />
+                      <textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        rows={4}
+                        className={inputClass}
+                        placeholder="Describe your startup, mission, and what makes it unique..."
+                      />
                     </div>
                     <div className="grid gap-6 md:grid-cols-2">
                       <div>
                         <label className="block text-sm font-bold text-gray-900 mb-2">Founded year</label>
-                        <input value={foundedYear} onChange={(e) => setFoundedYear(e.target.value)} type="number" min="1900" max="2100" className={inputClass} />
+                        <input
+                          type="number"
+                          value={foundedYear}
+                          onChange={(e) => setFoundedYear(e.target.value)}
+                          className={inputClass}
+                          placeholder="YYYY"
+                          min="1900"
+                          max="2100"
+                        />
                       </div>
                       <div>
                         <label className="block text-sm font-bold text-gray-900 mb-2">Team size</label>
-                        <input value={teamSize} onChange={(e) => setTeamSize(e.target.value)} type="number" min="0" className={inputClass} />
+                        <select
+                          value={teamSize}
+                          onChange={(e) => setTeamSize(e.target.value)}
+                          className={`${inputClass} appearance-none pr-10`}
+                        >
+                          <option value="">Select size</option>
+                          <option value="1-10">1-10</option>
+                          <option value="11-50">11-50</option>
+                          <option value="51-200">51-200</option>
+                          <option value="201+">201+</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
                       </div>
                     </div>
                     <div className="grid gap-6 md:grid-cols-2">
                       <div>
                         <label className="block text-sm font-bold text-gray-900 mb-2">Region</label>
-                        <div className="relative">
-                          <select
-                            value={region}
-                            onChange={(e) => setRegion(e.target.value)}
-                            className={`${inputClass} appearance-none pr-10`}
-                          >
-                            <option value="">Select Region</option>
-                            <option value="Addis Ababa">Addis Ababa</option>
-                            <option value="Dire Dawa">Dire Dawa</option>
-                            <option value="Harari">Harari</option>
-                            <option value="Oromia">Oromia</option>
-                            <option value="Amhara">Amhara</option>
-                            <option value="SNNPR">SNNPR (Southern Nations)</option>
-                            <option value="Gambela">Gambela</option>
-                            <option value="Benishangul-Gumuz">Benishangul-Gumuz</option>
-                            <option value="Somali">Somali</option>
-                            <option value="Afar">Afar</option>
-                            <option value="Tigray">Tigray</option>
-                          </select>
-                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                          </div>
-                        </div>
+                        <input value={region} onChange={(e) => setRegion(e.target.value)} className={inputClass} placeholder="e.g., California" />
                       </div>
                       <div>
                         <label className="block text-sm font-bold text-gray-900 mb-2">City</label>
-                        <input value={city} onChange={(e) => setCity(e.target.value)} className={inputClass} />
+                        <input value={city} onChange={(e) => setCity(e.target.value)} className={inputClass} placeholder="e.g., San Francisco" />
                       </div>
                     </div>
-                    <div className="grid gap-6 md:grid-cols-2">
-                      <div>
-                        <label className="block text-sm font-bold text-gray-900 mb-2">Founder role</label>
-                        <input value={founderRole} onChange={(e) => setFounderRole(e.target.value)} className={inputClass} />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-bold text-gray-900 mb-2">Location (display)</label>
-                        <input value={location} onChange={(e) => setLocation(e.target.value)} className={inputClass} />
-                      </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-900 mb-2">Founder role</label>
+                      <input
+                        value={founderRole}
+                        onChange={(e) => setFounderRole(e.target.value)}
+                        className={inputClass}
+                        placeholder="e.g., CEO, CTO, Founder"
+                      />
                     </div>
                     <div className="grid gap-6 md:grid-cols-2">
                       <div>
                         <label className="block text-sm font-bold text-gray-900 mb-2">Website</label>
-                        <input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://example.com" className={inputClass} />
+                        <input
+                          type="url"
+                          value={website}
+                          onChange={(e) => setWebsite(e.target.value)}
+                          className={inputClass}
+                          placeholder="https://yourstartup.com"
+                        />
                       </div>
                       <div>
-                        <label className="block text-sm font-bold text-gray-900 mb-2">Funding needed (USD)</label>
-                        <input value={fundingNeeded} onChange={(e) => setFundingNeeded(e.target.value)} type="number" min="0" step="0.01" className={inputClass} />
+                        <label className="block text-sm font-bold text-gray-900 mb-2">Funding needed</label>
+                        <input
+                          type="number"
+                          value={fundingNeeded}
+                          onChange={(e) => setFundingNeeded(e.target.value)}
+                          className={inputClass}
+                          placeholder="Amount in USD"
+                          min="0"
+                        />
                       </div>
                     </div>
                   </section>
+
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="inline-flex items-center justify-center rounded-full bg-[#0f3d32] px-8 py-3 text-sm font-semibold text-white transition hover:bg-[#0b2a1d] disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {saving ? "Saving..." : "Save Changes"}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-6">
@@ -561,19 +646,153 @@ export default function StartupSettingsPage() {
                       )}
                     </div>
                   </section>
-                </div>
-              </div>
 
-              {/* Save Button */}
-              <div className="mt-8 flex justify-end">
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="px-8 py-3.5 bg-[#0f3d32] text-white font-bold text-sm rounded-2xl hover:bg-[#0a2921] shadow-md flex items-center gap-2 transition disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
-                  {saving ? "Saving…" : "Save changes"}
-                </button>
+                  <section className="rounded-[30px] border border-gray-100 bg-white p-8 shadow-sm space-y-6">
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">Notification Settings</h2>
+                      <p className="text-sm text-gray-500 mt-2">Manage how you receive notifications.</p>
+                    </div>
+                    {notificationError && <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">{notificationError}</div>}
+                    {notificationSuccess && <div className="rounded-2xl border border-green-200 bg-green-50 p-3 text-xs text-green-700">{notificationSuccess}</div>}
+                    {loadingNotifications ? (
+                      <div className="text-center text-sm text-gray-500 py-4">Loading notification settings...</div>
+                    ) : (
+                      <form onSubmit={handleNotificationSettingsUpdate} className="space-y-4">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900">Email Notifications</p>
+                              <p className="text-xs text-gray-500">Receive notifications via email</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => toggleNotification('email_notifications')}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                notificationSettings.email_notifications ? 'bg-[#0f3d32]' : 'bg-gray-300'
+                              }`}
+                            >
+                              <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                  notificationSettings.email_notifications ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                              />
+                            </button>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900">Push Notifications</p>
+                              <p className="text-xs text-gray-500">Receive in-app notifications</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => toggleNotification('push_notifications')}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                notificationSettings.push_notifications ? 'bg-[#0f3d32]' : 'bg-gray-300'
+                              }`}
+                            >
+                              <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                  notificationSettings.push_notifications ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                              />
+                            </button>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900">Rating Notifications</p>
+                              <p className="text-xs text-gray-500">When mentors rate your startup</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => toggleNotification('rating_notifications')}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                notificationSettings.rating_notifications ? 'bg-[#0f3d32]' : 'bg-gray-300'
+                              }`}
+                            >
+                              <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                  notificationSettings.rating_notifications ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                              />
+                            </button>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900">Mentorship Notifications</p>
+                              <p className="text-xs text-gray-500">Updates on mentorship requests</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => toggleNotification('mentorship_notifications')}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                notificationSettings.mentorship_notifications ? 'bg-[#0f3d32]' : 'bg-gray-300'
+                              }`}
+                            >
+                              <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                  notificationSettings.mentorship_notifications ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                              />
+                            </button>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900">Investment Notifications</p>
+                              <p className="text-xs text-gray-500">Updates on investment opportunities</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => toggleNotification('investment_notifications')}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                notificationSettings.investment_notifications ? 'bg-[#0f3d32]' : 'bg-gray-300'
+                              }`}
+                            >
+                              <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                  notificationSettings.investment_notifications ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                              />
+                            </button>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900">Message Notifications</p>
+                              <p className="text-xs text-gray-500">New messages from investors and mentors</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => toggleNotification('message_notifications')}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                notificationSettings.message_notifications ? 'bg-[#0f3d32]' : 'bg-gray-300'
+                              }`}
+                            >
+                              <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                  notificationSettings.message_notifications ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                              />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="pt-2">
+                          <button
+                            type="submit"
+                            disabled={savingNotifications}
+                            className="w-full inline-flex items-center justify-center rounded-full bg-[#0f3d32] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b2a1d] disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {savingNotifications ? "Saving..." : "Save Notification Settings"}
+                          </button>
+                        </div>
+                      </form>
+                    )}
+                  </section>
+                </div>
               </div>
             </form>
           )}

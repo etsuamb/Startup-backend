@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Sidebar from "@/components/startup/Sidebar";
 import { getOfferDetails, updateOfferStatus } from "@/lib/startupApi";
+import OfferDocumentFolders from "@/components/startup/OfferDocumentFolders";
 
 export default function OfferDetailsPage() {
   const params = useParams();
@@ -320,6 +321,9 @@ export default function OfferDetailsPage() {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 {isInvestment ? "Investment Proposal" : "Mentorship Message"}
               </h3>
+              {!isInvestment && offer.subject && (
+                <p className="mb-3 text-sm font-semibold text-gray-900">Subject: {offer.subject}</p>
+              )}
               <p className="text-sm leading-relaxed text-gray-600 whitespace-pre-line">
                 {offer.message || offer.proposal_message || "No message provided"}
               </p>
@@ -360,6 +364,22 @@ export default function OfferDetailsPage() {
                 </p>
               </div>
             )}
+
+            <div className="rounded-[24px] border border-gray-200 bg-[#f9fafb] p-6 mb-8">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {isInvestment ? "Investor" : "Mentor"} documents
+                </h3>
+                {offer.document_count > 0 && (
+                  <span className="text-sm font-semibold text-gray-500">
+                    {offer.document_count} file{offer.document_count === 1 ? "" : "s"} across{" "}
+                    {offer.document_folders?.length || 0} folder
+                    {(offer.document_folders?.length || 0) === 1 ? "" : "s"}
+                  </span>
+                )}
+              </div>
+              <OfferDocumentFolders folders={offer.document_folders || []} />
+            </div>
 
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pt-6 border-t border-gray-200">
               <div className="flex gap-3">

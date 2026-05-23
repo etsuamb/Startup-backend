@@ -3,7 +3,9 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Sidebar from "@/components/startup/Sidebar";
-import { searchInvestors } from "@/lib/startupApi";
+import { searchInvestors, getStartupOffers } from "@/lib/startupApi";
+import { buildSentOfferLookup, getSentInvestorOffer } from "@/lib/offerUtils";
+import DiscoverOfferButton from "@/components/startup/DiscoverOfferButton";
 
 export default function InvestorDetailsPage() {
   const params = useParams();
@@ -13,6 +15,7 @@ export default function InvestorDetailsPage() {
   const [investor, setInvestor] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [offerLookup, setOfferLookup] = useState({ investors: new Map(), mentors: new Map() });
 
   useEffect(() => {
     fetchInvestorDetails();
@@ -22,7 +25,11 @@ export default function InvestorDetailsPage() {
     try {
       setLoading(true);
       setError(null);
-      const response = await searchInvestors({ query: "" });
+      const [response, offersData] = await Promise.all([
+        searchInvestors({ query: "" }),
+        getStartupOffers().catch(() => ({ offers: [] })),
+      ]);
+      setOfferLookup(buildSentOfferLookup(offersData.offers || []));
       const foundInvestor = response.investors?.find(i => i.investor_id === parseInt(investorId));
       if (foundInvestor) {
         setInvestor(foundInvestor);
@@ -193,14 +200,20 @@ export default function InvestorDetailsPage() {
               </div>
             )}
 
+            {getSentInvestorOffer(offerLookup, investorId) && (
+              <div className="rounded-[24px] border border-[#cfe8dc] bg-[#f0faf5] p-5 mb-8 text-sm text-[#0f3d32]">
+                You already sent an investment request to this investor. You can track it from your offers page.
+              </div>
+            )}
+
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pt-6 border-t border-gray-200">
               <div className="flex gap-3">
-                <Link
-                  href={`/startup/discover/investor/${investorId}/offer`}
-                  className="inline-flex items-center justify-center rounded-2xl bg-[#0f3d32] px-8 py-4 text-sm font-semibold text-white transition hover:bg-[#0b2a1d]"
-                >
-                  Make an Offer
-                </Link>
+                <DiscoverOfferButton
+                  type="investment"
+                  contactId={investorId}
+                  offerLookup={offerLookup}
+                  variant="primary"
+                />
                 <Link
                   href="/startup/chat"
                   className="inline-flex items-center justify-center rounded-2xl border border-gray-300 bg-white px-8 py-4 text-sm font-semibold text-gray-700 transition hover:border-gray-400 hover:bg-gray-50"

@@ -61,6 +61,26 @@ exports.createMentorshipRequest = async (req, res) => {
 			return res.status(404).json({ error: "Mentor not found" });
 		}
 
+		const existingRequest = await pool.query(
+			`SELECT mentorship_request_id, status
+			 FROM mentorship_requests
+			 WHERE startup_id = $1 AND mentor_id = $2
+			   AND status IN ('pending', 'accepted')
+			 LIMIT 1`,
+			[startupId, mentorId],
+		);
+
+		if (existingRequest.rowCount > 0) {
+			return res.status(409).json({
+				error: "You already have an active mentorship request with this mentor.",
+				existing_offer: {
+					offerType: "mentorship",
+					id: existingRequest.rows[0].mentorship_request_id,
+					status: existingRequest.rows[0].status,
+				},
+			});
+		}
+
 		const result = await pool.query(
 			`INSERT INTO mentorship_requests (startup_id, mentor_id, subject, message, status)
        VALUES ($1,$2,$3,$4,'pending')
