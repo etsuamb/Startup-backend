@@ -2,15 +2,18 @@ const path = require("path");
 require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 require("dotenv").config({ path: path.resolve(__dirname, "../../chatbot back end/backend/.env") });
 
+function cleanEnv(value) {
+	return String(value || "").trim().replace(/^"(.+)"$/, "$1").replace(/^'(.+)'$/, "$1");
+}
+
 async function generateMentorResponse({
+	profileContext,
 	startupProfile,
 	chatHistory,
 	userMessage,
 }) {
-	const apiKey = process.env.GROQ_API_KEY;
-	if (!apiKey) {
-		throw new Error("GROQ_API_KEY is not configured");
-	}
+	const groqKey = cleanEnv(process.env.GROQ_API_KEY);
+	const openAiKey = cleanEnv(process.env.OPENAI_API_KEY);
 
 	const systemPrompt = `
 You are the AI Mentor Assistant for StartupConnect Ethiopia.
@@ -31,8 +34,8 @@ Answer format:
 3. Clear next steps.
 4. One useful follow-up question.
 
-Startup Profile:
-${startupProfile}
+Profile Context:
+${profileContext || startupProfile}
 `;
 
 	const messages = [
@@ -44,14 +47,30 @@ ${startupProfile}
 		{ role: "user", content: userMessage },
 	];
 
-	const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+	const provider = groqKey
+		? {
+			url: "https://api.groq.com/openai/v1/chat/completions",
+			key: groqKey,
+			model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
+		}
+		: {
+			url: "https://api.openai.com/v1/chat/completions",
+			key: openAiKey,
+			model: process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini",
+		};
+
+	if (!provider.key) {
+		throw new Error("AI provider key is not configured. Add GROQ_API_KEY or OPENAI_API_KEY to backend/.env, then restart the backend.");
+	}
+
+	const response = await fetch(provider.url, {
 		method: "POST",
 		headers: {
-			Authorization: `Bearer ${apiKey}`,
+			Authorization: `Bearer ${provider.key}`,
 			"Content-Type": "application/json",
 		},
 		body: JSON.stringify({
-			model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
+			model: provider.model,
 			messages,
 			temperature: 0.7,
 			max_tokens: 800,

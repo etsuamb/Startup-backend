@@ -146,11 +146,17 @@ ALTER TABLE projects ADD COLUMN IF NOT EXISTS mentor_preferred_field VARCHAR(120
 
 CREATE TABLE IF NOT EXISTS ai_mentor_sessions (
     ai_mentor_session_id SERIAL PRIMARY KEY,
-    startup_id INTEGER NOT NULL REFERENCES startups(startup_id) ON DELETE CASCADE,
+    startup_id INTEGER REFERENCES startups(startup_id) ON DELETE CASCADE,
+    investor_id INTEGER REFERENCES investors(investor_id) ON DELETE CASCADE,
+    user_role VARCHAR(20) NOT NULL DEFAULT 'Startup' CHECK (user_role IN ('Startup', 'Investor')),
     title VARCHAR(255) NOT NULL DEFAULT 'AI Mentor Chat',
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ
 );
+
+ALTER TABLE ai_mentor_sessions ALTER COLUMN startup_id DROP NOT NULL;
+ALTER TABLE ai_mentor_sessions ADD COLUMN IF NOT EXISTS investor_id INTEGER REFERENCES investors(investor_id) ON DELETE CASCADE;
+ALTER TABLE ai_mentor_sessions ADD COLUMN IF NOT EXISTS user_role VARCHAR(20) NOT NULL DEFAULT 'Startup';
 
 CREATE TABLE IF NOT EXISTS ai_mentor_messages (
     ai_mentor_message_id SERIAL PRIMARY KEY,
@@ -199,14 +205,21 @@ CREATE TABLE IF NOT EXISTS investment_requests (
     project_id INTEGER NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
     requested_amount DECIMAL(14,2) NOT NULL CHECK (requested_amount > 0),
     proposal_message TEXT,
+    initiated_by VARCHAR(20) NOT NULL DEFAULT 'startup' CHECK (initiated_by IN ('startup', 'investor')),
     status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'accepted', 'rejected', 'withdrawn')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+ALTER TABLE investment_requests ADD COLUMN IF NOT EXISTS initiated_by VARCHAR(20) NOT NULL DEFAULT 'startup';
+ALTER TABLE investment_requests ALTER COLUMN project_id DROP NOT NULL;
 ALTER TABLE investment_requests DROP CONSTRAINT IF EXISTS investment_requests_status_check;
 ALTER TABLE investment_requests
     ADD CONSTRAINT investment_requests_status_check
     CHECK (status IN ('pending', 'approved', 'accepted', 'rejected', 'withdrawn'));
+ALTER TABLE investment_requests DROP CONSTRAINT IF EXISTS investment_requests_initiated_by_check;
+ALTER TABLE investment_requests
+    ADD CONSTRAINT investment_requests_initiated_by_check
+    CHECK (initiated_by IN ('startup', 'investor'));
 
 CREATE TABLE IF NOT EXISTS investments (
     investment_id SERIAL PRIMARY KEY,

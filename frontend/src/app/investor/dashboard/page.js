@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import AiMentorWidget from "@/components/investor/AiMentorWidget";
 import Sidebar from "@/components/investor/Sidebar";
 import {
 	getInvestorFundingOffers,
@@ -385,11 +386,7 @@ export default function InvestorDashboard() {
 				</main>
 			</div>
 
-			<Link href="/investor/offers/new" className="fixed bottom-8 right-8 w-14 h-14 bg-[#0a4d3c] text-white rounded-full shadow-xl flex items-center justify-center hover:bg-[#07382b] hover:scale-105 transition-all z-50">
-				<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-				</svg>
-			</Link>
+			<AiMentorWidget />
 		</div>
 	);
 }

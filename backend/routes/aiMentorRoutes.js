@@ -7,12 +7,18 @@ async function ensureAiMentorSchema() {
 	await pool.query(`
 		CREATE TABLE IF NOT EXISTS ai_mentor_sessions (
 			ai_mentor_session_id SERIAL PRIMARY KEY,
-			startup_id INTEGER NOT NULL REFERENCES startups(startup_id) ON DELETE CASCADE,
+			startup_id INTEGER REFERENCES startups(startup_id) ON DELETE CASCADE,
+			investor_id INTEGER REFERENCES investors(investor_id) ON DELETE CASCADE,
+			user_role VARCHAR(20) NOT NULL DEFAULT 'Startup' CHECK (user_role IN ('Startup', 'Investor')),
 			title VARCHAR(255) NOT NULL DEFAULT 'AI Mentor Chat',
 			created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMPTZ
 		)
 	`);
+
+	await pool.query("ALTER TABLE ai_mentor_sessions ALTER COLUMN startup_id DROP NOT NULL");
+	await pool.query("ALTER TABLE ai_mentor_sessions ADD COLUMN IF NOT EXISTS investor_id INTEGER REFERENCES investors(investor_id) ON DELETE CASCADE");
+	await pool.query("ALTER TABLE ai_mentor_sessions ADD COLUMN IF NOT EXISTS user_role VARCHAR(20) NOT NULL DEFAULT 'Startup'");
 
 	await pool.query(`
 		CREATE TABLE IF NOT EXISTS ai_mentor_messages (
@@ -60,6 +66,22 @@ async function getStartupForUser(userId) {
 	return result.rows[0] || null;
 }
 
+async function getInvestorForUser(userId) {
+	const result = await pool.query(
+		`SELECT
+			 i.*,
+			 u.first_name,
+			 u.last_name,
+			 u.email
+		 FROM investors i
+		 JOIN users u ON u.user_id = i.user_id
+		 WHERE i.user_id = $1`,
+		[userId],
+	);
+
+	return result.rows[0] || null;
+}
+
 function buildStartupProfile(startup) {
 	return `
 Name: ${startup.startup_name || "Not provided"}
@@ -76,10 +98,23 @@ Expected Impact: ${startup.expected_impact || "Not provided"}
 `;
 }
 
+function buildInvestorProfile(investor) {
+	return `
+Name: ${investor.organization_name || `${investor.first_name || ""} ${investor.last_name || ""}`.trim() || "Not provided"}
+Investor Type: ${investor.investor_type || "Not provided"}
+Preferred Industry: ${investor.preferred_industry || "Not provided"}
+Investment Stage: ${investor.investment_stage || "Not provided"}
+Investment Budget: ${investor.investment_budget || "Not provided"}
+Location Preference: ${investor.location_preference || investor.country || "Not provided"}
+Portfolio Size: ${investor.portfolio_size || "Not provided"}
+Bio: ${investor.bio || "Not provided"}
+`;
+}
+
 router.post(
 	"/chat",
 	authenticate,
-	authorizeRoles("Startup"),
+	authorizeRoles("Startup", "Investor"),
 	async (req, res) => {
 		try {
 			await ensureAiMentorSchema();
@@ -95,16 +130,21 @@ router.post(
 				return res.status(400).json({ error: "Message is too long. Please shorten it." });
 			}
 
-			const startup = await getStartupForUser(req.user.user_id);
-			if (!startup) {
-				return res.status(404).json({ error: "Startup profile not found" });
+			const isInvestor = req.user.role === "Investor";
+			const profile = isInvestor
+				? await getInvestorForUser(req.user.user_id)
+				: await getStartupForUser(req.user.user_id);
+			if (!profile) {
+				return res.status(404).json({ error: `${req.user.role} profile not found` });
 			}
+			const ownerColumn = isInvestor ? "investor_id" : "startup_id";
+			const ownerId = isInvestor ? profile.investor_id : profile.startup_id;
 
 			let activeSessionId = sessionId ? Number(sessionId) : null;
 			if (activeSessionId) {
 				const sessionCheck = await pool.query(
-					"SELECT ai_mentor_session_id FROM ai_mentor_sessions WHERE ai_mentor_session_id = $1 AND startup_id = $2",
-					[activeSessionId, startup.startup_id],
+					`SELECT ai_mentor_session_id FROM ai_mentor_sessions WHERE ai_mentor_session_id = $1 AND ${ownerColumn} = $2 AND user_role = $3`,
+					[activeSessionId, ownerId, req.user.role],
 				);
 				if (sessionCheck.rowCount === 0) {
 					return res.status(404).json({ error: "AI mentor session not found" });
@@ -114,10 +154,10 @@ router.post(
 			if (!activeSessionId) {
 				const title = cleanMessage.slice(0, 60) || "AI Mentor Chat";
 				const sessionResult = await pool.query(
-					`INSERT INTO ai_mentor_sessions (startup_id, title)
-					 VALUES ($1, $2)
+					`INSERT INTO ai_mentor_sessions (${ownerColumn}, user_role, title)
+					 VALUES ($1, $2, $3)
 					 RETURNING ai_mentor_session_id`,
-					[startup.startup_id, title],
+					[ownerId, req.user.role, title],
 				);
 				activeSessionId = sessionResult.rows[0].ai_mentor_session_id;
 			}
@@ -138,7 +178,7 @@ router.post(
 			);
 
 			const reply = await generateMentorResponse({
-				startupProfile: buildStartupProfile(startup),
+				profileContext: isInvestor ? buildInvestorProfile(profile) : buildStartupProfile(profile),
 				chatHistory: historyResult.rows,
 				userMessage: cleanMessage,
 			});
@@ -170,14 +210,19 @@ router.post(
 router.get(
 	"/sessions",
 	authenticate,
-	authorizeRoles("Startup"),
+	authorizeRoles("Startup", "Investor"),
 	async (req, res) => {
 		try {
 			await ensureAiMentorSchema();
-			const startup = await getStartupForUser(req.user.user_id);
-			if (!startup) {
-				return res.status(404).json({ error: "Startup profile not found" });
+			const isInvestor = req.user.role === "Investor";
+			const profile = isInvestor
+				? await getInvestorForUser(req.user.user_id)
+				: await getStartupForUser(req.user.user_id);
+			if (!profile) {
+				return res.status(404).json({ error: `${req.user.role} profile not found` });
 			}
+			const ownerColumn = isInvestor ? "investor_id" : "startup_id";
+			const ownerId = isInvestor ? profile.investor_id : profile.startup_id;
 
 			const result = await pool.query(
 				`SELECT
@@ -193,9 +238,9 @@ router.get(
 						LIMIT 1
 					 ) AS first_message
 				 FROM ai_mentor_sessions s
-				 WHERE s.startup_id = $1
+				 WHERE s.${ownerColumn} = $1 AND s.user_role = $2
 				 ORDER BY COALESCE(s.updated_at, s.created_at) DESC`,
-				[startup.startup_id],
+				[ownerId, req.user.role],
 			);
 
 			res.json({ sessions: result.rows });
@@ -208,19 +253,24 @@ router.get(
 router.get(
 	"/messages/:sessionId",
 	authenticate,
-	authorizeRoles("Startup"),
+	authorizeRoles("Startup", "Investor"),
 	async (req, res) => {
 		try {
 			await ensureAiMentorSchema();
-			const startup = await getStartupForUser(req.user.user_id);
-			if (!startup) {
-				return res.status(404).json({ error: "Startup profile not found" });
+			const isInvestor = req.user.role === "Investor";
+			const profile = isInvestor
+				? await getInvestorForUser(req.user.user_id)
+				: await getStartupForUser(req.user.user_id);
+			if (!profile) {
+				return res.status(404).json({ error: `${req.user.role} profile not found` });
 			}
+			const ownerColumn = isInvestor ? "investor_id" : "startup_id";
+			const ownerId = isInvestor ? profile.investor_id : profile.startup_id;
 
 			const sessionId = Number(req.params.sessionId);
 			const sessionCheck = await pool.query(
-				"SELECT ai_mentor_session_id FROM ai_mentor_sessions WHERE ai_mentor_session_id = $1 AND startup_id = $2",
-				[sessionId, startup.startup_id],
+				`SELECT ai_mentor_session_id FROM ai_mentor_sessions WHERE ai_mentor_session_id = $1 AND ${ownerColumn} = $2 AND user_role = $3`,
+				[sessionId, ownerId, req.user.role],
 			);
 			if (sessionCheck.rowCount === 0) {
 				return res.status(404).json({ error: "AI mentor session not found" });
