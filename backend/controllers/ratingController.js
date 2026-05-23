@@ -124,11 +124,6 @@ exports.createOrUpdateRating = async (req, res) => {
       result = await pool.query(
         `INSERT INTO reviews (startup_id, mentor_id, rating, comment)
          VALUES ($1, $2, $3, $4)
-         ON CONFLICT (startup_id, mentor_id)
-         DO UPDATE SET 
-           rating = EXCLUDED.rating,
-           comment = EXCLUDED.comment,
-           created_at = CURRENT_TIMESTAMP
          RETURNING *`,
         [startupId, mentorId, ratingNum, comment || null],
       );

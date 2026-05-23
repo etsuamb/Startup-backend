@@ -130,6 +130,81 @@ function Chip({ children, color }) {
   );
 }
 
+/* ─── Progress Trend Chart ───────────────────────────────── */
+function ProgressTrendChart({ reports }) {
+  const chartData = useMemo(() => {
+    const monthlyData = {};
+    reports.forEach((r) => {
+      if (r.progress_rating && r.created_at) {
+        const date = new Date(r.created_at);
+        const key = date.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+        if (!monthlyData[key]) {
+          monthlyData[key] = { total: 0, count: 0 };
+        }
+        monthlyData[key].total += Number(r.progress_rating);
+        monthlyData[key].count += 1;
+      }
+    });
+    
+    const sorted = Object.entries(monthlyData)
+      .sort(([a], [b]) => new Date(a) - new Date(b))
+      .slice(-6)
+      .map(([month, data]) => ({
+        month,
+        average: (data.total / data.count).toFixed(1),
+        count: data.count,
+      }));
+    
+    return sorted;
+  }, [reports]);
+  
+  const maxRating = 5;
+  
+  if (chartData.length === 0) {
+    return (
+      <div
+        className="rounded-2xl p-6 text-center"
+        style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.5)" }}
+      >
+        <p className="text-sm text-gray-500">No rating data available for chart</p>
+      </div>
+    );
+  }
+  
+  return (
+    <div
+      className="rounded-2xl p-6"
+      style={{ background: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.6)" }}
+    >
+      <h3 className="text-[13px] font-black uppercase tracking-wider text-[#0a4d3c] mb-4">Progress Trend (Last 6 Months)</h3>
+      <div className="flex items-end gap-2 h-32">
+        {chartData.map((d, i) => {
+          const height = (d.average / maxRating) * 100;
+          const rc = ratingColor(d.average);
+          return (
+            <div key={i} className="flex-1 flex flex-col items-center gap-2">
+              <div className="relative w-full h-full flex items-end">
+                <div
+                  className="w-full rounded-t-lg transition-all duration-500"
+                  style={{
+                    height: `${height}%`,
+                    background: `linear-gradient(180deg, ${rc.bar} 0%, ${rc.bar}88 100%)`,
+                    minHeight: "4px",
+                  }}
+                />
+              </div>
+              <div className="text-[10px] font-bold text-gray-600 text-center">
+                <div>{d.month}</div>
+                <div className="text-[9px] text-gray-400">{d.count} report{d.count !== 1 ? "s" : ""}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Detail Panel ────────────────────────────────────────── */
 function ReportDetail({ report }) {
   const rc = ratingColor(report.progress_rating);
@@ -163,9 +238,21 @@ function ReportDetail({ report }) {
               <p className="text-sm text-emerald-200 mt-0.5">{report.startup_name}</p>
             </div>
           </div>
-          <div className="text-right shrink-0">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-300">Generated</p>
-            <p className="text-sm font-bold text-white">{formatDate(report.created_at)}</p>
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="text-right">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-300">Generated</p>
+              <p className="text-sm font-bold text-white">{formatDate(report.created_at)}</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleExportPDF}
+              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition"
+              title="Export report"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -282,6 +369,9 @@ export default function MentorReportsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [dateRange, setDateRange] = useState({ start: "", end: "" });
+  const [selectedStartup, setSelectedStartup] = useState("");
+  const [ratingFilter, setRatingFilter] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -304,14 +394,106 @@ export default function MentorReportsPage() {
   }, [load]);
 
   const filtered = useMemo(() => {
+    let result = reports;
+    
+    // Text search
     const needle = query.trim().toLowerCase();
-    if (!needle) return reports;
-    return reports.filter((r) =>
-      [r.report_title, r.summary, r.startup_name].some((v) =>
-        String(v || "").toLowerCase().includes(needle)
-      )
-    );
-  }, [query, reports]);
+    if (needle) {
+      result = result.filter((r) =>
+        [r.report_title, r.summary, r.startup_name].some((v) =>
+          String(v || "").toLowerCase().includes(needle)
+        )
+      );
+    }
+    
+    // Date range filter
+    if (dateRange.start) {
+      result = result.filter((r) => new Date(r.created_at) >= new Date(dateRange.start));
+    }
+    if (dateRange.end) {
+      result = result.filter((r) => new Date(r.created_at) <= new Date(dateRange.end));
+    }
+    
+    // Startup filter
+    if (selectedStartup) {
+      result = result.filter((r) => r.startup_id === Number(selectedStartup));
+    }
+    
+    // Rating filter
+    if (ratingFilter) {
+      result = result.filter((r) => Number(r.progress_rating) === Number(ratingFilter));
+    }
+    
+    return result;
+  }, [query, reports, dateRange, selectedStartup, ratingFilter]);
+
+  const uniqueStartups = useMemo(() => {
+    const startups = new Map();
+    // Add startups from reports
+    reports.forEach((r) => {
+      if (r.startup_id && r.startup_name) {
+        startups.set(r.startup_id, r.startup_name);
+      }
+    });
+    // Add startups from sessions
+    sessions.forEach((s) => {
+      if (s.startup_id && s.startup_name && !startups.has(s.startup_id)) {
+        startups.set(s.startup_id, s.startup_name);
+      }
+    });
+    return Array.from(startups.entries()).map(([id, name]) => ({ id, name }));
+  }, [reports, sessions]);
+
+  const handleExportPDF = () => {
+    const report = selected;
+    if (!report) return;
+    
+    const printContent = `
+MENTORSHIP REPORT
+=================
+
+Title: ${report.report_title || "Session Report"}
+Startup: ${report.startup_name}
+Date: ${formatDate(report.created_at)}
+Progress Rating: ${report.progress_rating || "N/A"}/5
+
+EXECUTIVE SUMMARY
+------------------
+${report.summary || "No summary provided."}
+
+ACTION ITEMS
+------------
+${parseList(report.action_items).map((item, i) => `${i + 1}. ${item}`).join("\n") || "No action items."}
+
+NEXT STEPS
+----------
+${parseList(report.next_steps).map((item, i) => `${i + 1}. ${item}`).join("\n") || "No next steps."}
+
+FOUNDER FEEDBACK
+----------------
+${report.startup_feedback || "No feedback provided."}
+
+MENTOR NOTES
+------------
+${report.mentor_notes || "No notes provided."}
+    `;
+    
+    const blob = new Blob([printContent], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `mentorship-report-${report.report_id}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Real-time updates with polling
+  useEffect(() => {
+    const interval = setInterval(() => {
+      load();
+    }, 30000); // Poll every 30 seconds
+    return () => clearInterval(interval);
+  }, [load]);
 
   const selected = useMemo(
     () => reports.find((r) => r.report_id === selectedId) || reports[0] || null,
@@ -322,11 +504,22 @@ export default function MentorReportsPage() {
     const avg =
       reports.reduce((sum, r) => sum + Number(r.progress_rating || 0), 0) /
       (reports.length || 1);
-    const uniqueStartups = new Set(reports.map((r) => r.startup_id).filter(Boolean)).size;
+    
+    // Count unique startups from both reports and sessions
+    const reportStartups = new Set(reports.map((r) => r.startup_id).filter(Boolean));
+    const sessionStartups = new Set(sessions.map((s) => s.startup_id).filter(Boolean));
+    const allStartups = new Set([...reportStartups, ...sessionStartups]);
+    const uniqueStartupsCount = allStartups.size;
+    
     const pending = sessions.filter(
       (s) => !reports.some((r) => Number(r.mentorship_session_id) === Number(s.mentorship_session_id))
     ).length;
-    return { total: reports.length, average: avg.toFixed(1), uniqueStartups, pending };
+    const thisMonth = reports.filter((r) => {
+      const d = new Date(r.created_at);
+      const now = new Date();
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }).length;
+    return { total: reports.length, average: avg.toFixed(1), uniqueStartups: uniqueStartupsCount, pending, thisMonth };
   }, [reports, sessions]);
 
   return (
@@ -348,7 +541,6 @@ export default function MentorReportsPage() {
             <h1 className="text-xl font-black text-[#0a4d3c] leading-none">Reports</h1>
             <p className="text-[12px] text-gray-400 mt-0.5">Auto-generated mentorship session reports</p>
           </div>
-          {/* Search */}
           <div className="relative flex-1 max-w-xs">
             <svg
               className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
@@ -381,8 +573,62 @@ export default function MentorReportsPage() {
             </div>
           )}
 
+          {/* Filter Bar */}
+          <div className="flex flex-wrap gap-3 items-center">
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] font-bold uppercase tracking-widest text-[#0a4d3c]">From:</label>
+              <input
+                type="date"
+                value={dateRange.start}
+                onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+                className="rounded-lg border px-3 py-1.5 text-sm outline-none"
+                style={{ background: "rgba(255,255,255,0.8)", border: "1px solid rgba(10,77,60,0.12)" }}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] font-bold uppercase tracking-widest text-[#0a4d3c]">To:</label>
+              <input
+                type="date"
+                value={dateRange.end}
+                onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+                className="rounded-lg border px-3 py-1.5 text-sm outline-none"
+                style={{ background: "rgba(255,255,255,0.8)", border: "1px solid rgba(10,77,60,0.12)" }}
+              />
+            </div>
+            <select
+              value={selectedStartup}
+              onChange={(e) => setSelectedStartup(e.target.value)}
+              className="rounded-lg border px-3 py-1.5 text-sm outline-none"
+              style={{ background: "rgba(255,255,255,0.8)", border: "1px solid rgba(10,77,60,0.12)" }}
+            >
+              <option value="">All Startups</option>
+              {uniqueStartups.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+            <select
+              value={ratingFilter}
+              onChange={(e) => setRatingFilter(e.target.value)}
+              className="rounded-lg border px-3 py-1.5 text-sm outline-none"
+              style={{ background: "rgba(255,255,255,0.8)", border: "1px solid rgba(10,77,60,0.12)" }}
+            >
+              <option value="">All Ratings</option>
+              {[5, 4, 3, 2, 1].map((r) => (
+                <option key={r} value={r}>{r} Stars</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => { setDateRange({ start: "", end: "" }); setSelectedStartup(""); setRatingFilter(""); }}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold text-[#0a4d3c] transition"
+              style={{ background: "rgba(255,255,255,0.8)", border: "1px solid rgba(10,77,60,0.12)" }}
+            >
+              Clear Filters
+            </button>
+          </div>
+
           {/* Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             <StatCard
               label="Total Reports"
               value={stats.total}
@@ -402,12 +648,15 @@ export default function MentorReportsPage() {
               icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />}
             />
             <StatCard
-              label="Pending"
-              value={stats.pending}
-              accent="#ef4444"
-              icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />}
+              label="This Month"
+              value={stats.thisMonth}
+              accent="#8b5cf6"
+              icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />}
             />
           </div>
+
+          {/* Progress Trend Chart */}
+          <ProgressTrendChart reports={reports} />
 
           {/* Split layout: list + detail */}
           <div className="flex gap-5 items-start">
@@ -453,7 +702,7 @@ export default function MentorReportsPage() {
                   style={{ background: "rgba(255,255,255,0.6)" }}
                 />
               ) : selected ? (
-                <ReportDetail report={selected} />
+                <ReportDetail report={selected} onExport={handleExportPDF} />
               ) : (
                 <div
                   className="rounded-2xl p-12 text-center"

@@ -74,6 +74,14 @@ router.get(
 	mentorshipController.getMentorshipHistory,
 );
 
+// Admin-only report generation
+router.post(
+	"/reports/generate-missing",
+	authenticate,
+	authorizeRoles("Admin"),
+	mentorshipController.generateMissingReports,
+);
+
 // Advanced mentorship resources and chat
 router.post(
 	"/reports",

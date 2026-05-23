@@ -382,6 +382,88 @@ exports.createMentorshipSessionForStartup = async (req, res) => {
 	}
 };
 
+async function generateMentorshipReport(sessionId) {
+	try {
+		const sessionData = await pool.query(
+			`SELECT 
+				ms.mentorship_session_id,
+				ms.mentorship_request_id,
+				ms.scheduled_at,
+				ms.duration_minutes,
+				ms.notes,
+				mr.startup_id,
+				mr.mentor_id,
+				mr.subject,
+				mr.message,
+				s.startup_name,
+				m.headline AS mentor_headline,
+				m.expertise AS mentor_expertise
+			FROM mentorship_sessions ms
+			JOIN mentorship_requests mr ON mr.mentorship_request_id = ms.mentorship_request_id
+			JOIN startups s ON s.startup_id = mr.startup_id
+			JOIN mentors m ON m.mentor_id = mr.mentor_id
+			WHERE ms.mentorship_session_id = $1`,
+			[sessionId]
+		);
+
+		if (sessionData.rowCount === 0) return null;
+
+		const session = sessionData.rows[0];
+
+		// Generate report content based on session data
+		const reportTitle = `Mentorship Session - ${session.subject || "General Discussion"}`;
+		const summary = `Mentorship session held on ${new Date(session.scheduled_at).toLocaleDateString()} for ${session.duration_minutes || 60} minutes. ${session.notes || "Session covered general mentorship topics."}`;
+		
+		// Extract action items from session notes or mentorship request message
+		const actionItems = [];
+		if (session.message) {
+			const lines = session.message.split('\n').filter(line => line.trim());
+			actionItems.push(...lines.slice(0, 3).map(line => line.trim()));
+		}
+		if (actionItems.length === 0) {
+			actionItems.push("Review session notes and follow up on discussed topics");
+		}
+
+		// Generate next steps
+		const nextSteps = [
+			"Schedule follow-up session if needed",
+			"Implement action items discussed",
+			"Track progress on mentorship goals"
+		];
+
+		// Calculate progress rating based on session completion
+		const progressRating = 4; // Default rating for completed sessions
+
+		const reportResult = await pool.query(
+			`INSERT INTO mentorship_reports 
+				(mentorship_request_id, mentorship_session_id, startup_id, mentor_id, 
+				 report_title, summary, action_items, next_steps, progress_rating, 
+				 startup_feedback, mentor_notes)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+			ON CONFLICT (mentorship_session_id) DO NOTHING
+			RETURNING *`,
+			[
+				session.mentorship_request_id,
+				session.mentorship_session_id,
+				session.startup_id,
+				session.mentor_id,
+				reportTitle,
+				summary,
+				JSON.stringify(actionItems),
+				JSON.stringify(nextSteps),
+				progressRating,
+				null, // startup_feedback
+				session.notes || null // mentor_notes
+			]
+		);
+
+		return reportResult.rows[0];
+	} catch (err) {
+		console.error("Error generating mentorship report:", err);
+		return null;
+	}
+}
+
 exports.updateMentorshipSessionStatus = async (req, res) => {
 	try {
 		const userId = req.user.user_id;
@@ -428,9 +510,46 @@ exports.updateMentorshipSessionStatus = async (req, res) => {
 			[status, notes || null, meeting_link || null, sessionId],
 		);
 
+		// Auto-generate report when session is completed
+		if (status === "completed") {
+			await generateMentorshipReport(sessionId);
+		}
+
 		return res.status(200).json({
 			message: "Mentorship session updated",
 			mentorship_session: updateResult.rows[0],
+		});
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
+exports.generateMissingReports = async (req, res) => {
+	try {
+		const userId = req.user.user_id;
+		const role = req.user.role;
+
+		if (role !== "Admin") {
+			return res.status(403).json({ error: "Only admins can generate missing reports" });
+		}
+
+		// Find completed sessions without reports
+		const sessionsWithoutReports = await pool.query(
+			`SELECT ms.mentorship_session_id
+			 FROM mentorship_sessions ms
+			 LEFT JOIN mentorship_reports mr ON mr.mentorship_session_id = ms.mentorship_session_id
+			 WHERE ms.status = 'completed' AND mr.report_id IS NULL`
+		);
+
+		let generatedCount = 0;
+		for (const row of sessionsWithoutReports.rows) {
+			const report = await generateMentorshipReport(row.mentorship_session_id);
+			if (report) generatedCount++;
+		}
+
+		return res.status(200).json({
+			message: `Generated ${generatedCount} reports for completed sessions`,
+			generated_count: generatedCount,
 		});
 	} catch (err) {
 		return res.status(500).json({ error: err.message });

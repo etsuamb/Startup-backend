@@ -9,6 +9,10 @@ export function fetchMentorProfile() {
 	return apiFetch("/mentors/profile");
 }
 
+export function updateMentorProfile(body) {
+	return apiPutJson("/mentors/profile", body);
+}
+
 /** Mentorship requests */
 export function fetchIncomingRequests() {
 	return apiFetch("/mentorship/requests/incoming");

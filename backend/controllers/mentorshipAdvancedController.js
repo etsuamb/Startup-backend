@@ -125,7 +125,7 @@ exports.listMentorshipSessions = async (req, res) => {
 			params,
 		);
 
-		return res.status(200).json(result.rows);
+		return res.status(200).json({ sessions: result.rows });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -362,7 +362,7 @@ exports.getMentorshipReports = async (req, res) => {
 			params,
 		);
 
-		return res.status(200).json(result.rows);
+		return res.status(200).json({ reports: result.rows });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
