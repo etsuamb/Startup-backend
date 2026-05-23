@@ -114,6 +114,18 @@ export function downloadInvestorChatFile(conversationId, messageId) {
 	return apiFetchBlob(`/chat/conversations/${conversationId}/files/${messageId}`);
 }
 
+export function sendInvestorAiMentorMessage(payload) {
+	return apiPostJson("/ai-mentor/chat", payload);
+}
+
+export function getInvestorAiMentorSessions() {
+	return apiFetch("/ai-mentor/sessions");
+}
+
+export function getInvestorAiMentorMessages(sessionId) {
+	return apiFetch(`/ai-mentor/messages/${sessionId}`);
+}
+
 export function getInvestorMeetings() {
 	return apiFetch("/investors/meetings");
 }

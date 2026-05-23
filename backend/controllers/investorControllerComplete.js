@@ -1,5 +1,12 @@
 const pool = require("../config/db");
 
+async function ensureInvestmentRequestDirectionSchema(client = pool) {
+	await client.query("ALTER TABLE investment_requests ALTER COLUMN project_id DROP NOT NULL");
+	await client.query("ALTER TABLE investment_requests ADD COLUMN IF NOT EXISTS initiated_by VARCHAR(20) NOT NULL DEFAULT 'startup'");
+	await client.query("ALTER TABLE investment_requests DROP CONSTRAINT IF EXISTS investment_requests_initiated_by_check");
+	await client.query("ALTER TABLE investment_requests ADD CONSTRAINT investment_requests_initiated_by_check CHECK (initiated_by IN ('startup', 'investor'))");
+}
+
 // UC_13b: Create/Update Investor Profile
 exports.createInvestorProfile = async (req, res) => {
 	try {
@@ -502,10 +509,12 @@ exports.sendFundingOffer = async (req, res) => {
 			projectId = projectRes.rows[0].project_id;
 		}
 
+		await ensureInvestmentRequestDirectionSchema();
+
 		// Create investment request
 		const result = await pool.query(
-			`INSERT INTO investment_requests (startup_id, investor_id, project_id, requested_amount, proposal_message, status)
-			 VALUES ($1, $2, $3, $4, $5, 'pending') RETURNING *`,
+			`INSERT INTO investment_requests (startup_id, investor_id, project_id, requested_amount, proposal_message, status, initiated_by)
+			 VALUES ($1, $2, $3, $4, $5, 'pending', 'investor') RETURNING *`,
 			[startup_id, investor_id_pk, projectId, requestedAmount, proposal_message || message || null]
 		);
 
@@ -533,6 +542,8 @@ exports.sendFundingOffer = async (req, res) => {
 
 exports.getFundingOffers = async (req, res) => {
 	try {
+		await ensureInvestmentRequestDirectionSchema();
+
 		const investorRes = await pool.query(
 			"SELECT investor_id FROM investors WHERE user_id = $1",
 			[req.user.user_id]
@@ -543,16 +554,24 @@ exports.getFundingOffers = async (req, res) => {
 		}
 
 		const result = await pool.query(
-			`SELECT ir.*, s.startup_name, s.industry, s.business_stage, p.project_title
+			`SELECT ir.*,
+			        s.startup_name,
+			        s.industry,
+			        s.business_stage,
+			        COALESCE(ir.initiated_by, 'startup') AS initiated_by,
+			        COALESCE(p.project_title, 'General funding request') AS project_title
 			 FROM investment_requests ir
 			 JOIN startups s ON s.startup_id = ir.startup_id
-			 JOIN projects p ON p.project_id = ir.project_id
+			 LEFT JOIN projects p ON p.project_id = ir.project_id
 			 WHERE ir.investor_id = $1
 			 ORDER BY ir.created_at DESC`,
 			[investorRes.rows[0].investor_id]
 		);
 
-		res.json({ funding_offers: result.rows });
+		res.json({
+			investor_id: investorRes.rows[0].investor_id,
+			funding_offers: result.rows,
+		});
 	} catch (err) {
 		res.status(500).json({ error: err.message });
 	}
@@ -569,6 +588,7 @@ exports.acceptFundingOffer = async (req, res) => {
 		}
 
 		await client.query("BEGIN");
+		await ensureInvestmentRequestDirectionSchema(client);
 
 		const investorRes = await client.query(
 			"SELECT investor_id FROM investors WHERE user_id = $1",
@@ -639,6 +659,8 @@ exports.acceptFundingOffer = async (req, res) => {
 
 exports.withdrawFundingOffer = async (req, res) => {
 	try {
+		await ensureInvestmentRequestDirectionSchema();
+
 		const { offerId } = req.params;
 		const parsedOfferId = Number.parseInt(offerId, 10);
 

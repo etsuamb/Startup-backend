@@ -2,6 +2,13 @@ const pool = require("../config/db");
 const multer = require("multer");
 const path = require("path");
 
+async function ensureInvestmentRequestDirectionSchema() {
+	await pool.query("ALTER TABLE investment_requests ALTER COLUMN project_id DROP NOT NULL");
+	await pool.query("ALTER TABLE investment_requests ADD COLUMN IF NOT EXISTS initiated_by VARCHAR(20) NOT NULL DEFAULT 'startup'");
+	await pool.query("ALTER TABLE investment_requests DROP CONSTRAINT IF EXISTS investment_requests_initiated_by_check");
+	await pool.query("ALTER TABLE investment_requests ADD CONSTRAINT investment_requests_initiated_by_check CHECK (initiated_by IN ('startup', 'investor'))");
+}
+
 // UC_28: Create Startup Project
 exports.createProject = async (req, res) => {
 	try {
@@ -667,21 +674,33 @@ exports.createInvestmentRequest = async (req, res) => {
 		}
 
 		// Validate project exists if provided
-		if (project_id) {
+		if (projectId) {
 			const projectRes = await pool.query(
-				"SELECT project_id FROM projects WHERE project_id = $1",
-				[project_id]
+				"SELECT project_id FROM projects WHERE project_id = $1 AND startup_id = $2",
+				[projectId, startup_id]
 			);
 
 			if (projectRes.rows.length === 0) {
 				return res.status(404).json({ error: "Project not found" });
 			}
+		} else {
+			const projectRes = await pool.query(
+				`SELECT project_id
+				 FROM projects
+				 WHERE startup_id = $1 AND status IN ('active', 'draft')
+				 ORDER BY status = 'active' DESC, created_at DESC
+				 LIMIT 1`,
+				[startup_id]
+			);
+			projectId = projectRes.rows[0]?.project_id || null;
 		}
 
+		await ensureInvestmentRequestDirectionSchema();
+
 		const result = await pool.query(
-			`INSERT INTO investment_requests (startup_id, investor_id, project_id, requested_amount, proposal_message)
-			 VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-			[startup_id, investor_id, project_id || null, requested_amount, proposal_message]
+			`INSERT INTO investment_requests (startup_id, investor_id, project_id, requested_amount, proposal_message, initiated_by)
+			 VALUES ($1, $2, $3, $4, $5, 'startup') RETURNING *`,
+			[startup_id, investor_id, projectId, requested_amount, proposal_message]
 		);
 
 		res.status(201).json(result.rows[0]);

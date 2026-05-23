@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/investor/Sidebar";
 import {
+  acceptInvestorFundingOffer,
   getInvestorFundingOffers,
   withdrawInvestorFundingOffer,
 } from "@/lib/investorApi";
@@ -74,6 +75,7 @@ export default function Offers() {
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
   const [withdrawingId, setWithdrawingId] = useState(null);
+  const [acceptingId, setAcceptingId] = useState(null);
 
   useEffect(() => {
     let ignore = false;
@@ -114,6 +116,26 @@ export default function Offers() {
       setActionError(err.message || "Failed to cancel offer.");
     } finally {
       setWithdrawingId(null);
+    }
+  }
+
+  async function handleAcceptOffer(offerId) {
+    try {
+      setAcceptingId(offerId);
+      setActionError("");
+      const data = await acceptInvestorFundingOffer(offerId);
+      const updatedOffer = data.offer || {};
+      setOffers((currentOffers) =>
+        currentOffers.map((offer) =>
+          offer.investment_request_id === offerId
+            ? { ...offer, ...updatedOffer, status: updatedOffer.status || "approved" }
+            : offer,
+        ),
+      );
+    } catch (err) {
+      setActionError(err.message || "Failed to accept startup request.");
+    } finally {
+      setAcceptingId(null);
     }
   }
 
@@ -250,6 +272,7 @@ export default function Offers() {
                         {filteredOffers.map((offer) => {
                           const status = String(offer.status || "pending").toLowerCase();
                           const canCancel = status === "pending";
+                          const isReceivedRequest = String(offer.initiated_by || "startup").toLowerCase() === "startup";
                           return (
                             <tr key={offer.investment_request_id} className="hover:bg-gray-50 transition">
                               <td className="px-6 py-4">
@@ -284,11 +307,21 @@ export default function Offers() {
                                   </Link>
                                   <button
                                     type="button"
-                                    onClick={() => handleWithdrawOffer(offer.investment_request_id)}
-                                    disabled={!canCancel || withdrawingId === offer.investment_request_id}
-                                    className="px-4 py-2 border border-red-200 text-red-600 bg-white text-xs font-bold rounded-lg hover:bg-red-50 transition shadow-sm disabled:border-gray-200 disabled:text-gray-400 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                                    onClick={() => isReceivedRequest ? handleAcceptOffer(offer.investment_request_id) : handleWithdrawOffer(offer.investment_request_id)}
+                                    disabled={!canCancel || withdrawingId === offer.investment_request_id || acceptingId === offer.investment_request_id}
+                                    className={`px-4 py-2 text-xs font-bold rounded-lg transition shadow-sm disabled:border-gray-200 disabled:text-gray-400 disabled:bg-gray-50 disabled:cursor-not-allowed ${
+                                      isReceivedRequest
+                                        ? "border border-[#0a4d3c] bg-[#0a4d3c] text-white hover:bg-[#07382b]"
+                                        : "border border-red-200 text-red-600 bg-white hover:bg-red-50"
+                                    }`}
                                   >
-                                    {withdrawingId === offer.investment_request_id ? "Cancelling..." : canCancel ? "Cancel Offer" : "Closed"}
+                                    {acceptingId === offer.investment_request_id
+                                      ? "Accepting..."
+                                      : withdrawingId === offer.investment_request_id
+                                        ? "Cancelling..."
+                                        : canCancel
+                                          ? isReceivedRequest ? "Accept Request" : "Cancel Offer"
+                                          : "Closed"}
                                   </button>
                                 </div>
                               </td>
