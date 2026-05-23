@@ -239,3 +239,45 @@ export async function getOfferDetails(offerType, offerId) {
 export async function updateOfferStatus(offerType, offerId, status) {
   return apiPatchJson(`/startups/offers/${offerType}/${offerId}`, { status });
 }
+
+export async function sendAiMentorMessage(payload) {
+  return apiPostJson("/ai-mentor/chat", payload);
+}
+
+export async function getAiMentorSessions() {
+  return apiFetch("/ai-mentor/sessions");
+}
+
+export async function getAiMentorMessages(sessionId) {
+  return apiFetch(`/ai-mentor/messages/${sessionId}`);
+}
+
+// Rating functions
+export async function createOrUpdateRating(payload) {
+  return apiPostJson("/ratings", payload);
+}
+
+export async function getMentorRatings(mentorId) {
+  return apiFetch(`/ratings/mentor/${mentorId}`);
+}
+
+export async function getStartupGivenRatings() {
+  return apiFetch("/ratings/my-ratings");
+}
+
+export async function checkRatingEligibility(mentorId) {
+  return apiFetch(`/ratings/check-eligibility/${mentorId}`);
+}
+
+export async function deleteRating(reviewId) {
+  return apiFetch(`/ratings/${reviewId}`, { method: "DELETE" });
+}
+
+// Notification settings functions
+export async function getNotificationSettings() {
+  return apiFetch("/notifications/settings");
+}
+
+export async function updateNotificationSettings(payload) {
+  return apiPutJson("/notifications/settings", payload);
+}
