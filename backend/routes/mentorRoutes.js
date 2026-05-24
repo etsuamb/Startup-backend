@@ -5,6 +5,7 @@ const {
 	authorizeRoles,
 	requireApproval,
 } = require("../middleware/authMiddleware");
+const { attachVisibility } = require("../middleware/visibilityMiddleware");
 const mentorController = require("../controllers/mentorController");
 const mentorComplete = require("../controllers/mentorControllerComplete");
 const mentorDashboard = require("../controllers/mentorDashboardController");
@@ -35,11 +36,19 @@ router.get(
 	mentorComplete.getMentorProfile,
 );
 
+router.get(
+	"/profile/documents/:documentId",
+	authenticate,
+	authorizeRoles("Mentor"),
+	mentorComplete.getMentorDocument,
+);
+
 router.post(
 	"/profile",
 	authenticate,
 	authorizeRoles("Mentor"),
 	upload.fields([
+		{ name: "mentor_id", maxCount: 1 },
 		{ name: "cv", maxCount: 1 },
 		{ name: "certifications", maxCount: 10 },
 		{ name: "intro_video", maxCount: 1 },
@@ -52,6 +61,7 @@ router.put(
 	authenticate,
 	authorizeRoles("Mentor"),
 	upload.fields([
+		{ name: "mentor_id", maxCount: 1 },
 		{ name: "cv", maxCount: 1 },
 		{ name: "certifications", maxCount: 10 },
 		{ name: "intro_video", maxCount: 1 },
@@ -95,6 +105,7 @@ router.get(
 	"/startups",
 	authenticate,
 	authorizeRoles("Mentor"),
+	attachVisibility,
 	mentorComplete.listStartups,
 );
 
@@ -106,9 +117,17 @@ router.get(
 );
 
 router.get(
+	"/startups/:startupId/documents/:documentId",
+	authenticate,
+	authorizeRoles("Mentor"),
+	mentorComplete.getStartupDocument,
+);
+
+router.get(
 	"/startups/:startupId",
 	authenticate,
 	authorizeRoles("Mentor"),
+	attachVisibility,
 	mentorComplete.getStartupDetails,
 );
 

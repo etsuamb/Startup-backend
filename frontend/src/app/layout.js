@@ -1,4 +1,5 @@
 import { Inter } from "next/font/google";
+import NotificationPopupHost from "@/components/NotificationPopupHost";
 import "./globals.css";
 import Providers from "@/components/Providers";
 

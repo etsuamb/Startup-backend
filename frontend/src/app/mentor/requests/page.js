@@ -21,7 +21,6 @@ function initials(name) {
 
 function normalizeStatus(status) {
 	const value = String(status || "pending").toLowerCase();
-	if (value === "accepted") return "reviewing";
 	if (value === "rejected") return "declined";
 	return value;
 }
@@ -29,7 +28,7 @@ function normalizeStatus(status) {
 function statusStyles(status) {
 	const normalized = normalizeStatus(status);
 	if (normalized === "pending") return "bg-emerald-100 text-[#0a4d3c]";
-	if (normalized === "reviewing") return "bg-gray-100 text-gray-600";
+	if (normalized === "accepted") return "bg-blue-50 text-blue-700";
 	if (normalized === "new") return "bg-[#0a4d3c] text-white";
 	if (normalized === "declined") return "bg-red-50 text-red-700";
 	return "bg-gray-100 text-gray-700";
@@ -48,6 +47,39 @@ function requestFocus(request) {
 
 function founderName(request) {
 	return request.founder_name || request.contact_name || request.full_name || request.name || "Founder";
+}
+
+function compactText(value, limit = 120) {
+	const text = String(value || "").replace(/\s+/g, " ").trim();
+	if (!text) return "";
+	return text.length > limit ? `${text.slice(0, limit).trim()}...` : text;
+}
+
+function proposalDetails(request) {
+	const raw = String(request?.message || request?.description || "").trim();
+	const fields = {};
+	const labelPattern = /(?:^|\s)(Proposal Title|Focus Area|Duration|Sessions Count|Frequency|Format|Mode|Remote Start Date|Optional Fee|Scope & Objectives|Mentorship Plan|Deliverables):\s*/g;
+	const matches = Array.from(raw.matchAll(labelPattern));
+
+	matches.forEach((match, index) => {
+		const key = match[1];
+		const start = match.index + match[0].length;
+		const end = matches[index + 1]?.index ?? raw.length;
+		fields[key] = raw.slice(start, end).trim();
+	});
+
+	return {
+		title: fields["Proposal Title"] || requestFocus(request),
+		focus: fields["Focus Area"] || request.focus_area || request.requested_support || requestFocus(request),
+		duration: fields.Duration || "",
+		sessions: fields["Sessions Count"] || "",
+		frequency: fields.Frequency || "",
+		format: fields.Format || "",
+		mode: fields.Mode || "",
+		startDate: fields["Remote Start Date"] || "",
+		fee: fields["Optional Fee"] || "",
+		objective: fields["Scope & Objectives"] || raw || `Seeking guidance on ${requestFocus(request).toLowerCase()} and execution readiness.`,
+	};
 }
 
 function exportCsv(rows) {
@@ -80,6 +112,15 @@ function Icon({ path, className = "h-4 w-4" }) {
 	);
 }
 
+function DetailRow({ label, value }) {
+	return (
+		<div className="flex items-start justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2">
+			<p className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">{label}</p>
+			<p className="max-w-[150px] text-right text-xs font-black text-gray-950">{value}</p>
+		</div>
+	);
+}
+
 export default function MentorRequestsPage() {
 	const [requests, setRequests] = useState([]);
 	const [statusFilter, setStatusFilter] = useState("all");
@@ -107,6 +148,8 @@ export default function MentorRequestsPage() {
 	}, []);
 
 	useEffect(() => {
+		// Load backend request data when the page opens.
+		// eslint-disable-next-line react-hooks/set-state-in-effect
 		load();
 	}, [load]);
 
@@ -134,18 +177,22 @@ export default function MentorRequestsPage() {
 
 	useEffect(() => {
 		if (!filtered.length) {
+			// Keep the detail panel in sync with the filtered table.
+			// eslint-disable-next-line react-hooks/set-state-in-effect
 			setSelectedId(null);
 			return;
 		}
 		if (!filtered.some((request) => request.mentorship_request_id === selectedId)) {
+			// Keep the selected row valid after filters change.
 			setSelectedId(filtered[0].mentorship_request_id);
 		}
 	}, [filtered, selectedId]);
 
 	const selected = filtered.find((request) => request.mentorship_request_id === selectedId) || filtered[0] || null;
+	const selectedDetails = selected ? proposalDetails(selected) : null;
 
 	const stats = useMemo(() => {
-		const proposalsSent = requests.filter((request) => ["accepted", "reviewing"].includes(normalizeStatus(request.status))).length;
+		const proposalsSent = requests.filter((request) => normalizeStatus(request.status) === "accepted").length;
 		const awaiting = requests.filter((request) => ["pending", "new"].includes(normalizeStatus(request.status))).length;
 		return {
 			total: requests.length,
@@ -239,7 +286,7 @@ export default function MentorRequestsPage() {
 							<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="h-9 rounded-lg border border-transparent bg-gray-100 px-3 text-xs font-black outline-none focus:border-[#0b4a3c]/20">
 								<option value="all">Status: All</option>
 								<option value="pending">Status: Pending</option>
-								<option value="reviewing">Status: Reviewing</option>
+								<option value="accepted">Status: Accepted</option>
 								<option value="new">Status: New</option>
 								<option value="declined">Status: Declined</option>
 							</select>
@@ -362,11 +409,22 @@ export default function MentorRequestsPage() {
 									</div>
 								</div>
 
-								<p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-gray-500">Key Challenge</p>
-								<div className="mb-4 border-l-2 border-[#0b4a3c] bg-emerald-50 p-3">
-									<p className="text-xs font-semibold italic leading-5 text-[#0b4a3c]">
-										"{selected.message || selected.description || `Seeking guidance on ${requestFocus(selected).toLowerCase()} and execution readiness.`}"
-									</p>
+								<div className="mb-4">
+									<p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-gray-500">Request Summary</p>
+									<div className="rounded-xl bg-emerald-50 p-3">
+										<p className="text-xs font-black text-[#0b4a3c]">{selectedDetails.title}</p>
+										<p className="mt-2 text-xs font-semibold leading-5 text-[#0b4a3c]">
+											{compactText(selectedDetails.objective, 150)}
+										</p>
+									</div>
+								</div>
+
+								<div className="mb-5 space-y-2">
+									<DetailRow label="Focus" value={selectedDetails.focus} />
+									<DetailRow label="Format" value={[selectedDetails.format, selectedDetails.mode].filter(Boolean).join(" / ") || "-"} />
+									<DetailRow label="Duration" value={[selectedDetails.duration, selectedDetails.sessions ? `${selectedDetails.sessions} sessions` : ""].filter(Boolean).join(" - ") || "-"} />
+									<DetailRow label="Frequency" value={selectedDetails.frequency || "-"} />
+									<DetailRow label="Fee" value={selectedDetails.fee || "Not specified"} />
 								</div>
 
 								<div className="mb-5 grid grid-cols-2 gap-3">
@@ -387,7 +445,30 @@ export default function MentorRequestsPage() {
 									>
 										Review Details
 									</Link>
-									{selected.startup_id ? (
+									{normalizeStatus(selected.status) === "accepted" && selected.startup_id ? (
+										<>
+										<Link
+											href={`/mentor/messages?startupId=${selected.startup_id}`}
+											className="flex h-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-xs font-black text-gray-900 transition hover:bg-gray-50"
+										>
+											Message Startup
+										</Link>
+										<Link
+											href={`/mentor/sessions?startupId=${selected.startup_id}`}
+											className="flex h-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-xs font-black text-gray-900 transition hover:bg-gray-50"
+										>
+											Schedule Session
+										</Link>
+										</>
+									) : ["pending", "new"].includes(normalizeStatus(selected.status)) ? (
+										<button
+											type="button"
+											disabled
+											className="flex h-10 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-xs font-black text-gray-400"
+										>
+											Proposal Pending
+										</button>
+									) : selected.startup_id ? (
 										<Link
 											href={`/mentor/requests/proposal?startupId=${selected.startup_id}`}
 											className="flex h-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-xs font-black text-gray-900 transition hover:bg-gray-50"

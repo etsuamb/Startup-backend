@@ -29,6 +29,13 @@ router.get(
 	mentorController.getMentorProfile
 );
 
+router.get(
+	"/profile/documents/:documentId",
+	authenticate,
+	authorizeRoles("Mentor"),
+	mentorController.getMentorDocument
+);
+
 // ============================================
 // MENTORSHIP REQUESTS
 // ============================================
@@ -78,6 +85,13 @@ router.get(
 );
 
 // UC_47: View startup details
+router.get(
+	"/startups/:startupId/documents/:documentId",
+	authenticate,
+	authorizeRoles("Mentor"),
+	mentorController.getStartupDocument
+);
+
 router.get(
 	"/startups/:startupId",
 	authenticate,

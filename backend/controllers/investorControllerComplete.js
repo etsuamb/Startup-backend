@@ -2,6 +2,7 @@ const pool = require("../config/db");
 const profileAccessService = require("../services/profileAccessService");
 const profileSanitizer = require("../services/profileSanitizer");
 const bcrypt = require("bcrypt");
+const { filterProfileForViewer } = require("../utils/profileVisibility");
 
 const hasStrongPassword = (password) => {
 	return typeof password === "string" && /(?=.*[A-Z])(?=.*[!@#$%^&*])(?=.*\d).{8,}/.test(password);
@@ -355,6 +356,7 @@ exports.listStartups = async (req, res) => {
 		const result = await pool.query(
 			`SELECT s.startup_id, s.startup_name, s.industry, s.description, s.business_stage, s.team_size,
 			 s.location, s.website, s.funding_needed, s.created_at, s.startup_tagline, s.region, s.city,
+			 s.user_id,
 			 u.is_approved AS user_approved,
 			 COALESCE(s.is_listed, false) AS is_listed,
 			 COALESCE(s.admin_status, 'Pending') AS admin_status
@@ -435,6 +437,15 @@ exports.searchStartups = async (req, res) => {
 		params.push(limitNum, offset);
 
 		const result = await pool.query(query, params);
+		const startups = await Promise.all(result.rows.map((startup) =>
+			filterProfileForViewer(req, startup, {
+				profileType: "startup",
+				profileId: startup.startup_id,
+				startup_id: startup.startup_id,
+				user_id: startup.user_id,
+				role: "Startup",
+			})
+		));
 
 		res.json({
 			startups: result.rows.map((row) => profileSanitizer.sanitizeStartupPublic(row)),

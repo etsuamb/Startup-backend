@@ -8,6 +8,7 @@ const {
   authorizeRoles,
   requireApproval,
 } = require("../middleware/authMiddleware");
+const { attachVisibility } = require("../middleware/visibilityMiddleware");
 
 const startupController = require("../controllers/startupController");
 const startupDashboardController = require("../controllers/startupDashboardController");
@@ -149,6 +150,7 @@ router.get(
   "/offers",
   authenticate,
   authorizeRoles("Startup"),
+  attachVisibility,
   startupController.getStartupOffers,
 );
 
@@ -157,6 +159,7 @@ router.get(
   "/offers/:offerType/:offerId",
   authenticate,
   authorizeRoles("Startup"),
+  attachVisibility,
   startupController.getOfferDetails,
 );
 

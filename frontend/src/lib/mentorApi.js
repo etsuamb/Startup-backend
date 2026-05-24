@@ -1,4 +1,4 @@
-import { apiFetch, apiFetchBlob, apiPatchJson, apiPostForm, apiPostJson, apiPutJson } from "./api";
+import { apiFetch, apiFetchBlob, apiPatchJson, apiPostForm, apiPostJson, apiPutForm, apiPutJson } from "./api";
 
 /** Dashboard */
 export function fetchMentorDashboard() {
@@ -10,7 +10,14 @@ export function fetchMentorProfile() {
 }
 
 export function updateMentorProfile(body) {
+	if (body instanceof FormData) {
+		return apiPutForm("/mentors/profile", body);
+	}
 	return apiPutJson("/mentors/profile", body);
+}
+
+export function fetchMentorDocument(documentId) {
+	return apiFetchBlob(`/mentors/profile/documents/${documentId}`);
 }
 
 /** Mentorship requests */
@@ -43,6 +50,7 @@ export function browseStartups(params = {}) {
 	const q = new URLSearchParams();
 	if (params.industry) q.set("industry", params.industry);
 	if (params.stage) q.set("stage", params.stage);
+	if (params.location) q.set("location", params.location);
 	if (params.search) q.set("search", params.search);
 	if (params.page) q.set("page", String(params.page));
 	if (params.limit) q.set("limit", String(params.limit));
@@ -56,6 +64,10 @@ export function fetchMyStartups() {
 
 export function fetchStartupDetails(startupId) {
 	return apiFetch(`/mentors/startups/${startupId}`);
+}
+
+export function fetchStartupDocument(startupId, documentId) {
+	return apiFetchBlob(`/mentors/startups/${startupId}/documents/${documentId}`);
 }
 
 /** Sessions */

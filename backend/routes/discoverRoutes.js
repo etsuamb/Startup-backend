@@ -4,6 +4,7 @@ const {
 	authorizeRoles,
 	requireApproval,
 } = require("../middleware/authMiddleware");
+const { attachVisibility } = require("../middleware/visibilityMiddleware");
 const discoverController = require("../controllers/discoverController");
 
 router.use(authenticate, authorizeRoles("Startup"));

@@ -5,6 +5,7 @@ const {
 	authorizeRoles,
 	requireApproval,
 } = require("../middleware/authMiddleware");
+const { attachVisibility } = require("../middleware/visibilityMiddleware");
 
 const investorController = require("../controllers/investorControllerComplete");
 
@@ -49,6 +50,7 @@ router.get(
 	authenticate,
 	requireApproval,
 	authorizeRoles("Investor"),
+	attachVisibility,
 	investorController.listStartups,
 );
 
@@ -57,6 +59,7 @@ router.get(
 	authenticate,
 	requireApproval,
 	authorizeRoles("Investor"),
+	attachVisibility,
 	investorController.searchStartups,
 );
 
@@ -73,6 +76,7 @@ router.get(
 	authenticate,
 	requireApproval,
 	authorizeRoles("Investor"),
+	attachVisibility,
 	investorController.getStartupDetails,
 );
 

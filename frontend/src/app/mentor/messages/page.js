@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ChatCallPanel from "@/components/startup/ChatCallPanel";
 import { getToken } from "@/lib/authStorage";
 import {
 	fetchMentorConversations,
 	fetchMentorMessages,
+	createMentorConversation,
 	sendMentorMessage,
 	sendMentorChatFile,
 	downloadMentorChatFile,
@@ -98,6 +100,8 @@ function normalizeConversation(row) {
 }
 
 export default function MentorMessagesPage() {
+	const searchParams = useSearchParams();
+	const startupIdFromUrl = searchParams.get("startupId");
 	const [conversations, setConversations] = useState([]);
 	const [selected, setSelected] = useState(null);
 	const [messages, setMessages] = useState([]);
@@ -116,7 +120,7 @@ export default function MentorMessagesPage() {
 	const fileInputRef = useRef(null);
 	const endRef = useRef(null);
 
-	const refreshConversations = useCallback(async () => {
+	const refreshConversations = useCallback(async (preferredStartupId = null) => {
 		const data = await fetchMentorConversations();
 		const rows = Array.isArray(data.conversations) ? data.conversations : [];
 		const list = await Promise.all(rows.map(async (row) => {
@@ -132,6 +136,9 @@ export default function MentorMessagesPage() {
 		}));
 		setConversations(list);
 		setSelected((current) => {
+			if (preferredStartupId) {
+				return list.find((item) => String(item.startupId) === String(preferredStartupId)) || current || list[0] || null;
+			}
 			if (current) return list.find((item) => item.id === current.id) || current;
 			return list[0] || null;
 		});
@@ -155,14 +162,17 @@ export default function MentorMessagesPage() {
 			try {
 				setLoading(true);
 				setError("");
-				await refreshConversations();
+				if (startupIdFromUrl) {
+					await createMentorConversation(startupIdFromUrl);
+				}
+				await refreshConversations(startupIdFromUrl);
 			} catch (ex) {
 				setError(ex.message || "Failed to load conversations.");
 			} finally {
 				setLoading(false);
 			}
 		})();
-	}, [refreshConversations]);
+	}, [refreshConversations, startupIdFromUrl]);
 
 	useEffect(() => {
 		if (!selected?.id) {
