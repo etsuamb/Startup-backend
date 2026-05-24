@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const { filterProfileForViewer } = require("../utils/profileVisibility");
 
 async function getStartupIdByUserId(userId) {
 	const r = await pool.query(
@@ -113,6 +114,7 @@ exports.searchMentors = async (req, res) => {
         m.secondary_industry,
         m.city_location,
         m.session_pricing,
+        m.user_id,
         m.current_organization,
         m.current_title,
         m.mentoring_style,
@@ -129,9 +131,18 @@ exports.searchMentors = async (req, res) => {
     `;
 
 		const { rows } = await pool.query(listSql, params);
+		const mentors = await Promise.all(rows.map((mentor) =>
+			filterProfileForViewer(req, mentor, {
+				profileType: "mentor",
+				profileId: mentor.mentor_id,
+				mentor_id: mentor.mentor_id,
+				user_id: mentor.user_id,
+				role: "Mentor",
+			})
+		));
 
 		return res.json({
-			mentors: rows,
+			mentors,
 			pagination: { page, limit, total },
 		});
 	} catch (err) {
@@ -214,6 +225,7 @@ exports.searchInvestors = async (req, res) => {
         i.linked_in_or_website,
         i.bio,
         i.country,
+        i.user_id,
         i.portfolio_size,
         u.first_name,
         u.last_name,
@@ -227,9 +239,18 @@ exports.searchInvestors = async (req, res) => {
     `;
 
 		const { rows } = await pool.query(listSql, params);
+		const investors = await Promise.all(rows.map((investor) =>
+			filterProfileForViewer(req, investor, {
+				profileType: "investor",
+				profileId: investor.investor_id,
+				investor_id: investor.investor_id,
+				user_id: investor.user_id,
+				role: "Investor",
+			})
+		));
 
 		return res.json({
-			investors: rows,
+			investors,
 			pagination: { page, limit, total },
 		});
 	} catch (err) {

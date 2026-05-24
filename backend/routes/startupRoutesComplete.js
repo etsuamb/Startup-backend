@@ -5,6 +5,7 @@ const {
 	authorizeRoles,
 	requireApproval,
 } = require("../middleware/authMiddleware");
+const { attachVisibility } = require("../middleware/visibilityMiddleware");
 const startupController = require("../controllers/startupControllerComplete");
 
 const upload = multer({ dest: "uploads/" });
@@ -97,6 +98,7 @@ router.get(
 	authenticate,
 	authorizeRoles("Startup"),
 	requireApproval,
+	attachVisibility,
 	startupController.searchInvestors
 );
 
@@ -106,6 +108,7 @@ router.get(
 	authenticate,
 	authorizeRoles("Startup"),
 	requireApproval,
+	attachVisibility,
 	startupController.searchMentors
 );
 

@@ -2,6 +2,7 @@ const pool = require("../config/db");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const { filterProfileForViewer } = require("../utils/profileVisibility");
 
 const PROJECT_DOC_CATEGORIES = {
 	pitch_deck: {
@@ -522,9 +523,18 @@ exports.searchInvestors = async (req, res) => {
 		params.push(limitNum, offset);
 
 		const result = await pool.query(query, params);
+		const investors = await Promise.all(result.rows.map((investor) =>
+			filterProfileForViewer(req, investor, {
+				profileType: "investor",
+				profileId: investor.investor_id,
+				investor_id: investor.investor_id,
+				user_id: investor.user_id,
+				role: "Investor",
+			})
+		));
 
 		res.json({
-			investors: result.rows,
+			investors,
 			total,
 			page: pageNum,
 			limit: limitNum,
@@ -585,9 +595,18 @@ exports.searchMentors = async (req, res) => {
 		params.push(limitNum, offset);
 
 		const result = await pool.query(query, params);
+		const mentors = await Promise.all(result.rows.map((mentor) =>
+			filterProfileForViewer(req, mentor, {
+				profileType: "mentor",
+				profileId: mentor.mentor_id,
+				mentor_id: mentor.mentor_id,
+				user_id: mentor.user_id,
+				role: "Mentor",
+			})
+		));
 
 		res.json({
-			mentors: result.rows,
+			mentors,
 			total,
 			page: pageNum,
 			limit: limitNum,

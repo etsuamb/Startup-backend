@@ -7,6 +7,8 @@ import {
   markNotificationAsRead,
 } from "@/lib/notificationApi";
 
+const POLL_INTERVAL_MS = 10000;
+
 function formatNotificationTime(value) {
   if (!value) return "";
   const date = new Date(value);
@@ -31,7 +33,8 @@ export default function NotificationBell({ className = "" }) {
     setError("");
     try {
       const data = await getNotifications({ limit: 10 });
-      setNotifications(data.notifications || []);
+      const nextNotifications = data.notifications || [];
+      setNotifications(nextNotifications);
       setUnread(Number(data.unread || 0));
     } catch (err) {
       setError(err.message || "Unable to load notifications.");
@@ -46,7 +49,7 @@ export default function NotificationBell({ className = "" }) {
       if (active) setLoading(false);
     }
     loadInitial();
-    const intervalId = setInterval(loadNotifications, 30000);
+    const intervalId = setInterval(loadNotifications, POLL_INTERVAL_MS);
     return () => {
       active = false;
       clearInterval(intervalId);

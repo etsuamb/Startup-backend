@@ -1,5 +1,6 @@
 const pool = require("../config/db");
 const bcrypt = require("bcrypt");
+const { filterProfileForViewer } = require("../utils/profileVisibility");
 
 const hasStrongPassword = (password) => {
 	return typeof password === "string" && /(?=.*[A-Z])(?=.*[!@#$%^&*])(?=.*\d).{8,}/.test(password);
@@ -353,6 +354,7 @@ exports.listStartups = async (req, res) => {
 		const result = await pool.query(
 			`SELECT s.startup_id, s.startup_name, s.industry, s.description, s.business_stage, s.team_size,
 			 s.location, s.website, s.funding_needed, s.created_at, s.startup_tagline, s.region, s.city,
+			 s.user_id,
 			 u.is_approved AS user_approved,
 			 COALESCE(s.is_listed, false) AS is_listed,
 			 COALESCE(s.admin_status, 'Pending') AS admin_status
@@ -363,7 +365,17 @@ exports.listStartups = async (req, res) => {
 			[limitNum, offset]
 		);
 
-		res.json({ startups: result.rows, total, page: pageNum, limit: limitNum });
+		const startups = await Promise.all(result.rows.map((startup) =>
+			filterProfileForViewer(req, startup, {
+				profileType: "startup",
+				profileId: startup.startup_id,
+				startup_id: startup.startup_id,
+				user_id: startup.user_id,
+				role: "Startup",
+			})
+		));
+
+		res.json({ startups, total, page: pageNum, limit: limitNum });
 	} catch (err) {
 		res.status(500).json({ error: err.message });
 	}
@@ -428,9 +440,18 @@ exports.searchStartups = async (req, res) => {
 		params.push(limitNum, offset);
 
 		const result = await pool.query(query, params);
+		const startups = await Promise.all(result.rows.map((startup) =>
+			filterProfileForViewer(req, startup, {
+				profileType: "startup",
+				profileId: startup.startup_id,
+				startup_id: startup.startup_id,
+				user_id: startup.user_id,
+				role: "Startup",
+			})
+		));
 
 		res.json({
-			startups: result.rows,
+			startups,
 			total,
 			page: pageNum,
 			limit: limitNum,
@@ -671,7 +692,14 @@ exports.getStartupDetails = async (req, res) => {
 			return res.status(404).json({ message: "Startup not found" });
 		}
 
-		const startup = startupRes.rows[0];
+		const startup = await filterProfileForViewer(req, startupRes.rows[0], {
+			profileType: "startup",
+			profileId: startupRes.rows[0].startup_id,
+			startup_id: startupRes.rows[0].startup_id,
+			user_id: startupRes.rows[0].user_id,
+			role: "Startup",
+		});
+		const canViewSensitive = Boolean(startup.profile_visibility?.sensitive_visible);
 
 		// Get documents
 		const documentsRes = await pool.query(
@@ -685,7 +713,19 @@ exports.getStartupDetails = async (req, res) => {
 			[startupId]
 		);
 
-		res.json({ startup, documents: documentsRes.rows, projects: projectsRes.rows });
+		const documents = canViewSensitive
+			? documentsRes.rows
+			: documentsRes.rows.map((doc) => ({
+				document_id: doc.document_id,
+				file_name: doc.file_name,
+				file_type: doc.file_type,
+				file_size_bytes: doc.file_size_bytes,
+				description: doc.description,
+				created_at: doc.created_at,
+				locked: true,
+			}));
+
+		res.json({ startup, documents, projects: projectsRes.rows });
 	} catch (err) {
 		res.status(500).json({ error: err.message });
 	}

@@ -1,33 +1,103 @@
 const pool = require("../config/db");
 const multer = require("multer");
+const fs = require("fs");
+const path = require("path");
+const { filterProfileForViewer } = require("../utils/profileVisibility");
 
 // UC_44c: Update Mentor Profile
 exports.updateMentorProfile = async (req, res) => {
 	try {
 		const userId = req.user.user_id;
 		const {
+			first_name,
+			last_name,
+			phone_number,
 			headline,
+			professional_title,
 			expertise,
 			years_experience,
 			hourly_rate,
+			session_pricing,
 			country,
+			city_location,
 			bio,
 			availability,
+			languages,
+			linkedin_or_portfolio,
+			availability_preference,
+			current_organization,
+			current_title,
+			primary_industry,
+			secondary_industry,
+			mentor_platform,
+			session_frequency,
+			required_time_slots,
+			mentoring_style,
+			notable_startups_mentored,
+			key_achievement,
 		} = req.body;
 
+		const normalizedPhoneNumber = phone_number === "" ? null : phone_number;
+
+		await pool.query(
+			`UPDATE users SET
+			first_name = COALESCE($1, first_name),
+			last_name = COALESCE($2, last_name),
+			phone_number = COALESCE($3, phone_number)
+			WHERE user_id = $4`,
+			[first_name, last_name, normalizedPhoneNumber, userId]
+		);
+
 		const result = await pool.query(
-			`UPDATE mentors SET headline = COALESCE($1, headline), expertise = COALESCE($2, expertise),
-			 years_experience = COALESCE($3, years_experience), hourly_rate = COALESCE($4, hourly_rate),
-			 country = COALESCE($5, country), bio = COALESCE($6, bio), availability = COALESCE($7, availability)
-			 WHERE user_id = $8 RETURNING *`,
+			`UPDATE mentors SET
+			 headline = COALESCE($1, headline),
+			 professional_title = COALESCE($2, professional_title),
+			 expertise = COALESCE($3, expertise),
+			 years_experience = COALESCE($4, years_experience),
+			 hourly_rate = COALESCE($5, hourly_rate),
+			 session_pricing = COALESCE($6, session_pricing),
+			 country = COALESCE($7, country),
+			 city_location = COALESCE($8, city_location),
+			 bio = COALESCE($9, bio),
+			 availability = COALESCE($10, availability),
+			 languages = COALESCE($11, languages),
+			 linkedin_or_portfolio = COALESCE($12, linkedin_or_portfolio),
+			 availability_preference = COALESCE($13, availability_preference),
+			 current_organization = COALESCE($14, current_organization),
+			 current_title = COALESCE($15, current_title),
+			 primary_industry = COALESCE($16, primary_industry),
+			 secondary_industry = COALESCE($17, secondary_industry),
+			 mentor_platform = COALESCE($18, mentor_platform),
+			 session_frequency = COALESCE($19, session_frequency),
+			 required_time_slots = COALESCE($20, required_time_slots),
+			 mentoring_style = COALESCE($21, mentoring_style),
+			 notable_startups_mentored = COALESCE($22, notable_startups_mentored),
+			 key_achievement = COALESCE($23, key_achievement)
+			 WHERE user_id = $24 RETURNING *`,
 			[
 				headline,
+				professional_title,
 				expertise,
 				years_experience,
 				hourly_rate,
+				session_pricing,
 				country,
+				city_location,
 				bio,
 				availability,
+				languages,
+				linkedin_or_portfolio,
+				availability_preference,
+				current_organization,
+				current_title,
+				primary_industry,
+				secondary_industry,
+				mentor_platform,
+				session_frequency,
+				required_time_slots,
+				mentoring_style,
+				notable_startups_mentored,
+				key_achievement,
 				userId,
 			]
 		);
@@ -59,7 +129,26 @@ exports.getMentorProfile = async (req, res) => {
 			return res.status(404).json({ message: "Mentor profile not found" });
 		}
 
-		res.json({ mentor: result.rows[0] });
+		const mentor = result.rows[0];
+		const docs = await pool.query(
+			`SELECT * FROM (
+			   SELECT document_id AS id,
+			          document_id,
+			          COALESCE(description, 'document') AS document_type,
+			          file_name, file_path, file_type, file_size_bytes, description, created_at
+			   FROM documents WHERE mentor_id = $1
+			   UNION ALL
+			   SELECT mentor_document_id AS id,
+			          mentor_document_id AS document_id,
+			          document_type,
+			          file_name, file_path, file_type, file_size_bytes, description, created_at
+			   FROM mentor_documents WHERE mentor_id = $1
+			) merged ORDER BY created_at DESC`,
+			[mentor.mentor_id]
+		);
+
+		mentor.documents = docs.rows;
+		res.json({ mentor, documents: docs.rows });
 	} catch (err) {
 		res.status(500).json({ error: err.message });
 	}
@@ -220,6 +309,29 @@ exports.sendMentorshipProposal = async (req, res) => {
 
 		const mentor_id = mentorRes.rows[0].mentor_id;
 
+		const existingRequest = await pool.query(
+			`SELECT mentorship_request_id, status
+			 FROM mentorship_requests
+			 WHERE startup_id = $1 AND mentor_id = $2
+			   AND status IN ('pending', 'accepted')
+			 ORDER BY created_at DESC
+			 LIMIT 1`,
+			[startup_id, mentor_id]
+		);
+
+		if (existingRequest.rows.length > 0) {
+			return res.status(409).json({
+				error: existingRequest.rows[0].status === "accepted"
+					? "This mentorship is already accepted. You cannot send another proposal."
+					: "You already have a pending mentorship proposal with this startup.",
+				existing_offer: {
+					offerType: "mentorship",
+					id: existingRequest.rows[0].mentorship_request_id,
+					status: existingRequest.rows[0].status,
+				},
+			});
+		}
+
 		// Create a mentorship request
 		const result = await pool.query(
 			`INSERT INTO mentorship_requests (startup_id, mentor_id, subject, message)
@@ -260,7 +372,7 @@ exports.sendMentorshipProposal = async (req, res) => {
 // UC_47: View Startup Profiles
 exports.listStartups = async (req, res) => {
 	try {
-		const { industry, stage, search, page = 1, limit = 20 } = req.query;
+		const { industry, stage, location, search, page = 1, limit = 20 } = req.query;
 
 		const pageNum = Math.max(1, parseInt(page) || 1);
 		const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
@@ -283,9 +395,20 @@ exports.listStartups = async (req, res) => {
 			query += ` AND s.business_stage = $${params.length}`;
 		}
 
+		if (location) {
+			params.push(location);
+			query += ` AND COALESCE(s.city, s.region, s.location, '') = $${params.length}`;
+		}
+
 		if (search) {
 			params.push(`%${search}%`);
-			query += ` AND (s.startup_name ILIKE $${params.length} OR s.description ILIKE $${params.length})`;
+			query += ` AND (
+				s.startup_name ILIKE $${params.length}
+				OR s.description ILIKE $${params.length}
+				OR s.industry ILIKE $${params.length}
+				OR s.founder_full_name ILIKE $${params.length}
+				OR COALESCE(s.city, s.region, s.location, '') ILIKE $${params.length}
+			)`;
 		}
 
 		const countQuery = query.replace(/SELECT s\..*FROM/, "SELECT COUNT(*) as total FROM");
@@ -296,9 +419,18 @@ exports.listStartups = async (req, res) => {
 		params.push(limitNum, offset);
 
 		const result = await pool.query(query, params);
+		const startups = await Promise.all(result.rows.map((startup) =>
+			filterProfileForViewer(req, startup, {
+				profileType: "startup",
+				profileId: startup.startup_id,
+				startup_id: startup.startup_id,
+				user_id: startup.user_id,
+				role: "Startup",
+			})
+		));
 
 		res.json({
-			startups: result.rows,
+			startups,
 			total,
 			page: pageNum,
 			limit: limitNum,
@@ -323,7 +455,14 @@ exports.getStartupDetails = async (req, res) => {
 			return res.status(404).json({ message: "Startup not found" });
 		}
 
-		const startup = startupRes.rows[0];
+		const startup = await filterProfileForViewer(req, startupRes.rows[0], {
+			profileType: "startup",
+			profileId: startupRes.rows[0].startup_id,
+			startup_id: startupRes.rows[0].startup_id,
+			user_id: startupRes.rows[0].user_id,
+			role: "Startup",
+		});
+		const canViewSensitive = Boolean(startup.profile_visibility?.sensitive_visible);
 
 		// Get documents
 		const documentsRes = await pool.query(
@@ -331,7 +470,107 @@ exports.getStartupDetails = async (req, res) => {
 			[startupId]
 		);
 
-		res.json({ startup, documents: documentsRes.rows });
+		const projectsRes = await pool.query(
+			"SELECT * FROM projects WHERE startup_id = $1",
+			[startupId]
+		);
+
+		const documents = canViewSensitive
+			? documentsRes.rows
+			: documentsRes.rows.map((doc) => ({
+				document_id: doc.document_id,
+				file_name: doc.file_name,
+				file_type: doc.file_type,
+				file_size_bytes: doc.file_size_bytes,
+				description: doc.description,
+				created_at: doc.created_at,
+				locked: true,
+			}));
+
+		res.json({ startup, documents, projects: projectsRes.rows });
+	} catch (err) {
+		res.status(500).json({ error: err.message });
+	}
+};
+
+exports.getStartupDocument = async (req, res) => {
+	try {
+		const { startupId, documentId } = req.params;
+
+		const documentRes = await pool.query(
+			`SELECT d.*
+			 FROM documents d
+			 JOIN startups s ON s.startup_id = d.startup_id
+			 JOIN users u ON u.user_id = s.user_id
+			 WHERE d.document_id = $1 AND d.startup_id = $2 AND u.is_approved = true`,
+			[documentId, startupId]
+		);
+
+		if (documentRes.rows.length === 0) {
+			return res.status(404).json({ message: "Document not found" });
+		}
+
+		const doc = documentRes.rows[0];
+		res.setHeader("Content-Type", doc.file_type || "application/octet-stream");
+		res.setHeader("Content-Disposition", `inline; filename="${doc.file_name || "document"}"`);
+
+		if (doc.file_data) {
+			return res.send(doc.file_data);
+		}
+
+		const uploadsDir = path.resolve(process.cwd(), "uploads");
+		const absPath = path.resolve(process.cwd(), doc.file_path || "");
+		if (!absPath.startsWith(uploadsDir)) {
+			return res.status(400).json({ message: "Invalid file path" });
+		}
+		if (!fs.existsSync(absPath)) {
+			return res.status(404).json({ message: "File missing on server" });
+		}
+
+		return res.sendFile(absPath);
+	} catch (err) {
+		res.status(500).json({ error: err.message });
+	}
+};
+
+exports.getMentorDocument = async (req, res) => {
+	try {
+		const userId = req.user.user_id;
+		const documentId = Number(req.params.documentId);
+		if (!Number.isInteger(documentId) || documentId <= 0) {
+			return res.status(400).json({ message: "Invalid document id" });
+		}
+
+		const documentRes = await pool.query(
+			`SELECT d.*
+			 FROM documents d
+			 JOIN mentors m ON m.mentor_id = d.mentor_id
+			 WHERE d.document_id = $1 AND m.user_id = $2`,
+			[documentId, userId]
+		);
+
+		if (documentRes.rows.length === 0) {
+			return res.status(404).json({ message: "Document not found" });
+		}
+
+		const doc = documentRes.rows[0];
+		res.setHeader("Content-Type", doc.file_type || "application/octet-stream");
+		res.setHeader("Content-Disposition", `inline; filename="${doc.file_name || "document"}"`);
+
+		if (doc.file_data) {
+			return res.send(doc.file_data);
+		}
+
+		const uploadsDir = path.resolve(process.cwd(), "uploads");
+		const absPath = path.resolve(process.cwd(), doc.file_path || "");
+		if (!absPath.startsWith(uploadsDir)) {
+			return res.status(400).json({ message: "Invalid file path" });
+		}
+		if (!fs.existsSync(absPath)) {
+			return res.status(404).json({ message: "File missing on server" });
+		}
+
+		return res.sendFile(absPath);
 	} catch (err) {
 		res.status(500).json({ error: err.message });
 	}

@@ -319,6 +319,19 @@ CREATE TABLE IF NOT EXISTS payments (
     CHECK (from_user_id <> to_user_id)
 );
 
+CREATE TABLE IF NOT EXISTS sensitive_access_audit (
+    audit_id SERIAL PRIMARY KEY,
+    viewer_user_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
+    viewer_role VARCHAR(20),
+    target_user_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
+    target_role VARCHAR(20),
+    target_profile_type VARCHAR(30),
+    target_profile_id INTEGER,
+    fields_accessed TEXT[] NOT NULL DEFAULT '{}',
+    access_reason VARCHAR(120),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS messages (
     message_id SERIAL PRIMARY KEY,
     sender_user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,

@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { fetchMentorProfile, updateMentorProfile } from "@/lib/mentorApi";
+import { fetchMentorDocument, fetchMentorProfile, updateMentorProfile } from "@/lib/mentorApi";
 import { clearSession } from "@/lib/authStorage";
 import { useRouter } from "next/navigation";
 
@@ -8,6 +8,78 @@ import { useRouter } from "next/navigation";
 function fieldValue(value) {
   if (value === null || value === undefined) return "";
   return String(value);
+}
+
+function firstValue(...values) {
+  for (const value of values) {
+    const normalized = fieldValue(value).trim();
+    if (normalized) return normalized;
+  }
+  return "";
+}
+
+function parseList(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => fieldValue(item).trim()).filter(Boolean);
+  }
+  if (value && typeof value === "object") {
+    return Object.values(value).map((item) => fieldValue(item).trim()).filter(Boolean);
+  }
+  const text = fieldValue(value).trim();
+  if (!text) return [];
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) return parseList(parsed);
+  } catch (_err) {
+    // Values saved during registration are often comma-separated text.
+  }
+  return text
+    .split(/[,;\n]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function parseAvailability(value) {
+  if (!value) return {};
+  if (typeof value === "object") return value;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (_err) {
+    return {};
+  }
+}
+
+function parseDocuments(value) {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_err) {
+    return [];
+  }
+}
+
+function mergeDocuments(...groups) {
+  const seen = new Set();
+  const merged = [];
+  groups.flat().forEach((doc, index) => {
+    if (!doc) return;
+    const key = doc.document_id || doc.id || `${doc.file_name || "document"}-${doc.file_size_bytes || index}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.push(doc);
+  });
+  return merged;
+}
+
+function appendProfileField(formData, key, value) {
+  if (Array.isArray(value) || (value && typeof value === "object" && !(value instanceof File))) {
+    formData.append(key, JSON.stringify(value));
+    return;
+  }
+  formData.append(key, value ?? "");
 }
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -306,14 +378,24 @@ export default function MentorSettingsPage() {
   const [yearsExperience,   setYearsExperience]   = useState("");
   const [currentCompany,    setCurrentCompany]    = useState("");
   const [currentTitle,      setCurrentTitle]      = useState("");
+  const [certificationCredentials, setCertificationCredentials] = useState("");
+  const [mentorDocuments,   setMentorDocuments]   = useState([]);
+  const [mentorIdDocument,  setMentorIdDocument]  = useState(null);
+  const [certificationFiles, setCertificationFiles] = useState([]);
+  const [introVideo,        setIntroVideo]        = useState(null);
 
   // ── Expertise state ──
   const [expertiseAreas,    setExpertiseAreas]    = useState([]);
   const [primaryIndustry,   setPrimaryIndustry]   = useState("");
+  const [secondaryIndustry, setSecondaryIndustry] = useState("");
   const [spokenLanguages,   setSpokenLanguages]   = useState([]);
   const [mentorshipFocus,   setMentorshipFocus]   = useState("");
   const [sessionRate,       setSessionRate]       = useState("");
   const [maxStartups,       setMaxStartups]       = useState("");
+  const [mentorPlatform,    setMentorPlatform]    = useState("");
+  const [sessionFrequency,  setSessionFrequency]  = useState("");
+  const [notableStartups,   setNotableStartups]   = useState("");
+  const [keyAchievement,    setKeyAchievement]    = useState("");
 
   // ── Availability state ──
   const [timezone,          setTimezone]          = useState("Africa/Addis_Ababa");
@@ -359,35 +441,53 @@ export default function MentorSettingsPage() {
   // ── Load profile data ──
   useEffect(() => {
     let alive = true;
-    setLoading(true);
     fetchMentorProfile()
       .then((data) => {
         if (!alive) return;
         const p = data?.profile || data?.mentor || data || {};
+        const availability = parseAvailability(p.availability);
+        const loadedExpertise = parseList(p.expertise_areas).length
+          ? parseList(p.expertise_areas)
+          : parseList(p.expertise_area || p.expertise);
+        const loadedLanguages = parseList(p.languages || p.language);
+
         setFirstName(fieldValue(p.first_name));
         setLastName(fieldValue(p.last_name));
         setEmail(fieldValue(p.email));
         setPhone(fieldValue(p.phone_number || p.phone));
-        setHeadline(fieldValue(p.headline || p.professional_title));
-        setBio(fieldValue(p.bio || p.description));
-        setLocation(fieldValue(p.location || p.city));
-        setLinkedin(fieldValue(p.linkedin_url || p.linkedin));
+        setHeadline(firstValue(p.headline, p.professional_title));
+        setBio(firstValue(p.bio, p.professional_bio, p.description));
+        setLocation(firstValue(p.location, p.city_location, p.city, p.country));
+        setLinkedin(firstValue(p.linkedin_url, p.linkedin_or_portfolio, p.linkedin_portfolio, p.linkedin));
         setWebsite(fieldValue(p.website));
-        setYearsExperience(fieldValue(p.years_experience || p.experience_years));
-        setCurrentCompany(fieldValue(p.current_company || p.company));
+        setYearsExperience(firstValue(p.years_experience, p.year_of_experience, p.experience_years));
+        setCurrentCompany(firstValue(p.current_company, p.current_organization, p.company));
         setCurrentTitle(fieldValue(p.current_title || p.job_title));
-        if (Array.isArray(p.expertise_areas)) setExpertiseAreas(p.expertise_areas);
+        setCertificationCredentials(fieldValue(p.certification_credentials));
+        setMentorDocuments(mergeDocuments(
+          Array.isArray(data?.documents) ? data.documents : [],
+          parseDocuments(p.uploaded_documents),
+        ));
+        if (loadedExpertise.length) setExpertiseAreas(loadedExpertise);
         if (p.primary_industry) setPrimaryIndustry(p.primary_industry);
-        if (Array.isArray(p.languages)) setSpokenLanguages(p.languages);
-        if (p.mentorship_focus) setMentorshipFocus(p.mentorship_focus);
-        if (p.session_rate)     setSessionRate(fieldValue(p.session_rate));
-        if (p.max_startups)     setMaxStartups(fieldValue(p.max_startups));
-        if (p.timezone)         setTimezone(p.timezone);
-        if (p.session_duration) setSessionDuration(fieldValue(p.session_duration));
+        if (p.secondary_industry) setSecondaryIndustry(p.secondary_industry);
+        if (loadedLanguages.length) setSpokenLanguages(loadedLanguages);
+        setMentorshipFocus(firstValue(p.mentorship_focus, p.mentoring_style, p.key_achievement));
+        setSessionRate(firstValue(p.session_rate, p.session_pricing, p.hourly_rate));
+        setMentorPlatform(fieldValue(p.mentor_platform));
+        setSessionFrequency(fieldValue(p.session_frequency));
+        setNotableStartups(fieldValue(p.notable_startups_mentored));
+        setKeyAchievement(fieldValue(p.key_achievement));
+        if (p.max_startups || availability.max_startups) setMaxStartups(firstValue(p.max_startups, availability.max_startups));
+        if (p.timezone || availability.timezone) setTimezone(firstValue(p.timezone, availability.timezone));
+        if (p.session_duration || availability.session_duration) setSessionDuration(firstValue(p.session_duration, availability.session_duration));
         if (Array.isArray(p.available_days)) setAvailableDays(p.available_days);
-        if (p.available_from)   setAvailableFrom(p.available_from);
-        if (p.available_to)     setAvailableTo(p.available_to);
+        else if (Array.isArray(availability.available_days)) setAvailableDays(availability.available_days);
+        if (p.available_from || availability.available_from) setAvailableFrom(firstValue(p.available_from, availability.available_from));
+        if (p.available_to || availability.available_to) setAvailableTo(firstValue(p.available_to, availability.available_to));
         if (typeof p.accepting_mentees === "boolean") setAcceptingMentees(p.accepting_mentees);
+        else if (typeof availability.accepting_mentees === "boolean") setAcceptingMentees(availability.accepting_mentees);
+        else if (p.availability_preference) setAcceptingMentees(!/not|unavailable|closed/i.test(p.availability_preference));
       })
       .catch(() => {}) // silently use defaults if not available
       .finally(() => alive && setLoading(false));
@@ -402,25 +502,42 @@ export default function MentorSettingsPage() {
     }
     setSaving(true);
     try {
-      await updateMentorProfile({
+      const payload = {
+        // user account fields
         first_name: firstName.trim(),
         last_name:  lastName.trim(),
         phone_number: phone.trim(),
+        // mentor profile fields used by current profile views
         headline:   headline.trim(),
+        professional_title: headline.trim(),
         bio:        bio.trim(),
-        location:   location.trim(),
+        country:    location.trim(),
+        city_location: location.trim(),
         linkedin_url: linkedin.trim(),
+        linkedin_or_portfolio: linkedin.trim() || website.trim(),
         website:    website.trim(),
         years_experience: yearsExperience,
         current_company:  currentCompany.trim(),
+        current_organization: currentCompany.trim(),
         current_title:    currentTitle.trim(),
+        certification_credentials: certificationCredentials.trim(),
         // expertise
         expertise_areas:   expertiseAreas,
+        expertise:         expertiseAreas.join(", "),
+        expertise_area:    expertiseAreas.join(", "),
         primary_industry:  primaryIndustry,
-        languages:         spokenLanguages,
+        secondary_industry: secondaryIndustry,
+        languages:         spokenLanguages.join(", "),
         mentorship_focus:  mentorshipFocus.trim(),
+        mentoring_style:   mentorshipFocus.trim(),
         session_rate:      sessionRate,
+        hourly_rate:       sessionRate,
+        session_pricing:   sessionRate,
         max_startups:      maxStartups,
+        mentor_platform:   mentorPlatform.trim(),
+        session_frequency: sessionFrequency.trim(),
+        notable_startups_mentored: notableStartups.trim(),
+        key_achievement: keyAchievement.trim(),
         // availability
         timezone,
         session_duration:  sessionDuration,
@@ -428,7 +545,31 @@ export default function MentorSettingsPage() {
         available_from:    availableFrom,
         available_to:      availableTo,
         accepting_mentees: acceptingMentees,
-      });
+        availability_preference: acceptingMentees ? "Open to new mentees" : "Not accepting new mentees",
+        required_time_slots: `${availableDays.join(", ")} ${availableFrom}-${availableTo}`,
+        availability: {
+          timezone,
+          session_duration: sessionDuration,
+          available_days: availableDays,
+          available_from: availableFrom,
+          available_to: availableTo,
+          accepting_mentees: acceptingMentees,
+          max_startups: maxStartups,
+        },
+      };
+
+      const formData = new FormData();
+      Object.entries(payload).forEach(([key, value]) => appendProfileField(formData, key, value));
+      if (mentorIdDocument) formData.append("mentor_id", mentorIdDocument);
+      certificationFiles.forEach((file) => formData.append("certifications", file));
+      if (introVideo) formData.append("intro_video", introVideo);
+
+      const saved = await updateMentorProfile(formData);
+      const updatedDocs = saved?.mentor?.documents || saved?.documents;
+      if (Array.isArray(updatedDocs)) setMentorDocuments(mergeDocuments(updatedDocs));
+      setMentorIdDocument(null);
+      setCertificationFiles([]);
+      setIntroVideo(null);
       showToast("Settings saved successfully.");
     } catch (err) {
       showToast(err.message || "Unable to save settings.", "error");
@@ -457,6 +598,22 @@ export default function MentorSettingsPage() {
 
   function toggleNotification(key) {
     setNotifications((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  async function openMentorDocument(doc) {
+    const id = doc.document_id || doc.id;
+    if (!id) {
+      showToast("This document record has no downloadable file id.", "error");
+      return;
+    }
+    try {
+      const { blob } = await fetchMentorDocument(id);
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    } catch (err) {
+      showToast(err.message || "Unable to open document.", "error");
+    }
   }
 
   function handleVerify2FA(e) {
@@ -526,6 +683,27 @@ export default function MentorSettingsPage() {
           </div>
         </SectionCard>
 
+        <SectionCard>
+          <SectionHeader title="Registration Details" description="The structured mentor information from your signup form." />
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[
+              ["Professional title", headline],
+              ["Organization", currentCompany],
+              ["Role", currentTitle],
+              ["Industry", primaryIndustry],
+              ["Experience", yearsExperience ? `${yearsExperience} years` : ""],
+              ["Session rate", sessionRate ? `${sessionRate} ETB` : "Free / not set"],
+              ["Languages", spokenLanguages.join(", ")],
+              ["Availability", acceptingMentees ? "Open to new mentees" : "Not accepting requests"],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-xl border border-gray-100 bg-[#f8fafc] px-4 py-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">{label}</p>
+                <p className="mt-1 text-sm font-bold text-gray-900">{value || "Not provided"}</p>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+
         {/* Personal Info */}
         <SectionCard>
           <SectionHeader title="Personal Information" description="Your contact and identity information." />
@@ -586,6 +764,77 @@ export default function MentorSettingsPage() {
                 placeholder="Tell startups about your journey, your successes, and how you can help them grow..."
               />
             </FormField>
+            <FormField label="Certification credentials">
+              <textarea
+                id="mentor-certification-credentials"
+                value={certificationCredentials}
+                onChange={(e) => setCertificationCredentials(e.target.value)}
+                rows={3}
+                className={inputClass}
+                placeholder="List certificates, licenses, degrees, or credentials..."
+              />
+            </FormField>
+          </div>
+        </SectionCard>
+
+        <SectionCard>
+          <SectionHeader title="Registration Documents" description="View documents submitted during registration or upload updated files." />
+          <div className="space-y-4">
+            {mentorDocuments.length > 0 ? (
+              <div className="divide-y divide-gray-100 rounded-xl border border-gray-100">
+                {mentorDocuments.map((doc, index) => (
+                  <button
+                    key={`${doc.document_id || doc.id || doc.file_name}-${index}`}
+                    type="button"
+                    onClick={() => openMentorDocument(doc)}
+                    className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left transition hover:bg-[#f8fafc]"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-gray-900">{doc.file_name || doc.document_type || "Uploaded document"}</p>
+                      <p className="mt-0.5 text-xs font-medium text-gray-500">
+                        {doc.document_type || doc.description || "Document"}
+                        {doc.file_size_bytes ? ` - ${Math.round(Number(doc.file_size_bytes) / 1024)} KB` : ""}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-black text-[#0f3d32]">
+                      Open
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-gray-200 bg-[#f8fafc] px-4 py-5 text-sm font-semibold text-gray-500">
+                No registration documents were found for this mentor profile.
+              </div>
+            )}
+
+            <div className="grid gap-5 sm:grid-cols-2">
+              <FormField label="Government ID">
+                <input
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg"
+                  onChange={(e) => setMentorIdDocument(e.target.files?.[0] || null)}
+                  className={inputClass}
+                />
+              </FormField>
+              <FormField label="Intro video">
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={(e) => setIntroVideo(e.target.files?.[0] || null)}
+                  className={inputClass}
+                />
+              </FormField>
+            </div>
+            <FormField label="Certification files">
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                onChange={(e) => setCertificationFiles(Array.from(e.target.files || []))}
+                className={inputClass}
+              />
+            </FormField>
           </div>
         </SectionCard>
 
@@ -639,11 +888,25 @@ export default function MentorSettingsPage() {
 
   // ── EXPERTISE TAB ─────────────────────────────────────────────────────────
   function renderExpertiseTab() {
+    const customExpertiseAreas = expertiseAreas.filter((area) => !EXPERTISE_AREAS.includes(area));
+    const customLanguages = spokenLanguages.filter((lang) => !LANGUAGES.includes(lang));
+
     return (
       <div className="space-y-6">
         <SectionCard>
           <SectionHeader title="Areas of Expertise" description="Select all the areas where you can guide startups. This helps match you with the right mentees." />
           <div className="flex flex-wrap gap-2">
+            {customExpertiseAreas.map((area) => (
+              <button
+                key={area}
+                type="button"
+                onClick={() => toggleExpertise(area)}
+                className="rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-800 transition hover:bg-emerald-100"
+                title="Registered during signup. Click to remove."
+              >
+                {area}
+              </button>
+            ))}
             {EXPERTISE_AREAS.map((area) => {
               const selected = expertiseAreas.includes(area);
               return (
@@ -681,6 +944,13 @@ export default function MentorSettingsPage() {
               options={INDUSTRIES}
               placeholder="Select primary industry"
             />
+            <SelectField
+              label="Secondary industry"
+              value={secondaryIndustry}
+              onChange={(e) => setSecondaryIndustry(e.target.value)}
+              options={INDUSTRIES}
+              placeholder="Select secondary industry"
+            />
             <FormField label="Mentorship focus statement" hint="A one-liner about your unique mentorship style.">
               <input
                 id="mentor-focus"
@@ -690,12 +960,32 @@ export default function MentorSettingsPage() {
                 placeholder="e.g., Helping early-stage startups find product-market fit"
               />
             </FormField>
+            <FormField label="Key achievement">
+              <input
+                id="mentor-key-achievement"
+                value={keyAchievement}
+                onChange={(e) => setKeyAchievement(e.target.value)}
+                className={inputClass}
+                placeholder="e.g., Helped scale a company from seed to Series A"
+              />
+            </FormField>
           </div>
         </SectionCard>
 
         <SectionCard>
           <SectionHeader title="Languages" description="Languages you can mentor in." />
           <div className="flex flex-wrap gap-2">
+            {customLanguages.map((lang) => (
+              <button
+                key={lang}
+                type="button"
+                onClick={() => toggleLanguage(lang)}
+                className="rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-800 transition hover:bg-emerald-100"
+                title="Registered during signup. Click to remove."
+              >
+                {lang}
+              </button>
+            ))}
             {LANGUAGES.map((lang) => {
               const selected = spokenLanguages.includes(lang);
               return (
@@ -743,6 +1033,36 @@ export default function MentorSettingsPage() {
                 placeholder="e.g., 500"
               />
             </FormField>
+            <FormField label="Mentor platform">
+              <input
+                id="mentor-platform"
+                value={mentorPlatform}
+                onChange={(e) => setMentorPlatform(e.target.value)}
+                className={inputClass}
+                placeholder="e.g., StartupConnect, Zoom, Google Meet"
+              />
+            </FormField>
+            <FormField label="Session frequency">
+              <input
+                id="mentor-session-frequency"
+                value={sessionFrequency}
+                onChange={(e) => setSessionFrequency(e.target.value)}
+                className={inputClass}
+                placeholder="e.g., Weekly, bi-weekly, monthly"
+              />
+            </FormField>
+          </div>
+          <div className="mt-5">
+            <FormField label="Notable startups mentored">
+              <textarea
+                id="mentor-notable-startups"
+                value={notableStartups}
+                onChange={(e) => setNotableStartups(e.target.value)}
+                rows={3}
+                className={inputClass}
+                placeholder="List relevant startups, programs, or founder communities..."
+              />
+            </FormField>
           </div>
         </SectionCard>
 
@@ -771,7 +1091,7 @@ export default function MentorSettingsPage() {
             <div>
               <h2 className="text-base font-bold text-gray-900">Accepting New Mentees</h2>
               <p className="text-sm text-gray-500 mt-1">
-                When turned off, you won't appear in search results and startups cannot send you new requests.
+                When turned off, you will not appear in search results and startups cannot send you new requests.
               </p>
             </div>
             <ToggleSwitch enabled={acceptingMentees} onToggle={() => setAcceptingMentees((v) => !v)} />
@@ -1206,7 +1526,7 @@ export default function MentorSettingsPage() {
             <div className="flex-1 min-w-0">
               <h3 className="text-base font-bold text-gray-900 mb-1">Pause Mentorship Activity</h3>
               <p className="text-sm text-gray-500 mb-4">
-                Temporarily pause your mentor account. You won't appear in search results, and no new requests can be sent to you. Your existing mentorships remain active.
+                Temporarily pause your mentor account. You will not appear in search results, and no new requests can be sent to you. Your existing mentorships remain active.
               </p>
               <button
                 type="button"

@@ -152,7 +152,7 @@ function StartupProfileContent() {
 		<div className="flex h-screen bg-[#f8f9fa] font-sans text-gray-900 overflow-hidden">
 			<Sidebar />
 
-			<div className="flex-grow flex flex-col overflow-hidden bg-white">
+			<div className="flex-grow flex flex-col overflow-hidden bg-white pt-16">
 				<main className="flex-grow overflow-y-auto p-6 lg:p-10 bg-white">
 					<div className="max-w-[1000px] mx-auto flex flex-col min-h-full">
 						<div className="flex flex-col lg:flex-row lg:justify-between lg:items-end gap-4 mb-8">

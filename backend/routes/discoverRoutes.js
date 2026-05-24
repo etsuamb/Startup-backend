@@ -4,12 +4,13 @@ const {
 	authorizeRoles,
 	requireApproval,
 } = require("../middleware/authMiddleware");
+const { attachVisibility } = require("../middleware/visibilityMiddleware");
 const discoverController = require("../controllers/discoverController");
 
 router.use(authenticate, authorizeRoles("Startup"));
 
-router.get("/mentors", requireApproval, discoverController.searchMentors);
-router.get("/investors", requireApproval, discoverController.searchInvestors);
+router.get("/mentors", requireApproval, attachVisibility, discoverController.searchMentors);
+router.get("/investors", requireApproval, attachVisibility, discoverController.searchInvestors);
 
 router.post(
 	"/mentors/:mentorId/request",

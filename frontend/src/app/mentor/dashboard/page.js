@@ -3,11 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import NotificationBell from "@/components/NotificationBell";
-import {
-	fetchMentorConversations,
-	fetchMentorDashboard,
-	fetchMyStartups,
-} from "@/lib/mentorApi";
+import { fetchMentorDashboard } from "@/lib/mentorApi";
 
 function initials(name) {
 	return String(name || "SC")
@@ -81,8 +77,6 @@ function Icon({ path, className = "h-4 w-4" }) {
 
 export default function MentorDashboard() {
 	const [dashboard, setDashboard] = useState(null);
-	const [conversations, setConversations] = useState([]);
-	const [startups, setStartups] = useState([]);
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(true);
 
@@ -92,31 +86,14 @@ export default function MentorDashboard() {
 		async function loadDashboard() {
 			setLoading(true);
 			setError("");
-			const [dashboardResult, conversationsResult, startupsResult] = await Promise.allSettled([
-				fetchMentorDashboard(),
-				fetchMentorConversations(),
-				fetchMyStartups(),
-			]);
-
-			if (!alive) return;
-
-			if (dashboardResult.status === "fulfilled") {
-				setDashboard(dashboardResult.value);
-			} else {
-				setError(dashboardResult.reason?.message || "Failed to load mentor dashboard.");
+			try {
+				const data = await fetchMentorDashboard();
+				if (alive) setDashboard(data);
+			} catch (ex) {
+				if (alive) setError(ex.message || "Failed to load mentor dashboard.");
+			} finally {
+				if (alive) setLoading(false);
 			}
-
-			if (conversationsResult.status === "fulfilled") {
-				const list = conversationsResult.value?.conversations || conversationsResult.value || [];
-				setConversations(Array.isArray(list) ? list : []);
-			}
-
-			if (startupsResult.status === "fulfilled") {
-				const list = startupsResult.value?.startups || startupsResult.value?.my_startups || startupsResult.value || [];
-				setStartups(Array.isArray(list) ? list : []);
-			}
-
-			setLoading(false);
 		}
 
 		loadDashboard();
@@ -129,8 +106,8 @@ export default function MentorDashboard() {
 	const stats = dashboard?.stats || {};
 	const pendingRequests = dashboard?.pending_requests || [];
 	const upcomingSessions = dashboard?.upcoming_sessions || [];
-	const recentMessages = conversations.slice(0, 3);
-	const progressStartups = (startups.length ? startups : dashboard?.active_startups || []).slice(0, 3);
+	const recentMessages = (dashboard?.recent_conversations || []).slice(0, 3);
+	const progressStartups = (dashboard?.active_startups || []).slice(0, 3);
 
 	const priorityCount = useMemo(() => {
 		return Number(stats.pending_requests || pendingRequests.length || 0) + Number(stats.reports_due || 0);
@@ -139,7 +116,7 @@ export default function MentorDashboard() {
 	const statCards = [
 		{
 			label: "Active Startups",
-			value: stats.active_startups ?? startups.length,
+			value: stats.active_startups ?? progressStartups.length,
 			detail: "+2 this month",
 			accent: "text-emerald-700",
 		},
@@ -208,9 +185,9 @@ export default function MentorDashboard() {
 						</div>
 						<div className="flex flex-wrap gap-3">
 							{[
-								["Proposals", stats.pending_proposals ?? 4, "bg-orange-500"],
-								["Follow-ups", stats.follow_ups ?? 2, "bg-emerald-500"],
-								["Reports Due", stats.reports_due ?? 1, "bg-red-500"],
+								["Proposals", stats.proposals_sent ?? 0, "bg-orange-500"],
+								["Follow-ups", stats.follow_ups ?? 0, "bg-emerald-500"],
+								["Reports Due", stats.reports_due ?? 0, "bg-red-500"],
 							].map(([label, value, color]) => (
 								<div key={label} className="inline-flex h-8 items-center gap-2 rounded-full border border-gray-200 bg-white px-3 text-[11px] font-black shadow-sm">
 									<span className={`h-1.5 w-1.5 rounded-full ${color}`} />
