@@ -119,7 +119,7 @@ export default function AdminDirectoryDetailsModal({ row, onClose, onUpdated }) 
 			: Boolean(profile.user_approved) && profile.is_active !== false;
 
 	async function saveVisibility(nextListed) {
-		if (!row || !accountReady) return;
+		if (!row || (nextListed && !accountReady)) return;
 		setSaving(true);
 		setError("");
 		try {
@@ -142,7 +142,8 @@ export default function AdminDirectoryDetailsModal({ row, onClose, onUpdated }) 
 	}
 
 	async function saveStartupStatus(nextStatus) {
-		if (!row || row.kind !== "startup" || !accountReady) return;
+		if (!row || row.kind !== "startup") return;
+		if ((nextStatus === "Active" || nextStatus === "Funded") && !accountReady) return;
 		setSaving(true);
 		setError("");
 		try {
@@ -269,60 +270,60 @@ export default function AdminDirectoryDetailsModal({ row, onClose, onUpdated }) 
 							<section className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4">
 								<h3 className="text-sm font-semibold text-slate-900 mb-3">Directory controls</h3>
 								{!accountReady ? (
-									<p className="text-sm text-amber-800">
-										This account is not fully approved or is inactive. Approve the user on the Users page before listing publicly.
+									<p className="mb-4 text-sm text-amber-800">
+										This account is not fully approved or is inactive. You cannot list it publicly until approved on the Users page.
 									</p>
-								) : (
-									<div className="space-y-4">
+								) : null}
+								<div className="space-y-4">
+									<div>
+										<label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
+											Public visibility
+										</label>
+										<div className="flex flex-wrap gap-2">
+											<button
+												type="button"
+												disabled={saving || listed || !accountReady}
+												onClick={() => saveVisibility(true)}
+												className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-40"
+											>
+												List publicly
+											</button>
+											<button
+												type="button"
+												disabled={saving || !listed}
+												onClick={() => saveVisibility(false)}
+												className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+											>
+												Hide from directory
+											</button>
+										</div>
+									</div>
+
+									{row.kind === "startup" ? (
 										<div>
 											<label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
-												Public visibility
+												Operational status
 											</label>
-											<div className="flex flex-wrap gap-2">
-												<button
-													type="button"
-													disabled={saving || listed}
-													onClick={() => saveVisibility(true)}
-													className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-40"
-												>
-													List publicly
-												</button>
-												<button
-													type="button"
-													disabled={saving || !listed}
-													onClick={() => saveVisibility(false)}
-													className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
-												>
-													Hide from directory
-												</button>
-											</div>
+											<select
+												value={startupStatus}
+												disabled={saving}
+												onChange={(e) => {
+													const next = e.target.value;
+													if (next !== startupStatus) saveStartupStatus(next);
+												}}
+												className="w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800"
+											>
+												{STARTUP_STATUSES.map((st) => (
+													<option key={st} value={st}>
+														{st}
+													</option>
+												))}
+											</select>
+											<p className="mt-1.5 text-xs text-slate-500">
+												Active and Funded statuses also list the startup in discover.
+											</p>
 										</div>
-
-										{row.kind === "startup" ? (
-											<div>
-												<label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
-													Operational status
-												</label>
-												<select
-													value={startupStatus}
-													disabled={saving}
-													onChange={(e) => {
-														const next = e.target.value;
-														if (next !== startupStatus) saveStartupStatus(next);
-													}}
-													className="w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800"
-												>
-													{STARTUP_STATUSES.map((st) => (
-														<option key={st} value={st}>
-															{st}
-														</option>
-													))}
-												</select>
-												<p className="mt-1.5 text-xs text-slate-500">
-													Active and Funded statuses also list the startup in discover.
-												</p>
-											</div>
-										) : null}
+									) : null}
 
 										<div>
 											<label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
@@ -337,7 +338,6 @@ export default function AdminDirectoryDetailsModal({ row, onClose, onUpdated }) 
 											/>
 										</div>
 									</div>
-								)}
 							</section>
 						</>
 					)}

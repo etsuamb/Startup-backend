@@ -49,6 +49,8 @@ const STARTUP_INVESTOR_JOIN = `
 const STARTUP_INVESTOR_WHERE = `
   WHERE u.role = 'Startup'
     AND COALESCE(u.is_active, true) = true
+    AND u.is_approved = true
+    AND COALESCE(s.is_listed, false) = true
 `;
 
 const STARTUP_INVESTOR_ORDER = `

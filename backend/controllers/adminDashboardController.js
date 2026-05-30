@@ -328,8 +328,7 @@ exports.listMentors = async (req, res) => {
 			`SELECT COUNT(*)::int AS total,
 			        COUNT(*) FILTER (WHERE COALESCE(m.is_approved, false))::int AS listed
 			 FROM mentors m
-			 JOIN users u ON u.user_id = m.user_id
-			 WHERE u.is_approved = true AND u.is_active = true`,
+			 JOIN users u ON u.user_id = m.user_id`
 		);
 		return res.json({ mentors: r.rows, summary: summary.rows[0], limit, offset });
 	} catch (err) {
@@ -479,8 +478,7 @@ exports.listInvestors = async (req, res) => {
 			`SELECT COUNT(*)::int AS total,
 			        COUNT(*) FILTER (WHERE COALESCE(i.is_approved, false))::int AS listed
 			 FROM investors i
-			 JOIN users u ON u.user_id = i.user_id
-			 WHERE u.is_approved = true AND u.is_active = true`,
+			 JOIN users u ON u.user_id = i.user_id`
 		);
 		return res.json({ investors: r.rows, summary: summary.rows[0], limit, offset });
 	} catch (err) {

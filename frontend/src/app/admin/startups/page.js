@@ -107,7 +107,7 @@ export default function AdminDirectoryPage() {
 		setLoading(true);
 		setError("");
 		try {
-			const base = { limit: 200, account: "approved" };
+			const base = { limit: 200 };
 			if (visibilityFilter === "listed") base.listed = "true";
 			if (visibilityFilter === "hidden") base.listed = "false";
 

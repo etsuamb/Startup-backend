@@ -379,6 +379,7 @@ exports.listStartups = async (req, res) => {
 			SELECT s.* FROM startups s 
 			JOIN users u ON s.user_id = u.user_id
 			WHERE u.is_approved = true
+			  AND COALESCE(s.is_listed, false) = true
 		`;
 		const params = [];
 
