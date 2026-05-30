@@ -17,6 +17,13 @@ export function buildRegisterFormData(role, fields, files) {
 	const f = fields || {};
 	const fl = files || {};
 	const accountInfo = loadRegistrationAccountInfo() || {};
+	const googleProfileToken =
+		typeof sessionStorage !== "undefined"
+			? sessionStorage.getItem("google_profile_token")
+			: "";
+	if (googleProfileToken) {
+		fd.append("google_profile_token", googleProfileToken);
+	}
 	const accountFullName =
 		f.full_name ||
 		accountInfo.full_name ||

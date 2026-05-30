@@ -9,6 +9,7 @@ const { authRateLimit } = require("../middleware/authRateLimit");
 const {
 	authenticate,
 	authorizeRoles,
+	requireApproval,
 } = require("../middleware/authMiddleware");
 
 // Register user
@@ -42,6 +43,8 @@ router.post(
 // Email verification & password reset
 router.get("/verify-email", authSecurityController.verifyEmail);
 router.post("/verify-email", authSecurityController.verifyEmail);
+router.get("/me", authenticate, authSecurityController.getCurrentAccount);
+router.put("/me", authenticate, authSecurityController.updateCurrentAccount);
 router.post(
 	"/resend-verification",
 	authRateLimit({ scope: "resend-verify", max: 5 }),
@@ -68,11 +71,11 @@ router.post(
 	authRateLimit({ scope: "verify-2fa", max: 15 }),
 	authSecurityController.verifyLogin2FA,
 );
-router.get("/2fa/status", authenticate, authSecurityController.get2FAStatus);
-router.get("/2fa/setup", authenticate, authSecurityController.setup2FA);
-router.post("/2fa/send-enable-otp", authenticate, authSecurityController.sendEnable2FAOtp);
-router.post("/2fa/enable", authenticate, authSecurityController.enable2FA);
-router.post("/2fa/disable", authenticate, authSecurityController.disable2FA);
+router.get("/2fa/status", authenticate, requireApproval, authSecurityController.get2FAStatus);
+router.get("/2fa/setup", authenticate, requireApproval, authSecurityController.setup2FA);
+router.post("/2fa/send-enable-otp", authenticate, requireApproval, authSecurityController.sendEnable2FAOtp);
+router.post("/2fa/enable", authenticate, requireApproval, authSecurityController.enable2FA);
+router.post("/2fa/disable", authenticate, requireApproval, authSecurityController.disable2FA);
 
 // Refresh access token
 router.post("/refresh", authController.refresh);
@@ -92,12 +95,13 @@ router.put(
 router.put(
 	"/admin/change-password",
 	authenticate,
+	authorizeRoles("Admin"),
 	authController.changeAdminPassword,
 );
 
 // Active session tracking (Authenticated)
-router.get("/sessions", authenticate, authController.getActiveSessions);
-router.delete("/sessions/:token", authenticate, authController.revokeSession);
-router.delete("/sessions", authenticate, authController.revokeAllOtherSessions);
+router.get("/sessions", authenticate, requireApproval, authController.getActiveSessions);
+router.delete("/sessions/:token", authenticate, requireApproval, authController.revokeSession);
+router.delete("/sessions", authenticate, requireApproval, authController.revokeAllOtherSessions);
 
 module.exports = router;

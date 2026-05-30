@@ -3,6 +3,7 @@
 import StartupChatView from "@/components/startup/StartupChatView";
 import {
   downloadInvestorChatFile,
+  createInvestorChatConversation,
   endInvestorVideoCall,
   getInvestorChatConversations,
   getInvestorChatMessages,
@@ -47,6 +48,8 @@ export default function StartupInvestorChatPage() {
       profileDiscoverBase="/startup/discover/investor"
       loadConversations={getInvestorChatConversations}
       loadMessages={getInvestorChatMessages}
+      createConversation={createInvestorChatConversation}
+      targetQueryParam="investorId"
       sendText={sendInvestorChatMessage}
       sendFile={sendInvestorChatFile}
       downloadFile={downloadInvestorChatFile}

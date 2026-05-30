@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRegFlow } from "@/components/register/RegFlowProvider";
 import { loadRegistrationAccountInfo } from "@/lib/registerAccountStorage";
@@ -8,10 +8,14 @@ import SubmitRegisterButton from "@/components/register/SubmitRegisterButton";
 
 export default function InvestorRegisterReviewClient() {
 	const [accepted, setAccepted] = useState(false);
+	const [accountInfo, setAccountInfo] = useState({});
 	const { fields, files } = useRegFlow();
 	const f = fields || {};
 	const fl = files || {};
-	const accountInfo = loadRegistrationAccountInfo() || {};
+
+	useEffect(() => {
+		setAccountInfo(loadRegistrationAccountInfo() || {});
+	}, []);
 
 	const fullName = f.full_name || accountInfo.full_name || `${accountInfo.first_name || ""} ${accountInfo.last_name || ""}`.trim();
 	const email = f.email || accountInfo.email;

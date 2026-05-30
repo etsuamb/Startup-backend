@@ -40,6 +40,18 @@ export async function resendVerification(email) {
 	return apiPostJson("/auth/resend-verification", { email });
 }
 
+export async function getCurrentAccount() {
+	return apiFetch("/auth/me");
+}
+
+export async function updateCurrentAccount(payload) {
+	return apiFetch("/auth/me", {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(payload),
+	});
+}
+
 export async function get2FAStatus() {
 	return apiFetch("/auth/2fa/status");
 }

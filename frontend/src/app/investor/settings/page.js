@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Sidebar from "@/components/investor/Sidebar";
 import { getInvestorSettings, updateInvestorSettings } from "@/lib/investorApi";
+import { getCurrentAccount, updateCurrentAccount } from "@/lib/authApi";
 import AccountSecurityPanel from "@/components/auth/AccountSecurityPanel";
 
 const inputClass =
@@ -28,6 +29,8 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [originalEmail, setOriginalEmail] = useState("");
+  const [emailVerified, setEmailVerified] = useState(true);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [investorType, setInvestorType] = useState("");
   const [organizationName, setOrganizationName] = useState("");
@@ -43,6 +46,8 @@ export default function SettingsPage() {
     const last = valueOf(settings?.last_name);
     setFullName([first, last].filter(Boolean).join(" "));
     setEmail(valueOf(settings?.email));
+    setOriginalEmail(valueOf(settings?.email));
+    setEmailVerified(settings?.email_verified !== false);
     setPhoneNumber(valueOf(settings?.phone_number));
     setInvestorType(valueOf(settings?.investor_type));
     setOrganizationName(valueOf(settings?.organization_name));
@@ -61,7 +66,22 @@ export default function SettingsPage() {
       const data = await getInvestorSettings();
       applySettings(data.settings || data.investor);
     } catch (err) {
-      setError(err.message || "Unable to load investor settings.");
+      if (err.code === "EMAIL_NOT_VERIFIED") {
+        try {
+          const account = await getCurrentAccount();
+          const user = account.user || {};
+          setFullName([valueOf(user.first_name), valueOf(user.last_name)].filter(Boolean).join(" "));
+          setEmail(valueOf(user.email));
+          setOriginalEmail(valueOf(user.email));
+          setEmailVerified(user.email_verified !== false);
+          setPhoneNumber(valueOf(user.phone_number));
+          setError("Verify your email before using the rest of the platform. You can update it here if it is wrong.");
+        } catch (accountErr) {
+          setError(accountErr.message || "Unable to load account information.");
+        }
+      } else {
+        setError(err.message || "Unable to load investor settings.");
+      }
     } finally {
       setLoading(false);
     }
@@ -81,6 +101,33 @@ export default function SettingsPage() {
       setError("Enter both first and last name.");
       return;
     }
+    if (!email.trim()) {
+      setError("Email is required.");
+      return;
+    }
+    const emailChanged = email.trim().toLowerCase() !== originalEmail.trim().toLowerCase();
+    if (!emailVerified || emailChanged) {
+      setSaving(true);
+      try {
+        const data = await updateCurrentAccount({
+          ...names,
+          email: email.trim(),
+          phone_number: phoneNumber.trim(),
+        });
+        const user = data.user || {};
+        setFullName([valueOf(user.first_name), valueOf(user.last_name)].filter(Boolean).join(" "));
+        setEmail(valueOf(user.email));
+        setOriginalEmail(valueOf(user.email));
+        setEmailVerified(user.email_verified !== false);
+        setPhoneNumber(valueOf(user.phone_number));
+        setSuccess(data.message || "Account information updated.");
+      } catch (err) {
+        setError(err.message || "Unable to update account information.");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
     if (!investorType.trim()) {
       setError("Investor type is required.");
       return;
@@ -90,6 +137,7 @@ export default function SettingsPage() {
     try {
       const data = await updateInvestorSettings({
         ...names,
+        email: email.trim(),
         phone_number: phoneNumber.trim(),
         investor_type: investorType.trim(),
         organization_name: organizationName.trim(),
@@ -147,7 +195,16 @@ export default function SettingsPage() {
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-gray-700 uppercase tracking-widest mb-2">Email Address</label>
-                      <input value={email} readOnly className={`${inputClass} bg-gray-100 text-gray-500 cursor-not-allowed`} />
+                      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
+                      {!emailVerified ? (
+                        <p className="mt-2 text-xs font-semibold text-amber-700">
+                          This account cannot be approved until this email is verified.
+                        </p>
+                      ) : email.trim().toLowerCase() !== originalEmail.trim().toLowerCase() ? (
+                        <p className="mt-2 text-xs font-semibold text-amber-700">
+                          Saving will send a new verification link and mark the account unverified until confirmed.
+                        </p>
+                      ) : null}
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-gray-700 uppercase tracking-widest mb-2">Phone Number</label>

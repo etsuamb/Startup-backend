@@ -90,7 +90,7 @@ async function syncStartupListingForUser(client, userId, { approved, rejected })
 exports.listPendingUsers = async (_req, res) => {
 	try {
 		const usersRes = await pool.query(
-			`SELECT user_id, first_name, last_name, email, role, phone_number, created_at
+			`SELECT user_id, first_name, last_name, email, role, phone_number, email_verified, provider_type, created_at
        FROM users WHERE is_approved = false ORDER BY created_at DESC`,
 		);
 
@@ -106,7 +106,7 @@ exports.getPendingUser = async (req, res) => {
 	const { userId } = req.params;
 	try {
 		const userRes = await pool.query(
-			`SELECT user_id, first_name, last_name, email, role, phone_number, is_approved, created_at
+			`SELECT user_id, first_name, last_name, email, role, phone_number, is_approved, email_verified, provider_type, created_at
        FROM users WHERE user_id = $1`,
 			[userId],
 		);
@@ -327,6 +327,24 @@ exports.approveUser = async (req, res) => {
 	try {
 		await ensureUserApprovalSchema();
 		await client.query("BEGIN");
+
+		const userCheck = await client.query(
+			`SELECT user_id, email, email_verified, provider_type
+			 FROM users WHERE user_id = $1`,
+			[userId],
+		);
+		if (userCheck.rows.length === 0) {
+			await client.query("ROLLBACK");
+			return res.status(404).json({ message: "User not found" });
+		}
+		const pendingUser = userCheck.rows[0];
+		if (pendingUser.provider_type !== "google" && pendingUser.email_verified === false) {
+			await client.query("ROLLBACK");
+			return res.status(400).json({
+				message: "This user must verify their email address before admin approval.",
+				code: "EMAIL_NOT_VERIFIED",
+			});
+		}
 
 		const result = await client.query(
 			`UPDATE users

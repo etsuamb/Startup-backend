@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveRegistrationAccountInfo } from "@/lib/registerAccountStorage";
 import { validateRegistrationEmail } from "@/lib/authApi";
+import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 export default function RegisterAccountInfo() {
   const router = useRouter();
@@ -154,6 +155,21 @@ export default function RegisterAccountInfo() {
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 sm:p-10">
+            <div className="mb-6">
+              <GoogleSignInButton onError={setError} />
+            </div>
+
+            <div className="relative mb-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200" />
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-white px-3 text-gray-400 font-bold uppercase tracking-wider">
+                  or
+                </span>
+              </div>
+            </div>
+
             <form onSubmit={handleSubmit} className="flex flex-col gap-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>

@@ -36,6 +36,33 @@ function publicUser(user) {
 	};
 }
 
+async function hasRoleProfile(user) {
+	if (!user?.user_id) return false;
+	if (user.role === "Startup") {
+		const r = await pool.query("SELECT 1 FROM startups WHERE user_id = $1 LIMIT 1", [
+			user.user_id,
+		]);
+		return r.rowCount > 0;
+	}
+	if (user.role === "Investor") {
+		const r = await pool.query("SELECT 1 FROM investors WHERE user_id = $1 LIMIT 1", [
+			user.user_id,
+		]);
+		return r.rowCount > 0;
+	}
+	if (user.role === "Mentor") {
+		const r = await pool.query("SELECT 1 FROM mentors WHERE user_id = $1 LIMIT 1", [
+			user.user_id,
+		]);
+		return r.rowCount > 0;
+	}
+	return true;
+}
+
+function googleProfileToken(userId) {
+	return jwt.sign({ userId, purpose: "google_profile" }, JWT_SECRET, { expiresIn: "7d" });
+}
+
 async function verifyGoogleCredential(credential) {
 	if (!GOOGLE_CLIENT_ID) {
 		throw new Error("GOOGLE_CLIENT_ID is not configured");
@@ -107,6 +134,118 @@ exports.resendVerification = async (req, res) => {
 		}
 		await authSecurity.sendVerificationEmail(user);
 		return res.json({ message: "If that account exists, a verification email has been sent." });
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
+// GET /auth/me
+exports.getCurrentAccount = async (req, res) => {
+	try {
+		const r = await pool.query(
+			`SELECT user_id, first_name, last_name, email, phone_number, role,
+			        is_active, is_approved, email_verified, provider_type
+			   FROM users
+			  WHERE user_id = $1`,
+			[req.user.user_id],
+		);
+		if (!r.rowCount) return res.status(404).json({ message: "User not found" });
+		return res.json({ user: r.rows[0] });
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
+// PUT /auth/me { first_name, last_name, phone_number, email }
+exports.updateCurrentAccount = async (req, res) => {
+	try {
+		const userId = req.user.user_id;
+		const currentR = await pool.query(`SELECT * FROM users WHERE user_id = $1`, [userId]);
+		if (!currentR.rowCount) return res.status(404).json({ message: "User not found" });
+
+		const current = currentR.rows[0];
+		if (!current.is_active) return res.status(403).json({ message: "Account disabled" });
+
+		const firstName = String(req.body.first_name ?? current.first_name ?? "").trim();
+		const lastName = String(req.body.last_name ?? current.last_name ?? "").trim();
+		const phoneNumberRaw = req.body.phone_number;
+		const phoneNumber =
+			phoneNumberRaw === undefined
+				? current.phone_number
+				: String(phoneNumberRaw || "").trim() || null;
+		const emailRaw = req.body.email;
+		const email =
+			emailRaw === undefined
+				? current.email
+				: String(emailRaw || "").trim().toLowerCase();
+
+		if (!firstName || !lastName) {
+			return res.status(400).json({ message: "First name and last name are required" });
+		}
+		if (!email) return res.status(400).json({ message: "Email is required" });
+		if (current.provider_type === "google" && email !== current.email) {
+			return res.status(400).json({ message: "Google account email cannot be changed here." });
+		}
+
+		const emailChanged = email !== current.email;
+		if (emailChanged) {
+			const validation = await authSecurity.validateEmailDeliverability(email);
+			if (!validation.ok) {
+				return res.status(400).json({
+					message: authSecurity.emailRejectMessage(validation.reason),
+					code: validation.reason,
+				});
+			}
+			const emailTaken = await pool.query(
+				`SELECT user_id FROM users WHERE email = $1 AND user_id <> $2`,
+				[email, userId],
+			);
+			if (emailTaken.rowCount) {
+				return res.status(409).json({ message: "An account with this email already exists" });
+			}
+		}
+
+		if (phoneNumber) {
+			const phoneTaken = await pool.query(
+				`SELECT user_id FROM users WHERE phone_number = $1 AND user_id <> $2`,
+				[phoneNumber, userId],
+			);
+			if (phoneTaken.rowCount) {
+				return res.status(409).json({ message: "This phone number is already registered" });
+			}
+		}
+
+		const updatedR = await pool.query(
+			`UPDATE users
+			    SET first_name = $1,
+			        last_name = $2,
+			        phone_number = $3,
+			        email = $4,
+			        email_verified = CASE WHEN $5 THEN false ELSE email_verified END,
+			        updated_at = CURRENT_TIMESTAMP
+			  WHERE user_id = $6
+			  RETURNING user_id, first_name, last_name, email, phone_number, role,
+			            is_active, is_approved, email_verified, provider_type`,
+			[firstName, lastName, phoneNumber, email, emailChanged, userId],
+		);
+		const user = updatedR.rows[0];
+
+		if (emailChanged) {
+			await pool.query(
+				`UPDATE auth_email_tokens
+				    SET used_at = CURRENT_TIMESTAMP
+				  WHERE user_id = $1 AND purpose = 'email_verify' AND used_at IS NULL`,
+				[userId],
+			);
+			await authSecurity.sendVerificationEmail(user);
+		}
+
+		return res.json({
+			message: emailChanged
+				? "Email updated. Check your new inbox for the verification link."
+				: "Account information updated.",
+			user,
+		});
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -441,6 +580,15 @@ exports.googleAuth = async (req, res) => {
 			if (!user.is_active) {
 				return res.status(403).json({ message: "Account disabled" });
 			}
+			if (!(await hasRoleProfile(user))) {
+				return res.json({
+					needsProfileCompletion: true,
+					role: user.role,
+					user: publicUser(user),
+					googleSignupToken: googleProfileToken(user.user_id),
+					message: "Complete your profile registration before accessing the dashboard.",
+				});
+			}
 			return finishLoginOr2FA(req, res, user, email, ip, userAgent);
 		}
 
@@ -488,11 +636,7 @@ exports.googleAuth = async (req, res) => {
 			needsProfileCompletion: true,
 			role: normalizedRole,
 			user: publicUser(newUser),
-			googleSignupToken: jwt.sign(
-				{ userId: newUser.user_id, purpose: "google_profile" },
-				JWT_SECRET,
-				{ expiresIn: "7d" },
-			),
+			googleSignupToken: googleProfileToken(newUser.user_id),
 		});
 	} catch (err) {
 		console.error("googleAuth", err);
@@ -550,11 +694,7 @@ exports.googleCompleteRole = async (req, res) => {
 			needsProfileCompletion: true,
 			role: newUser.role,
 			user: publicUser(newUser),
-			googleSignupToken: jwt.sign(
-				{ userId: newUser.user_id, purpose: "google_profile" },
-				JWT_SECRET,
-				{ expiresIn: "7d" },
-			),
+			googleSignupToken: googleProfileToken(newUser.user_id),
 		});
 	} catch (err) {
 		return res.status(500).json({ error: err.message });

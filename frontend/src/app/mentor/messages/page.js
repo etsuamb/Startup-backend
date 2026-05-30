@@ -24,6 +24,7 @@ import {
 	encryptChatText,
 	isEncryptedChatPayload,
 } from "@/lib/chatEncryption";
+import { chatAccessMessage, isChatAccessError } from "@/lib/chatAccess";
 
 const callApi = {
 	getStatus: getMentorVideoStatus,
@@ -163,11 +164,15 @@ export default function MentorMessagesPage() {
 				setLoading(true);
 				setError("");
 				if (startupIdFromUrl) {
-					await createMentorConversation(startupIdFromUrl);
+					try {
+						await createMentorConversation(startupIdFromUrl);
+					} catch (ex) {
+						setError(isChatAccessError(ex) ? chatAccessMessage(ex) : ex.message || "Failed to open conversation.");
+					}
 				}
 				await refreshConversations(startupIdFromUrl);
 			} catch (ex) {
-				setError(ex.message || "Failed to load conversations.");
+				setError(isChatAccessError(ex) ? chatAccessMessage(ex) : ex.message || "Failed to load conversations.");
 			} finally {
 				setLoading(false);
 			}
@@ -291,7 +296,7 @@ export default function MentorMessagesPage() {
 			}
 			await refreshConversations();
 		} catch (ex) {
-			setError(ex.message || "Message could not be sent.");
+			setError(isChatAccessError(ex) ? chatAccessMessage(ex) : ex.message || "Message could not be sent.");
 		} finally {
 			setSending(false);
 		}
@@ -439,7 +444,13 @@ export default function MentorMessagesPage() {
 								</div>
 
 								{error ? (
-									<div className="mx-8 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div>
+									<div className={`mx-8 mt-4 rounded-xl border px-4 py-3 text-sm font-semibold ${
+										isChatAccessError({ message: error })
+											? "border-amber-200 bg-amber-50 text-amber-900"
+											: "border-red-200 bg-red-50 text-red-700"
+									}`}>
+										{error}
+									</div>
 								) : null}
 
 								<div className="min-h-0 flex-1 overflow-y-auto px-10 py-8">

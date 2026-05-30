@@ -63,6 +63,33 @@ function StatCard({ label, value, detail }) {
 	);
 }
 
+function MessageAction({
+	canMessage,
+	messageHref,
+	lockedMessage,
+	onLocked,
+	className,
+	children = "MESSAGE STARTUP",
+	hasOffer,
+}) {
+	if (canMessage) {
+		return (
+			<Link href={messageHref} className={className}>
+				{children}
+			</Link>
+		);
+	}
+	return (
+		<button
+			type="button"
+			onClick={() => onLocked(lockedMessage)}
+			className={className}
+		>
+			{hasOffer ? "ACCEPT FIRST TO MESSAGE" : "SEND OFFER FIRST"}
+		</button>
+	);
+}
+
 function StartupProfileContent() {
 	const searchParams = useSearchParams();
 	const startupId = searchParams.get("startupId");
@@ -74,6 +101,7 @@ function StartupProfileContent() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [actionError, setActionError] = useState("");
+	const [messageNotice, setMessageNotice] = useState("");
 	const [accepting, setAccepting] = useState(false);
 
 	useEffect(() => {
@@ -151,8 +179,12 @@ function StartupProfileContent() {
 		: [startup?.region, startup?.country].filter(Boolean).join(", ") || "Region available after relationship unlock";
 	const offerStatus = String(offer?.status || "pending").toLowerCase();
 	const canAcceptOffer = Boolean(offer?.investment_request_id) && offerStatus === "pending";
+	const canMessage = ["approved", "accepted"].includes(offerStatus);
 	const acceptLabel = accepting ? "ACCEPTING..." : offer ? statusLabel(offerStatus).toUpperCase() : "NO OFFER";
 	const messageHref = startup?.startup_id ? `/investor/messages?startupId=${startup.startup_id}` : "/investor/messages";
+	const lockedMessage = offer
+		? "Messaging unlocks after this investment offer or request is accepted by both sides."
+		: "Messaging unlocks after you send a funding offer or receive a startup request and it is accepted.";
 
 	return (
 		<div className="flex h-screen bg-[#f8f9fa] font-sans text-gray-900 overflow-hidden">
@@ -181,9 +213,16 @@ function StartupProfileContent() {
 									>
 										{acceptLabel}
 									</button>
-									<Link href={messageHref} className="px-5 py-2.5 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-600 hover:bg-gray-50 transition shadow-sm">
+									<MessageAction
+										canMessage={canMessage}
+										messageHref={messageHref}
+										lockedMessage={lockedMessage}
+										onLocked={setMessageNotice}
+										hasOffer={Boolean(offer)}
+										className="px-5 py-2.5 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-600 hover:bg-gray-50 transition shadow-sm"
+									>
 										NEGOTIATING
-									</Link>
+									</MessageAction>
 								</div>
 							)}
 						</div>
@@ -198,6 +237,24 @@ function StartupProfileContent() {
 							<div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
 								<p className="font-semibold mb-1">Protected founder contact & links</p>
 								<p className="leading-relaxed">{privacyMessage({ privacy })}</p>
+							</div>
+						) : null}
+
+						{messageNotice ? (
+							<div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+								<div className="flex items-start justify-between gap-4">
+									<div>
+										<p className="font-semibold mb-1">You are not connected yet</p>
+										<p className="leading-relaxed text-amber-800">{messageNotice}</p>
+									</div>
+									<button
+										type="button"
+										onClick={() => setMessageNotice("")}
+										className="text-xs font-bold text-amber-900 hover:underline"
+									>
+										Dismiss
+									</button>
+								</div>
 							</div>
 						) : null}
 
@@ -325,9 +382,16 @@ function StartupProfileContent() {
 											>
 												{acceptLabel}
 											</button>
-											<Link href={messageHref} className="w-full py-3.5 bg-white border border-gray-200 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-50 transition shadow-sm flex justify-center">
+											<MessageAction
+												canMessage={canMessage}
+												messageHref={messageHref}
+												lockedMessage={lockedMessage}
+												onLocked={setMessageNotice}
+												hasOffer={Boolean(offer)}
+												className="w-full py-3.5 bg-white border border-gray-200 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-50 transition shadow-sm flex justify-center"
+											>
 												NEGOTIATING
-											</Link>
+											</MessageAction>
 										</div>
 									</div>
 
@@ -352,9 +416,16 @@ function StartupProfileContent() {
 									<div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
 										<h3 className="text-sm font-bold text-[#0a4d3c] mb-6">Quick Actions</h3>
 										<div className="space-y-3">
-											<Link href={messageHref} className="w-full py-3 bg-white border border-gray-200 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-50 transition flex justify-center items-center gap-2 shadow-sm">
+											<MessageAction
+												canMessage={canMessage}
+												messageHref={messageHref}
+												lockedMessage={lockedMessage}
+												onLocked={setMessageNotice}
+												hasOffer={Boolean(offer)}
+												className="w-full py-3 bg-white border border-gray-200 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-50 transition flex justify-center items-center gap-2 shadow-sm"
+											>
 												MESSAGE STARTUP
-											</Link>
+											</MessageAction>
 											<Link href={`/investor/feedback?startupId=${startup.startup_id}`} className="w-full py-3 bg-white border border-gray-200 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-50 transition flex justify-center items-center gap-2 shadow-sm">
 												RATE STARTUP
 											</Link>

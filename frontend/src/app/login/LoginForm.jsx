@@ -48,6 +48,14 @@ export default function LoginForm() {
 				role: data.user?.role,
 				userName: `${data.user?.first_name || ""} ${data.user?.last_name || ""}`.trim(),
 			});
+			if (data.emailVerified === false) {
+				const r = data.user?.role;
+				if (r === "Startup") router.push("/startup/settings");
+				else if (r === "Investor") router.push("/investor/settings");
+				else if (r === "Mentor") router.push("/mentor/settings");
+				else routeAfterLogin(router, data.user);
+				return;
+			}
 			routeAfterLogin(router, data.user);
 		} catch (ex) {
 			setErr(ex.message || "Login failed");

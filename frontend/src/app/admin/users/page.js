@@ -415,7 +415,11 @@ Pending user review
 <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
 <div className="space-y-3">
 <p className="text-xs uppercase tracking-[0.2em] text-slate-400 font-semibold">Actions</p>
-<p className="text-sm text-slate-600">Approve or reject this application once you have reviewed all submitted information.</p>
+<p className="text-sm text-slate-600">
+{!userDetail.user.email_verified && userDetail.user.provider_type !== "google"
+? "This application cannot be approved until the user verifies their email address."
+: "Approve or reject this application once you have reviewed all submitted information."}
+</p>
 </div>
 <div className="flex flex-col gap-3 sm:flex-row">
 <button
@@ -428,7 +432,12 @@ Reject
 <button
 type="button"
 onClick={() => setConfirmAction({ type: "approve" })}
-className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700 transition"
+disabled={!userDetail.user.email_verified && userDetail.user.provider_type !== "google"}
+className={`rounded-2xl px-5 py-3 text-sm font-semibold text-white transition ${
+!userDetail.user.email_verified && userDetail.user.provider_type !== "google"
+? "bg-slate-300 cursor-not-allowed"
+: "bg-emerald-600 hover:bg-emerald-700"
+}`}
 >
 Approve
 </button>

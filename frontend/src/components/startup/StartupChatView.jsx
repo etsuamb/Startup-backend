@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "@/components/startup/Sidebar";
 import ChatCallPanel from "@/components/startup/ChatCallPanel";
@@ -13,6 +14,7 @@ import {
 } from "@/lib/chatEncryption";
 import { useRealtimeChat } from "@/hooks/useRealtimeChat";
 import { MODERATION_WARNING } from "@/lib/socketClient";
+import { chatAccessMessage, isChatAccessError } from "@/lib/chatAccess";
 
 function readCurrentUserId() {
   try {
@@ -95,6 +97,8 @@ function previewText(raw, conversationId) {
  * @param {(conversationId: string) => Promise<{messages: object[]}>} props.loadMessages
  * @param {(conversationId: string, body: string) => Promise<{message: object}>} props.sendText
  * @param {(conversationId: string, formData: FormData) => Promise<{message: object}>} props.sendFile
+ * @param {(partnerId: string|number) => Promise<{conversation: object}>} [props.createConversation]
+ * @param {string} [props.targetQueryParam]
  * @param {(conversationId: string, messageId: string|number) => Promise<{blob: Blob, contentType: string, filename: string}>} props.downloadFile
  * @param {(row: object) => object} props.normalizeConversation
  * @param {(message: object) => string|number|null} props.messageId
@@ -108,12 +112,16 @@ export default function StartupChatView({
   loadMessages,
   sendText,
   sendFile,
+  createConversation,
+  targetQueryParam,
   downloadFile,
   normalizeConversation,
   messageId,
   callApi,
   emptyListHint,
 }) {
+  const searchParams = useSearchParams();
+  const targetPartnerId = targetQueryParam ? searchParams.get(targetQueryParam) : null;
   const [conversations, setConversations] = useState([]);
   const [selected, setSelected] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -177,7 +185,7 @@ export default function StartupChatView({
     return list;
   }, [conversations, listFilter, searchQuery]);
 
-  const refreshConversations = useCallback(async () => {
+  const refreshConversations = useCallback(async (preferredPartnerId = null) => {
     const data = await loadConversations();
     const list = await Promise.all(
       (data.conversations || []).map(async (row) => {
@@ -196,6 +204,10 @@ export default function StartupChatView({
     setSelected((current) => {
       if (current && list.some((c) => c.id === current.id)) {
         return list.find((c) => c.id === current.id) || current;
+      }
+      if (preferredPartnerId) {
+        const preferred = list.find((c) => String(c.partnerId) === String(preferredPartnerId));
+        if (preferred) return preferred;
       }
       return list[0] || null;
     });
@@ -228,15 +240,22 @@ export default function StartupChatView({
         setError(null);
         const profileData = await getStartupProfile().catch(() => null);
         setProfile(profileData?.startup || profileData || null);
-        await refreshConversations();
+        if (targetPartnerId && createConversation) {
+          try {
+            await createConversation(targetPartnerId);
+          } catch (err) {
+            setError(isChatAccessError(err) ? chatAccessMessage(err) : err.message || "Unable to open conversation.");
+          }
+        }
+        await refreshConversations(targetPartnerId);
       } catch (err) {
-        setError(err.message || "Unable to load conversations.");
+        setError(isChatAccessError(err) ? chatAccessMessage(err) : err.message || "Unable to load conversations.");
       } finally {
         setLoading(false);
       }
     }
     init();
-  }, [refreshConversations]);
+  }, [createConversation, refreshConversations, targetPartnerId]);
 
   useEffect(() => {
     if (!selected?.id) {
@@ -250,7 +269,7 @@ export default function StartupChatView({
         await fetchMessages(selected.id);
         markReadSocket();
       } catch (err) {
-        setError(err.message || "Unable to load messages.");
+        setError(isChatAccessError(err) ? chatAccessMessage(err) : err.message || "Unable to load messages.");
       } finally {
         setMessagesLoading(false);
       }
@@ -376,7 +395,7 @@ export default function StartupChatView({
         setSelectedFile(null);
         setMessageText("");
       } catch (err) {
-        setError(err.message || "Unable to send file.");
+        setError(isChatAccessError(err) ? chatAccessMessage(err) : err.message || "Unable to send file.");
       } finally {
         setSending(false);
       }
@@ -416,6 +435,8 @@ export default function StartupChatView({
       if (isModeration) {
         clearModerationAlert();
         setError(err.message || MODERATION_WARNING);
+      } else if (isChatAccessError(err)) {
+        setError(chatAccessMessage(err));
       } else {
         setError(err.message || "Unable to send message.");
       }
@@ -577,7 +598,11 @@ export default function StartupChatView({
           {/* Chat panel */}
           <section className="flex-grow flex flex-col min-w-0 bg-[#fafbfc]">
             {error && (
-              <div className="mx-4 mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+              <div className={`mx-4 mt-3 rounded-xl border px-4 py-2 text-sm ${
+                isChatAccessError({ message: error })
+                  ? "border-amber-200 bg-amber-50 text-amber-900"
+                  : "border-red-200 bg-red-50 text-red-700"
+              }`}>
                 {error}
                 <button type="button" className="ml-3 font-bold underline" onClick={() => setError(null)}>
                   Dismiss

@@ -4,6 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/startup/Sidebar";
+import StartupActionNotice from "@/components/startup/StartupActionNotice";
+import StartupTopBar from "@/components/startup/StartupTopBar";
+import { isAccountGateError } from "@/lib/accountGate";
 import {
   getDocuments,
   getMyProjects,
@@ -245,43 +248,15 @@ export default function StartupProjectsListing() {
     <div className="min-h-screen bg-[#f6f8f9] font-sans text-gray-900 flex">
       <Sidebar />
       <main className="flex-grow flex flex-col overflow-y-auto">
-        {/* Top bar */}
-        <header className="flex justify-between items-center gap-4 px-6 sm:px-8 py-5 bg-white border-b border-gray-100 sticky top-0 z-20">
-          <div className="relative flex-1 max-w-xl hidden sm:block">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search projects or investors..."
-              className="w-full pl-10 pr-4 py-2.5 bg-[#f6f8f9] border border-gray-100 rounded-full text-sm outline-none focus:ring-2 focus:ring-[#0f3d32]/20"
-            />
-          </div>
-          <div className="flex items-center gap-4 ml-auto">
-            <button
-              type="button"
-              onClick={() => loadProjects(true)}
-              disabled={refreshing}
-              className="p-2 text-gray-400 hover:text-[#0f3d32] transition disabled:opacity-50"
-              aria-label="Refresh projects"
-              title="Refresh"
-            >
-              <svg className={`w-5 h-5 ${refreshing ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </button>
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-[#115b4c] text-white flex items-center justify-center font-bold text-xs shrink-0">
-                {(startup?.startup_name || "ST").split(" ").map((w) => w[0]).slice(0, 2).join("")}
-              </div>
-              <span className="hidden md:block text-sm font-semibold text-gray-800">{founderLabel}</span>
-            </div>
-          </div>
-        </header>
+        <StartupTopBar
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search projects, industries, investors..."
+          profileName={startup?.startup_name || "My Startup"}
+          profileSubtitle={founderLabel}
+          refreshing={refreshing}
+          onRefresh={() => loadProjects(true)}
+        />
 
         <div className="px-4 sm:px-8 py-8 w-full max-w-[1280px] mx-auto pb-24">
           {/* Page header */}
@@ -300,6 +275,16 @@ export default function StartupProjectsListing() {
               Create New Project
             </Link>
           </div>
+
+          {error && isAccountGateError({ message: error }) && (
+            <StartupActionNotice className="mb-6" error={{ message: error }} />
+          )}
+
+          {error && !isAccountGateError({ message: error }) && (
+            <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+              {error}
+            </div>
+          )}
 
           {/* Mobile search */}
           <div className="sm:hidden mb-6">
@@ -394,10 +379,6 @@ export default function StartupProjectsListing() {
               </select>
             </label>
           </div>
-
-          {error && (
-            <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>
-          )}
 
           {loading ? (
             <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center text-gray-500 shadow-sm">

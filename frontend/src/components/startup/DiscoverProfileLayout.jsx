@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { getSentInvestorOffer, getSentMentorOffer } from "@/lib/offerUtils";
 import { initials } from "@/lib/discoverProfileUtils";
 import { isSensitiveVisible, privacyMessage } from "@/lib/profilePrivacy";
@@ -60,6 +61,7 @@ export default function DiscoverProfileLayout({
   footerExtra,
   belowMain,
 }) {
+  const [messageNotice, setMessageNotice] = useState("");
   const privacy = privacyProp || contact?.privacy;
   const sensitiveVisible = isSensitiveVisible({ privacy: privacy });
   const sentOffer =
@@ -72,7 +74,15 @@ export default function DiscoverProfileLayout({
       ? `/startup/discover/investor/${contactId}/offer`
       : `/startup/discover/mentor/${contactId}/offer`;
 
-  const messageHref = kind === "investor" ? "/startup/chat" : "/startup/mentorship";
+  const messageHref =
+    kind === "investor"
+      ? `/startup/chat?investorId=${encodeURIComponent(String(contactId))}`
+      : `/startup/mentorship?mentorId=${encodeURIComponent(String(contactId))}`;
+  const canMessage = ["approved", "accepted"].includes(String(sentOffer?.status || "").toLowerCase());
+  const lockedMessage =
+    kind === "investor"
+      ? "Messaging unlocks after an investment offer or request is accepted. Apply for investment first, then wait for acceptance."
+      : "Messaging unlocks after a mentorship request is accepted. Request mentorship first, then wait for acceptance.";
 
   const founderName =
     startup?.founder_full_name ||
@@ -179,15 +189,43 @@ export default function DiscoverProfileLayout({
                       {kind === "investor" ? "Apply for investment" : "Request mentorship"}
                     </Link>
                   )}
-                  <Link
-                    href={messageHref}
-                    className="inline-flex items-center justify-center px-5 py-3 rounded-lg border-2 border-[#0f3d32] text-[#0f3d32] text-sm font-bold hover:bg-[#f0faf7] transition whitespace-nowrap"
-                  >
-                    {kind === "investor" ? "Message investor" : "Message mentor"}
-                  </Link>
+                  {canMessage ? (
+                    <Link
+                      href={messageHref}
+                      className="inline-flex items-center justify-center px-5 py-3 rounded-lg border-2 border-[#0f3d32] text-[#0f3d32] text-sm font-bold hover:bg-[#f0faf7] transition whitespace-nowrap"
+                    >
+                      {kind === "investor" ? "Message investor" : "Message mentor"}
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setMessageNotice(lockedMessage)}
+                      className="inline-flex items-center justify-center px-5 py-3 rounded-lg border-2 border-amber-200 bg-amber-50 text-amber-800 text-sm font-bold hover:bg-amber-100 transition whitespace-nowrap"
+                    >
+                      Message locked
+                    </button>
+                  )}
                 </div>
               </div>
             </section>
+
+            {messageNotice && (
+              <section className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-semibold mb-1">You are not connected yet</p>
+                    <p className="text-amber-800/90 leading-relaxed">{messageNotice}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMessageNotice("")}
+                    className="text-xs font-bold text-amber-900 hover:underline"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </section>
+            )}
 
             {!sensitiveVisible && privacy && (
               <section className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">

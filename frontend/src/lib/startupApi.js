@@ -144,6 +144,10 @@ export async function getInvestorChatConversations() {
   return apiFetch("/chat/conversations");
 }
 
+export async function createInvestorChatConversation(investorId) {
+  return apiPostJson("/chat/conversations", { investor_id: investorId });
+}
+
 export async function getInvestorChatMessages(conversationId, params = {}) {
   const query = buildQuery(params);
   return apiFetch(`/chat/conversations/${conversationId}/messages${query ? `?${query}` : ""}`);
@@ -179,6 +183,10 @@ export async function endInvestorVideoCall(conversationId) {
 
 export async function getMentorChatConversations() {
   return apiFetch("/startups/mentor-chat/conversations");
+}
+
+export async function createMentorChatConversation(mentorId) {
+  return apiPostJson("/startups/mentor-chat/conversations", { mentor_id: mentorId });
 }
 
 export async function getMentorChatMessages(conversationId, params = {}) {

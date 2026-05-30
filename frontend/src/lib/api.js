@@ -8,6 +8,37 @@ function authHeaders() {
 	return h;
 }
 
+function friendlyApiMessage(data, status, fallback) {
+	if (data?.code === "EMAIL_NOT_VERIFIED") {
+		return "Please verify your email before using this feature. Check your inbox for the verification link, or use the resend verification option on the login page.";
+	}
+	if (data?.code === "CHAT_REQUIRES_ACCEPTED_OFFER") {
+		return "Messaging unlocks after both sides are connected by an accepted offer or request. Send an offer first, or accept the incoming offer/request, then come back to messages.";
+	}
+
+	const raw = data && (data.message || data.error);
+	if (typeof raw === "string") {
+		if (/chat is available only after|video calls require an accepted|accepted investment relationship|accepted mentorship/i.test(raw)) {
+			return /mentor|mentorship/i.test(raw)
+				? "Messaging unlocks after the mentorship request is accepted. Send or accept the mentorship request first, then you can chat."
+				: "Messaging unlocks after an investment offer or request is accepted. Send an offer or accept the incoming request first, then you can chat.";
+		}
+		if (/account pending admin approval/i.test(raw)) {
+			return "Your account is waiting for admin approval. You can continue reviewing your profile, but actions are locked until an administrator approves your account.";
+		}
+		if (/must verify their email address before admin approval/i.test(raw)) {
+			return "This account cannot be approved yet because the email address has not been verified.";
+		}
+		return raw;
+	}
+
+	if (status === 403) {
+		return "You cannot use this feature yet. Your email must be verified and your account must be approved by an administrator.";
+	}
+
+	return fallback || "Request failed";
+}
+
 export async function apiFetch(path, options = {}) {
 	const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
 	const headers = { ...authHeaders(), ...(options.headers || {}) };
@@ -27,9 +58,7 @@ export async function apiFetch(path, options = {}) {
 			: null;
 		const err = new Error(
 			chapaMessage ||
-				(data && (data.message || data.error)) ||
-				res.statusText ||
-				"Request failed",
+				friendlyApiMessage(data, res.status, res.statusText),
 		);
 		err.code = data?.code;
 		err.status = res.status;
@@ -90,7 +119,8 @@ export async function apiFetchBlob(path) {
 		} catch {
 			data = { raw: text };
 		}
-		const err = new Error((data && (data.message || data.error)) || res.statusText || "Request failed");
+		const err = new Error(friendlyApiMessage(data, res.status, res.statusText));
+		err.code = data?.code;
 		err.status = res.status;
 		err.data = data;
 		throw err;

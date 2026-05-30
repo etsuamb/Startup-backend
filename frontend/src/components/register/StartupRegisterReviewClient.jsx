@@ -1,13 +1,18 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRegFlow } from "@/components/register/RegFlowProvider";
 import { loadRegistrationAccountInfo } from "@/lib/registerAccountStorage";
 
 export default function StartupRegisterReviewClient() {
+	const [accountInfo, setAccountInfo] = useState({});
 	const { fields, files } = useRegFlow();
 	const f = fields || {};
 	const fl = files || {};
-	const accountInfo = loadRegistrationAccountInfo() || {};
+
+	useEffect(() => {
+		setAccountInfo(loadRegistrationAccountInfo() || {});
+	}, []);
 
 	const fullName = f.founder_full_name || accountInfo.full_name || `${accountInfo.first_name || ""} ${accountInfo.last_name || ""}`.trim();
 	const email = f.email || accountInfo.email;

@@ -10,10 +10,12 @@ import {
   getInvestorMessageThreads,
   getInvestorMessages,
   getInvestorProfile,
+  getInvestorFundingOffers,
   getInvestorStartups,
   sendInvestorChatFile,
   sendInvestorMessage,
 } from "@/lib/investorApi";
+import { chatAccessMessage, isChatAccessError } from "@/lib/chatAccess";
 
 function initials(name = "") {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -42,6 +44,27 @@ function getThreadStartupId(thread) {
   return thread.startup_id ?? thread.id ?? thread.user_id ?? null;
 }
 
+function isAcceptedStatus(status) {
+  return ["approved", "accepted"].includes(String(status || "").toLowerCase());
+}
+
+function ChatLockedNotice({ startupName }) {
+  return (
+    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+      <p className="font-bold">Messaging is locked</p>
+      <p className="mt-1 text-amber-800">
+        You can message {startupName || "this startup"} after an investment offer or request is accepted by both sides.
+      </p>
+      <Link
+        href="/investor/offers/new"
+        className="mt-3 inline-flex rounded-lg bg-amber-100 px-3 py-2 text-xs font-bold text-amber-950 hover:bg-amber-200"
+      >
+        Send funding offer
+      </Link>
+    </div>
+  );
+}
+
 function MessagesContent() {
   const searchParams = useSearchParams();
   const startupIdFromUrl = searchParams.get("startupId") || "";
@@ -52,6 +75,7 @@ function MessagesContent() {
 
   const [startups, setStartups] = useState([]);
   const [threads, setThreads] = useState([]);
+  const [acceptedStartupIds, setAcceptedStartupIds] = useState(new Set());
   const [activeStartupId, setActiveStartupId] = useState(startupIdFromUrl);
   const [activeConversationId, setActiveConversationId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -82,16 +106,24 @@ function MessagesContent() {
       try {
         setLoadingThreads(true);
         setError("");
-        const [threadData, startupData, profileData] = await Promise.all([
+        const [threadData, startupData, profileData, offerData] = await Promise.all([
           getInvestorMessageThreads(),
           getInvestorStartups({ limit: 100 }),
           getInvestorProfile(),
+          getInvestorFundingOffers().catch(() => ({ funding_offers: [] })),
         ]);
         if (ignore) return;
         const loadedThreads = Array.isArray(threadData.conversations) ? threadData.conversations : [];
         const loadedStartups = Array.isArray(startupData.startups) ? startupData.startups : [];
         setThreads(loadedThreads);
         setStartups(loadedStartups);
+        setAcceptedStartupIds(
+          new Set(
+            (offerData.funding_offers || [])
+              .filter((offer) => isAcceptedStatus(offer.status))
+              .map((offer) => String(offer.startup_id)),
+          ),
+        );
         setCurrentUserId(profileData.investor?.user_id || null);
         if (!startupIdFromUrl) {
           const first = loadedThreads[0]?.startup_id || loadedStartups[0]?.startup_id || "";
@@ -154,6 +186,9 @@ function MessagesContent() {
   }, [query, startups, threads]);
 
   const activeStartup = inbox.find((item) => String(item.startup_id) === String(activeStartupId));
+  const activeCanMessage = Boolean(
+    activeStartup?.conversation_id || acceptedStartupIds.has(String(activeStartupId)),
+  );
 
   useEffect(() => {
     let ignore = false;
@@ -253,6 +288,10 @@ function MessagesContent() {
     event.preventDefault();
     const text = draft.trim();
     if ((!text && !pendingAttachment) || !activeStartupId) return;
+    if (!activeCanMessage) {
+      setError(chatAccessMessage({ message: "investment chat locked" }));
+      return;
+    }
 
     try {
       setSending(true);
@@ -269,7 +308,7 @@ function MessagesContent() {
       setAttachmentCaption("");
       await refreshThreads();
     } catch (err) {
-      setError(err.message || "Failed to send message.");
+      setError(isChatAccessError(err) ? chatAccessMessage(err) : err.message || "Failed to send message.");
     } finally {
       setSending(false);
     }
@@ -313,7 +352,7 @@ function MessagesContent() {
           setMessages((current) => [...current, data.message].filter(Boolean));
           await refreshThreads();
         } catch (err) {
-          setError(err.message || "Failed to send voice message.");
+          setError(isChatAccessError(err) ? chatAccessMessage(err) : err.message || "Failed to send voice message.");
         } finally {
           setUploading(false);
         }
@@ -432,7 +471,11 @@ function MessagesContent() {
             </div>
 
             {error ? (
-              <div className="mx-8 mt-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+              <div className={`mx-8 mt-4 rounded-xl border px-4 py-3 text-sm font-semibold ${
+                isChatAccessError({ message: error })
+                  ? "border-amber-200 bg-amber-50 text-amber-900"
+                  : "border-red-100 bg-red-50 text-red-700"
+              }`}>
                 {error}
               </div>
             ) : null}
@@ -440,6 +483,10 @@ function MessagesContent() {
             <div className="flex-grow overflow-y-auto p-8 flex flex-col">
               {loadingMessages ? (
                 <div className="text-sm font-semibold text-gray-500">Loading messages...</div>
+              ) : activeStartup && !activeCanMessage ? (
+                <div className="flex h-full items-center justify-center">
+                  <ChatLockedNotice startupName={activeStartup.startup_name} />
+                </div>
               ) : messages.length ? messages.map((message) => {
                 const outgoing = String(message.sender_user_id) === String(currentUserId);
                 const isFile = message.message_type === "file";
@@ -498,7 +545,7 @@ function MessagesContent() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={!activeStartupId || uploading}
+                disabled={!activeStartupId || !activeCanMessage || uploading}
                 className="w-11 h-11 rounded-xl border border-gray-300 text-gray-500 hover:bg-gray-50 flex items-center justify-center disabled:opacity-50"
                 title="Attach file"
               >
@@ -507,7 +554,7 @@ function MessagesContent() {
               <button
                 type="button"
                 onClick={handleToggleRecording}
-                disabled={!activeStartupId || uploading}
+                disabled={!activeStartupId || !activeCanMessage || uploading}
                 className={`w-11 h-11 rounded-xl border flex items-center justify-center disabled:opacity-50 ${
                   recording ? "border-red-200 bg-red-50 text-red-600" : "border-gray-300 text-gray-500 hover:bg-gray-50"
                 }`}
@@ -548,15 +595,15 @@ function MessagesContent() {
                   type="text"
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
-                  disabled={!activeStartupId || sending || Boolean(pendingAttachment)}
-                  placeholder={recording ? "Recording voice..." : activeStartup ? "Type your message here..." : "Select a startup first"}
+                  disabled={!activeStartupId || !activeCanMessage || sending || Boolean(pendingAttachment)}
+                  placeholder={recording ? "Recording voice..." : activeStartup && !activeCanMessage ? "Accept or send an offer before messaging" : activeStartup ? "Type your message here..." : "Select a startup first"}
                   className="w-full px-5 py-3.5 bg-white border border-gray-300 rounded-xl text-[14px] outline-none focus:border-[#0a4d3c]/50 focus:ring-4 focus:ring-[#0a4d3c]/10 transition shadow-sm disabled:bg-gray-50"
                 />
               </div>
 
               <button
                 type="submit"
-                disabled={(!draft.trim() && !pendingAttachment) || !activeStartupId || sending || uploading}
+                disabled={(!draft.trim() && !pendingAttachment) || !activeStartupId || !activeCanMessage || sending || uploading}
                 className="px-6 py-3.5 bg-[#0a3a2e] text-white font-bold text-[14px] rounded-xl hover:bg-[#072a21] shadow-md flex items-center justify-center gap-2 transition shrink-0 disabled:bg-gray-300 disabled:shadow-none disabled:cursor-not-allowed"
               >
                 {sending ? "Sending..." : uploading ? "Uploading..." : pendingAttachment ? "Send File" : "Send"}

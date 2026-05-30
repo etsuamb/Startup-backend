@@ -49,6 +49,33 @@ function mapRegistrationDbError(err) {
 	return null;
 }
 
+async function resolveGoogleProfileUser(token) {
+	if (!token) return null;
+	let decoded;
+	try {
+		decoded = jwt.verify(token, JWT_SECRET);
+	} catch {
+		const err = new Error("Invalid or expired Google profile session");
+		err.status = 400;
+		throw err;
+	}
+	if (decoded.purpose !== "google_profile" || !decoded.userId) {
+		const err = new Error("Invalid Google profile session");
+		err.status = 400;
+		throw err;
+	}
+	const result = await pool.query("SELECT * FROM users WHERE user_id = $1", [
+		decoded.userId,
+	]);
+	const user = result.rows[0];
+	if (!user || user.provider_type !== "google") {
+		const err = new Error("Google account not found");
+		err.status = 404;
+		throw err;
+	}
+	return user;
+}
+
 // ========================
 // REGISTER
 // ========================
@@ -116,6 +143,7 @@ exports.register = async (req, res) => {
 		mentoring_style,
 		notable_startups_mentored,
 		key_achievement,
+		google_profile_token,
 	} = req.body;
 
 	// Investor form may send camelCase or an array of industries; normalize for DB + validation.
@@ -137,26 +165,40 @@ exports.register = async (req, res) => {
 	let mentorResolved = null;
 
 	try {
+		const googleProfileUser = await resolveGoogleProfileUser(
+			google_profile_token || req.body.googleProfileToken,
+		);
+		const isGoogleProfileCompletion = Boolean(googleProfileUser);
+		const normalizedRole = String(role || googleProfileUser?.role || "").trim();
+		const effectiveFirstName = first_name || googleProfileUser?.first_name;
+		const effectiveLastName = last_name || googleProfileUser?.last_name;
+		const effectiveEmail = email || googleProfileUser?.email;
+
 		// Basic validation
-		if (!first_name || !last_name || !email || !password || !confirm_password || !role) {
+		if (
+			!effectiveFirstName ||
+			!effectiveLastName ||
+			!effectiveEmail ||
+			!role ||
+			(!isGoogleProfileCompletion && (!password || !confirm_password))
+		) {
 			return res.status(400).json({
 				message:
 					"first_name, last_name, email, password, confirm_password and role are required",
 			});
 		}
 
-		if (password !== confirm_password) {
+		if (!isGoogleProfileCompletion && password !== confirm_password) {
 			return res.status(400).json({ message: "Password and confirm password must match" });
 		}
 
-		if (!hasStrongPassword(password)) {
+		if (!isGoogleProfileCompletion && !hasStrongPassword(password)) {
 			return res.status(400).json({
 				message:
 					"Password must be at least 8 characters and include 1 capital letter, 1 special character, and 1 number",
 			});
 		}
 
-		const normalizedRole = String(role).trim();
 		if (normalizedRole === "Admin") {
 			return res.status(403).json({
 				message: "Admin accounts cannot be registered. Use admin login instead.",
@@ -167,11 +209,16 @@ exports.register = async (req, res) => {
 				message: "Role must be one of Startup, Investor, or Mentor",
 			});
 		}
+		if (isGoogleProfileCompletion && googleProfileUser.role !== normalizedRole) {
+			return res.status(400).json({
+				message: "Selected role does not match this Google signup session",
+			});
+		}
 
 		// Startup-specific validation
 		if (normalizedRole === "Startup") {
 			if (
-				!phone_number ||
+				(!isGoogleProfileCompletion && !phone_number) ||
 				!founder_full_name ||
 				!startup_name ||
 				!industry ||
@@ -211,7 +258,7 @@ exports.register = async (req, res) => {
 		if (normalizedRole === "Investor") {
 			const chosenInvestmentStage = investment_stage || startup_stage;
 			if (
-				!phone_number ||
+				(!isGoogleProfileCompletion && !phone_number) ||
 				!investor_type ||
 				!preferredIndustryResolved ||
 				!chosenInvestmentStage ||
@@ -298,7 +345,7 @@ exports.register = async (req, res) => {
 			const mentorKeyAch = str(key_achievement) || str(req.body.keyAchievement) || "";
 
 			if (
-				!phone_number ||
+				(!isGoogleProfileCompletion && !phone_number) ||
 				!mentorTitle ||
 				mentorYearsRaw === undefined ||
 				mentorYearsRaw === null ||
@@ -396,23 +443,25 @@ exports.register = async (req, res) => {
 			};
 		}
 
-		const normalizedEmail = String(email).trim().toLowerCase();
+		const normalizedEmail = String(effectiveEmail).trim().toLowerCase();
 		const phoneForDb = normalizePhone(phone_number);
 
-		let emailCheck;
-		try {
-			emailCheck = await authSecurity.validateEmailDeliverability(normalizedEmail);
-		} catch (validationErr) {
-			console.error("Email validation error:", validationErr.message);
-			return res.status(400).json({
-				message: authSecurity.emailRejectMessage("validation_error"),
-			});
-		}
-		if (!emailCheck.ok) {
-			return res.status(400).json({
-				message: authSecurity.emailRejectMessage(emailCheck.reason),
-				code: emailCheck.reason,
-			});
+		if (!isGoogleProfileCompletion) {
+			let emailCheck;
+			try {
+				emailCheck = await authSecurity.validateEmailDeliverability(normalizedEmail);
+			} catch (validationErr) {
+				console.error("Email validation error:", validationErr.message);
+				return res.status(400).json({
+					message: authSecurity.emailRejectMessage("validation_error"),
+				});
+			}
+			if (!emailCheck.ok) {
+				return res.status(400).json({
+					message: authSecurity.emailRejectMessage(emailCheck.reason),
+					code: emailCheck.reason,
+				});
+			}
 		}
 
 		// Check if user already exists
@@ -420,7 +469,11 @@ exports.register = async (req, res) => {
 			normalizedEmail,
 		]);
 
-		if (existingUser.rows.length > 0) {
+		if (
+			existingUser.rows.length > 0 &&
+			(!isGoogleProfileCompletion ||
+				Number(existingUser.rows[0].user_id) !== Number(googleProfileUser.user_id))
+		) {
 			return res.status(409).json({ message: "An account with this email already exists" });
 		}
 
@@ -429,7 +482,11 @@ exports.register = async (req, res) => {
 				"SELECT user_id FROM users WHERE phone_number = $1",
 				[phoneForDb],
 			);
-			if (existingPhone.rows.length > 0) {
+			if (
+				existingPhone.rows.length > 0 &&
+				(!isGoogleProfileCompletion ||
+					Number(existingPhone.rows[0].user_id) !== Number(googleProfileUser.user_id))
+			) {
 				return res.status(409).json({ message: "This phone number is already registered" });
 			}
 		}
@@ -438,24 +495,47 @@ exports.register = async (req, res) => {
 		try {
 			await client.query("BEGIN");
 
-			// Hash password
-			const hashedPassword = await bcrypt.hash(password, 10);
+			let user;
+			if (isGoogleProfileCompletion) {
+				const userUpdateResult = await client.query(
+					`UPDATE users
+					 SET first_name = $1,
+					     last_name = $2,
+					     phone_number = COALESCE($3, phone_number),
+					     role = $4,
+					     provider_type = 'google',
+					     email_verified = true,
+					     updated_at = CURRENT_TIMESTAMP
+					 WHERE user_id = $5
+					 RETURNING user_id, first_name, last_name, email, role, is_approved, email_verified`,
+					[
+						effectiveFirstName,
+						effectiveLastName,
+						phoneForDb,
+						normalizedRole,
+						googleProfileUser.user_id,
+					],
+				);
+				user = userUpdateResult.rows[0];
+			} else {
+				// Hash password
+				const hashedPassword = await bcrypt.hash(password, 10);
 
-			const userInsertResult = await client.query(
-				`INSERT INTO users (first_name, last_name, email, password_hash, role, phone_number, provider_type, email_verified)
+				const userInsertResult = await client.query(
+					`INSERT INTO users (first_name, last_name, email, password_hash, role, phone_number, provider_type, email_verified)
          VALUES ($1, $2, $3, $4, $5, $6, 'local', false)
          RETURNING user_id, first_name, last_name, email, role, is_approved, email_verified`,
-				[
-					first_name,
-					last_name,
-					normalizedEmail,
-					hashedPassword,
-					normalizedRole,
-					phoneForDb,
-				],
-			);
-
-			const user = userInsertResult.rows[0];
+					[
+						effectiveFirstName,
+						effectiveLastName,
+						normalizedEmail,
+						hashedPassword,
+						normalizedRole,
+						phoneForDb,
+					],
+				);
+				user = userInsertResult.rows[0];
+			}
 
 			let startupProfile = null;
 			let investorProfile = null;
@@ -773,7 +853,7 @@ exports.register = async (req, res) => {
 					[
 						admin.user_id,
 						`New ${normalizedRole} Registered`,
-						`A new ${normalizedRole} account for ${first_name} ${last_name} (${normalizedEmail}) has registered and is pending approval.`,
+						`A new ${normalizedRole} account for ${effectiveFirstName} ${effectiveLastName} (${normalizedEmail}) has registered and is pending approval.`,
 						user.user_id
 					]
 				);
@@ -784,8 +864,8 @@ exports.register = async (req, res) => {
 					 VALUES ($1, 'verification', $2, $3, 'user', $4)`,
 					[
 						admin.user_id,
-						`Verification Request: ${first_name} ${last_name}`,
-						`${first_name} ${last_name} (${normalizedRole}) has submitted documents for verification.`,
+						`Verification Request: ${effectiveFirstName} ${effectiveLastName}`,
+						`${effectiveFirstName} ${effectiveLastName} (${normalizedRole}) has submitted documents for verification.`,
 						user.user_id
 					]
 				);
@@ -794,9 +874,11 @@ exports.register = async (req, res) => {
 			await client.query("COMMIT");
 
 			try {
-				const fullUser = await pool.query(`SELECT * FROM users WHERE user_id = $1`, [user.user_id]);
-				if (fullUser.rowCount) {
-					await authSecurity.sendVerificationEmail(fullUser.rows[0]);
+				if (!isGoogleProfileCompletion) {
+					const fullUser = await pool.query(`SELECT * FROM users WHERE user_id = $1`, [user.user_id]);
+					if (fullUser.rowCount) {
+						await authSecurity.sendVerificationEmail(fullUser.rows[0]);
+					}
 				}
 			} catch (mailErr) {
 				console.error("Verification email failed:", mailErr.message);
@@ -811,7 +893,7 @@ exports.register = async (req, res) => {
 			return res.status(201).json({
 				message: regMessage,
 				user,
-				emailVerificationSent: true,
+				emailVerificationSent: !isGoogleProfileCompletion,
 				startup: startupProfile,
 				investor: investorProfile,
 				mentor: mentorProfile,
@@ -831,6 +913,9 @@ exports.register = async (req, res) => {
 			client.release();
 		}
 	} catch (err) {
+		if (err.status) {
+			return res.status(err.status).json({ message: err.message });
+		}
 		const mapped = mapRegistrationDbError(err);
 		if (mapped) {
 			return res.status(mapped.status).json({ message: mapped.message });

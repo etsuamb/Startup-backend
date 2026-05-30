@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Sidebar from "@/components/startup/Sidebar";
+import StartupActionNotice from "@/components/startup/StartupActionNotice";
+import StartupTopBar from "@/components/startup/StartupTopBar";
 import {
   getStartupOffers,
   getStartupProfile,
@@ -10,6 +12,7 @@ import {
   searchMentors,
 } from "@/lib/startupApi";
 import { buildSentOfferLookup } from "@/lib/offerUtils";
+import { isAccountGateError } from "@/lib/accountGate";
 import DiscoverOfferButton from "@/components/startup/DiscoverOfferButton";
 import { PendingApprovalBanner } from "@/components/startup/PendingApprovalNotice";
 import { useStartupApproval } from "@/hooks/useStartupApproval";
@@ -228,7 +231,7 @@ export default function StartupDiscoverPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [offerLookup, setOfferLookup] = useState({ investors: new Map(), mentors: new Map() });
-  const { approved, pending, loading: approvalLoading } = useStartupApproval();
+  const { approved, pending, reason, message: approvalMessage, loading: approvalLoading } = useStartupApproval();
 
   const loadData = useCallback(async (isRefresh = false) => {
     try {
@@ -309,43 +312,16 @@ export default function StartupDiscoverPage() {
     <div className="min-h-screen bg-[#f6f8f9] font-sans text-gray-900 flex">
       <Sidebar />
       <main className="flex-grow flex flex-col overflow-y-auto">
-        {/* Top bar */}
-        <header className="flex justify-between items-center gap-4 px-6 sm:px-8 py-5 bg-white border-b border-gray-100 sticky top-0 z-20">
-          <div className="relative flex-1 max-w-xl hidden sm:block">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-            <input
-              type="text"
-              value={globalSearch}
-              onChange={(e) => setGlobalSearch(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && loadData(true)}
-              placeholder="Search for opportunities..."
-              className="w-full pl-10 pr-4 py-2.5 bg-[#f6f8f9] border border-gray-100 rounded-full text-sm outline-none focus:ring-2 focus:ring-[#0f3d32]/20"
-            />
-          </div>
-          <div className="flex items-center gap-4 ml-auto">
-            <button
-              type="button"
-              onClick={() => loadData(true)}
-              disabled={refreshing}
-              className="text-sm font-semibold text-[#0f3d32] hover:underline disabled:opacity-50"
-            >
-              {refreshing ? "Refreshing…" : "Refresh"}
-            </button>
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:block text-right">
-                <p className="text-sm font-bold text-gray-900">{founderName}</p>
-                <p className="text-xs text-gray-500">{founderTitle || "Startup founder"}</p>
-              </div>
-              <div className="w-10 h-10 rounded-full bg-[#115b4c] text-white flex items-center justify-center font-bold text-xs shrink-0">
-                {initials(startup?.startup_name || founderName)}
-              </div>
-            </div>
-          </div>
-        </header>
+        <StartupTopBar
+          searchValue={globalSearch}
+          onSearchChange={setGlobalSearch}
+          onSearchSubmit={() => loadData(true)}
+          searchPlaceholder="Search investors, mentors, industries..."
+          profileName={startup?.startup_name || founderName}
+          profileSubtitle={founderTitle || "Startup founder"}
+          refreshing={refreshing}
+          onRefresh={() => loadData(true)}
+        />
 
         <div className="px-4 sm:px-8 py-10 w-full max-w-[1100px] mx-auto pb-24">
           {/* Page title */}
@@ -470,9 +446,15 @@ export default function StartupDiscoverPage() {
             </Link>
           </div>
 
-          {!approvalLoading && pending && <PendingApprovalBanner className="mb-6" />}
+          {!approvalLoading && pending && (
+            <PendingApprovalBanner className="mb-6" reason={reason} message={approvalMessage} />
+          )}
 
-          {error && (
+          {error && isAccountGateError({ message: error }) && (
+            <StartupActionNotice className="mb-6" error={{ message: error }} />
+          )}
+
+          {error && !isAccountGateError({ message: error }) && (
             <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>
           )}
 

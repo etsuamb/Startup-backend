@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { googleCompleteRole } from "@/lib/authApi";
+import {
+	clearRegistrationAccountInfo,
+	saveRegistrationAccountInfo,
+} from "@/lib/registerAccountStorage";
 
 const ROLES = [
 	{ id: "Startup", label: "Startup Founder", href: "/register/startup" },
@@ -38,6 +42,17 @@ export default function GoogleRolePage() {
 			if (data.googleSignupToken) {
 				sessionStorage.setItem("google_profile_token", data.googleSignupToken);
 			}
+			clearRegistrationAccountInfo();
+			saveRegistrationAccountInfo({
+				first_name: data.user?.first_name || signup.profile?.firstName || "",
+				last_name: data.user?.last_name || signup.profile?.lastName || "",
+				full_name:
+					`${data.user?.first_name || signup.profile?.firstName || ""} ${
+						data.user?.last_name || signup.profile?.lastName || ""
+					}`.trim(),
+				email: data.user?.email || signup.profile?.email || "",
+				phone_number: data.user?.phone_number || "",
+			});
 			router.push(href);
 		} catch (ex) {
 			setErr(ex.message || "Could not create account");

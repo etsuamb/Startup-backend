@@ -7,6 +7,7 @@ export default function DiscoverOfferButton({
   offerLookup,
   variant = "card",
   disabled = false,
+  disabledReason = "Complete email verification and admin approval before using this action.",
   profileHref,
 }) {
   const existingOffer =
@@ -46,10 +47,10 @@ export default function DiscoverOfferButton({
         {approvedViewLink(disabled, viewHref, "View Profile")}
         {disabled ? (
           <span
-            className="inline-flex items-center justify-center rounded-lg bg-gray-200 px-4 py-2.5 text-sm font-bold text-gray-500 cursor-not-allowed text-center"
-            title="Available after admin approval"
+            className="inline-flex items-center justify-center rounded-lg bg-amber-100 px-4 py-2.5 text-sm font-bold text-amber-800 cursor-not-allowed text-center"
+            title={disabledReason}
           >
-            Apply
+            Approval needed
           </span>
         ) : (
           <Link
@@ -86,9 +87,9 @@ export default function DiscoverOfferButton({
     return (
       <span
         className={`${className} cursor-not-allowed opacity-50`}
-        title="Available after admin approval"
+        title={disabledReason}
       >
-        Make an Offer
+        Approval needed
       </span>
     );
   }
@@ -103,8 +104,8 @@ export default function DiscoverOfferButton({
 function approvedViewLink(disabled, href, label) {
   if (disabled) {
     return (
-      <span className="inline-flex items-center justify-center rounded-lg border-2 border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-400 cursor-not-allowed text-center">
-        {label}
+      <span className="inline-flex items-center justify-center rounded-lg border-2 border-amber-200 px-4 py-2.5 text-sm font-bold text-amber-700 cursor-not-allowed text-center">
+        Locked
       </span>
     );
   }

@@ -4,7 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import AiMentorWidget from "@/components/startup/AiMentorWidget";
 import Sidebar from "@/components/startup/Sidebar";
+import StartupActionNotice from "@/components/startup/StartupActionNotice";
+import StartupTopBar from "@/components/startup/StartupTopBar";
 import ViewableFileTrigger from "@/components/startup/ViewableFileTrigger";
+import { isAccountGateError } from "@/lib/accountGate";
 import {
   getDashboardActivities,
   getDocuments,
@@ -94,7 +97,6 @@ export default function StartupDashboard() {
   const [investorMatches, setInvestorMatches] = useState([]);
   const [mentorMatches, setMentorMatches] = useState([]);
   const [feedbackItems, setFeedbackItems] = useState([]);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -270,69 +272,13 @@ export default function StartupDashboard() {
     <div className="min-h-screen bg-[#f6f8f9] font-sans text-gray-900 flex">
       <Sidebar />
       <main className="flex-grow flex flex-col overflow-y-auto">
-        {/* Modern Header */}
-        <header className="px-4 sm:px-8 py-5 bg-white border-b border-gray-100 sticky top-0 z-10 flex justify-between items-center shadow-sm">
-          <div className="relative w-full max-w-md hidden sm:block">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-            <input
-              type="text"
-              placeholder="Search..."
-              className="w-full rounded-full border border-gray-100 bg-[#f8fafc] px-4 py-2.5 pl-10 text-sm outline-none transition-colors focus:border-[#0f3d32] focus:bg-white focus:ring-2 focus:ring-[#0f3d32]/10"
-            />
-          </div>
-          <div className="flex items-center gap-5 ml-auto">
-            <div className="relative">
-              <button
-                type="button"
-                className="text-gray-400 hover:text-gray-600 transition relative p-2 rounded-full hover:bg-gray-50"
-                onClick={() => setShowNotifications(!showNotifications)}
-                aria-label="Notifications"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                {stats.newMessages > 0 && (
-                  <span className="absolute top-1 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white" />
-                )}
-              </button>
-              {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-lg border border-gray-100 z-50 overflow-hidden">
-                  <div className="p-4 border-b border-gray-100 bg-gray-50">
-                    <h3 className="font-bold text-gray-900 text-sm">Notifications</h3>
-                  </div>
-                  <div className="max-h-96 overflow-y-auto">
-                    {notifications.length === 0 ? (
-                      <p className="p-6 text-center text-gray-500 text-sm">No notifications</p>
-                    ) : (
-                      notifications.slice(0, 10).map((notification) => (
-                        <div
-                          key={notification.notification_id}
-                          className={`p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors ${!notification.is_read ? "bg-emerald-50/30" : ""}`}
-                        >
-                          <h4 className="font-bold text-gray-900 text-xs mb-1">{notification.title}</h4>
-                          <p className="text-gray-600 text-xs">{notification.message}</p>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-            <Link href="/startup/settings" className="flex items-center gap-3 hover:opacity-80 transition group">
-              <div className="hidden sm:flex flex-col items-end">
-                <span className="text-sm font-bold text-gray-900 group-hover:text-[#0f3d32] transition-colors">{startup?.startup_name ?? "My Startup"}</span>
-                <span className="text-xs text-gray-500">{accountLabel}</span>
-              </div>
-              <div className="w-10 h-10 rounded-full bg-[#0f3d32] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
-                {startup?.startup_name?.split(" ").map((w) => w[0]).slice(0, 2).join("") ?? "ST"}
-              </div>
-            </Link>
-          </div>
-        </header>
+        <StartupTopBar
+          searchPlaceholder="Search dashboard, projects, offers..."
+          profileName={startup?.startup_name ?? "My Startup"}
+          profileSubtitle={accountLabel}
+          refreshing={refreshing}
+          onRefresh={() => loadData(true)}
+        />
 
         <div className="px-4 sm:px-8 py-8 w-full max-w-[1200px] mx-auto pb-24">
           
@@ -365,14 +311,21 @@ export default function StartupDashboard() {
             </button>
           </div>
 
-          {error && (
+          {error && isAccountGateError({ message: error }) ? (
+            <StartupActionNotice
+              className="mb-6"
+              error={{ message: error }}
+              actionHref="/startup/settings"
+              actionLabel="Review account settings"
+            />
+          ) : error ? (
             <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 flex items-center gap-3">
                <svg className="w-5 h-5 text-red-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span className="text-sm font-semibold text-red-800">{error}</span>
             </div>
-          )}
+          ) : null}
 
           {loading ? (
              <SectionCard>

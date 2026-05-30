@@ -938,13 +938,19 @@ exports.createInvestmentRequest = async (req, res) => {
 		const userId = req.user.user_id;
 		const { investor_id, project_id, requested_amount, proposal_message } =
 			req.body;
+		let projectId = project_id ? Number.parseInt(project_id, 10) : null;
+		const amount = Number(requested_amount);
 
 		if (!investor_id) {
 			return res.status(400).json({ error: "investor_id is required" });
 		}
 
-		if (!requested_amount) {
-			return res.status(400).json({ error: "requested_amount is required" });
+		if (!Number.isFinite(amount) || amount <= 0) {
+			return res.status(400).json({ error: "requested_amount must be a positive number" });
+		}
+
+		if (project_id && !Number.isInteger(projectId)) {
+			return res.status(400).json({ error: "project_id must be a valid number" });
 		}
 
 		// Validate investor exists
@@ -1037,7 +1043,7 @@ exports.createInvestmentRequest = async (req, res) => {
 		const result = await pool.query(
 			`INSERT INTO investment_requests (startup_id, investor_id, project_id, requested_amount, proposal_message, initiated_by)
 			 VALUES ($1, $2, $3, $4, $5, 'startup') RETURNING *`,
-			[startup_id, investor_id, projectId, requested_amount, proposal_message]
+			[startup_id, investor_id, projectId, amount, proposal_message]
 		);
 
 		await pool.query(

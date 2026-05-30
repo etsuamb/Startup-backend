@@ -24,6 +24,7 @@ export default function SubmitRegisterButton({
 		try {
 			const fd = buildRegisterFormData(role, fields, files);
 			await registerMultipart(fd);
+			sessionStorage.removeItem("google_profile_token");
 			reset();
 			router.push(nextPath);
 		} catch (e) {

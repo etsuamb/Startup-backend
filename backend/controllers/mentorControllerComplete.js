@@ -156,6 +156,113 @@ exports.getMentorProfile = async (req, res) => {
 	}
 };
 
+function sendStoredDocument(res, doc) {
+	const safeName = String(doc.file_name || "document").replace(/[^\w.\- ()]/g, "_");
+	const contentType = doc.file_type || "application/octet-stream";
+
+	res.setHeader("Content-Type", contentType);
+	res.setHeader("Content-Disposition", `inline; filename="${safeName}"`);
+
+	if (doc.file_data) {
+		return res.send(doc.file_data);
+	}
+
+	if (!doc.file_path || String(doc.file_path).startsWith("db://")) {
+		return res.status(404).json({ error: "File content is not available" });
+	}
+
+	const uploadsDir = path.resolve(process.cwd(), "uploads");
+	const absPath = path.resolve(process.cwd(), doc.file_path);
+	if (!absPath.startsWith(uploadsDir)) {
+		return res.status(400).json({ error: "Invalid file path" });
+	}
+	if (!fs.existsSync(absPath)) {
+		return res.status(404).json({ error: "File missing on server" });
+	}
+	return res.sendFile(absPath);
+}
+
+exports.getMentorDocument = async (req, res) => {
+	try {
+		const userId = req.user.user_id;
+		const documentId = Number(req.params.documentId);
+
+		if (!Number.isInteger(documentId) || documentId <= 0) {
+			return res.status(400).json({ error: "Invalid document id" });
+		}
+
+		let docRes = await pool.query(
+			`SELECT d.* FROM documents d
+			 JOIN mentors m ON m.mentor_id = d.mentor_id
+			 WHERE d.document_id = $1 AND m.user_id = $2`,
+			[documentId, userId],
+		);
+
+		if (!docRes.rows.length) {
+			docRes = await pool.query(
+				`SELECT md.* FROM mentor_documents md
+				 JOIN mentors m ON m.mentor_id = md.mentor_id
+				 WHERE md.mentor_document_id = $1 AND m.user_id = $2`,
+				[documentId, userId],
+			);
+		}
+
+		if (!docRes.rows.length) {
+			return res.status(404).json({ error: "Document not found" });
+		}
+
+		return sendStoredDocument(res, docRes.rows[0]);
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
+exports.getStartupDocument = async (req, res) => {
+	try {
+		const userId = req.user.user_id;
+		const startupId = Number(req.params.startupId);
+		const documentId = Number(req.params.documentId);
+
+		if (!Number.isInteger(startupId) || startupId <= 0) {
+			return res.status(400).json({ error: "Invalid startup id" });
+		}
+		if (!Number.isInteger(documentId) || documentId <= 0) {
+			return res.status(400).json({ error: "Invalid document id" });
+		}
+
+		const docRes = await pool.query(
+			`SELECT d.*, s.user_id AS startup_user_id
+			 FROM documents d
+			 JOIN startups s ON s.startup_id = d.startup_id
+			 JOIN users u ON u.user_id = s.user_id
+			 WHERE d.document_id = $1 AND d.startup_id = $2 AND u.is_approved = true`,
+			[documentId, startupId],
+		);
+
+		if (!docRes.rows.length) {
+			return res.status(404).json({ error: "Document not found" });
+		}
+
+		const doc = docRes.rows[0];
+		const access = await profileAccessService.evaluateSensitiveAccess(
+			userId,
+			doc.startup_user_id,
+			{ endpoint: "mentor.getStartupDocument" },
+		);
+
+		if (!access.sensitiveVisible) {
+			return res.status(403).json({
+				error: "Not allowed to view this document",
+				privacy: access.privacy,
+			});
+		}
+
+		return sendStoredDocument(res, doc);
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
 // UC_45: Get Mentorship Requests
 exports.getMentorshipRequests = async (req, res) => {
 	try {

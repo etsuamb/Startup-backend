@@ -200,6 +200,7 @@ export default function PendingUserDetailPage({ userId }) {
 
 	const fullName = user ? `${user.first_name || ""} ${user.last_name || ""}`.trim() : "";
 	const sections = buildProfileSections(user, profile);
+	const approvalBlocked = Boolean(user && !user.email_verified && user.provider_type !== "google");
 
 	if (loading) {
 		return (
@@ -267,6 +268,12 @@ export default function PendingUserDetailPage({ userId }) {
 					Pending review
 				</span>
 			</div>
+
+			{approvalBlocked ? (
+				<div className="mb-6 p-4 rounded-2xl bg-amber-50 text-amber-800 text-sm font-medium border border-amber-100">
+					This application cannot be approved until the user verifies their email address.
+				</div>
+			) : null}
 
 			{error ? (
 				<div className="mb-6 p-4 rounded-2xl bg-red-50 text-red-700 text-sm font-medium border border-red-100">
@@ -382,7 +389,12 @@ export default function PendingUserDetailPage({ userId }) {
 							<button
 								type="button"
 								onClick={() => setConfirmAction("approve")}
-								className="w-full py-3 rounded-2xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-700 transition shadow-md shadow-emerald-600/20"
+								disabled={approvalBlocked}
+								className={`w-full py-3 rounded-2xl text-white font-bold text-sm transition ${
+									approvalBlocked
+										? "bg-slate-300 cursor-not-allowed"
+										: "bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20"
+								}`}
 							>
 								Approve application
 							</button>

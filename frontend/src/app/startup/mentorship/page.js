@@ -3,6 +3,7 @@
 import StartupChatView from "@/components/startup/StartupChatView";
 import {
   downloadMentorChatFile,
+  createMentorChatConversation,
   endMentorVideoCall,
   getMentorChatConversations,
   getMentorChatMessages,
@@ -47,6 +48,8 @@ export default function StartupMentorChatPage() {
       profileDiscoverBase="/startup/discover/mentor"
       loadConversations={getMentorChatConversations}
       loadMessages={getMentorChatMessages}
+      createConversation={createMentorChatConversation}
+      targetQueryParam="mentorId"
       sendText={sendMentorChatMessage}
       sendFile={sendMentorChatFile}
       downloadFile={downloadMentorChatFile}

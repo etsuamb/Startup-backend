@@ -1,16 +1,17 @@
 const pool = require("../config/db");
 
 /**
- * Verified = admin-approved active account.
+ * Verified = active account with verified email and admin approval.
  */
 async function isVerifiedUser(userId) {
 	const r = await pool.query(
-		`SELECT is_approved, is_active FROM users WHERE user_id = $1`,
+		`SELECT is_approved, is_active, email_verified FROM users WHERE user_id = $1`,
 		[userId],
 	);
 	if (!r.rowCount) return { ok: false, reason: "user_not_found" };
 	const u = r.rows[0];
 	if (!u.is_active) return { ok: false, reason: "account_disabled" };
+	if (u.email_verified === false) return { ok: false, reason: "email_not_verified" };
 	if (!u.is_approved) return { ok: false, reason: "pending_verification" };
 	return { ok: true };
 }
@@ -87,7 +88,9 @@ async function assertChatAccess(userId, { channel, conversationId }) {
 			allowed: false,
 			code: verified.reason,
 			message:
-				verified.reason === "pending_verification"
+				verified.reason === "email_not_verified"
+					? "Please verify your email address before using chat."
+					: verified.reason === "pending_verification"
 					? "Only verified users can use chat. Please wait for admin approval."
 					: "Your account cannot use chat at this time.",
 		};

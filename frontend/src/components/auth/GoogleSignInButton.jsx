@@ -4,7 +4,12 @@ import { GoogleLogin } from "@react-oauth/google";
 import { googleAuth } from "@/lib/authApi";
 import { setSession } from "@/lib/authStorage";
 import { isGoogleAuthConfigured } from "@/lib/googleAuthConfig";
+import {
+	clearRegistrationAccountInfo,
+	saveRegistrationAccountInfo,
+} from "@/lib/registerAccountStorage";
 import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 function routeAfterLogin(router, user) {
 	const r = user?.role;
@@ -17,6 +22,26 @@ function routeAfterLogin(router, user) {
 
 export default function GoogleSignInButton({ onError, role }) {
 	const router = useRouter();
+	const buttonWrapRef = useRef(null);
+	const [buttonWidth, setButtonWidth] = useState(400);
+
+	useEffect(() => {
+		const node = buttonWrapRef.current;
+		if (!node) return;
+
+		function updateWidth() {
+			const measuredWidth = Math.floor(node.getBoundingClientRect().width);
+			if (measuredWidth > 0) {
+				setButtonWidth(Math.min(400, Math.max(200, measuredWidth)));
+			}
+		}
+
+		updateWidth();
+		const resizeObserver = new ResizeObserver(updateWidth);
+		resizeObserver.observe(node);
+
+		return () => resizeObserver.disconnect();
+	}, []);
 
 	if (!isGoogleAuthConfigured()) {
 		return (
@@ -33,9 +58,11 @@ export default function GoogleSignInButton({ onError, role }) {
 			const credential = credentialResponse?.credential;
 			if (!credential) throw new Error("Google sign-in failed");
 
+			clearRegistrationAccountInfo();
 			const data = await googleAuth(credential, role);
 
 			if (data.needsRoleSelection) {
+				clearRegistrationAccountInfo();
 				sessionStorage.setItem(
 					"google_signup",
 					JSON.stringify({
@@ -49,6 +76,13 @@ export default function GoogleSignInButton({ onError, role }) {
 
 			if (data.needsProfileCompletion) {
 				sessionStorage.setItem("google_profile_token", data.googleSignupToken || "");
+				saveRegistrationAccountInfo({
+					first_name: data.user?.first_name || "",
+					last_name: data.user?.last_name || "",
+					full_name: `${data.user?.first_name || ""} ${data.user?.last_name || ""}`.trim(),
+					email: data.user?.email || "",
+					phone_number: data.user?.phone_number || "",
+				});
 				const reg =
 					data.role === "Investor"
 						? "/register/investor"
@@ -86,7 +120,7 @@ export default function GoogleSignInButton({ onError, role }) {
 	}
 
 	return (
-		<div className="w-full flex justify-center [&>div]:!w-full">
+		<div ref={buttonWrapRef} className="w-full min-w-[200px] flex justify-center [&>div]:!w-full">
 			<GoogleLogin
 				onSuccess={handleSuccess}
 				onError={() => onError?.("Google sign-in was cancelled or failed")}
@@ -94,7 +128,7 @@ export default function GoogleSignInButton({ onError, role }) {
 				size="large"
 				text="continue_with"
 				shape="rectangular"
-				width="100%"
+				width={buttonWidth}
 			/>
 		</div>
 	);
