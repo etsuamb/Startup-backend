@@ -1,10 +1,24 @@
 const pool = require("../config/db");
 
-async function writeAudit(actorId, action, entityType, entityId, details, metadata = null) {
+async function writeAudit(
+	actorId,
+	action,
+	entityType,
+	entityId,
+	details,
+	metadata = null,
+) {
 	await pool.query(
 		`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata)
 		 VALUES ($1,$2,$3,$4,$5,$6)`,
-		[actorId, action, entityType, entityId, details, metadata ? JSON.stringify(metadata) : null],
+		[
+			actorId,
+			action,
+			entityType,
+			entityId,
+			details,
+			metadata ? JSON.stringify(metadata) : null,
+		],
 	);
 }
 
@@ -39,7 +53,13 @@ exports.updatePlatformSettings = async (req, res) => {
 			   updated_at = CURRENT_TIMESTAMP`,
 			[key, JSON.stringify(value), admin.user_id],
 		);
-		await writeAudit(admin.user_id, "update_platform_settings", "platform_settings", null, key);
+		await writeAudit(
+			admin.user_id,
+			"update_platform_settings",
+			"platform_settings",
+			null,
+			key,
+		);
 		return res.json({ message: "Settings updated", key, value });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
@@ -83,18 +103,31 @@ exports.listPublicCategories = async (req, res) => {
 };
 
 exports.createCategory = async (req, res) => {
-	const { name, slug, category_type = "industry", metadata = {} } = req.body || {};
-	if (!name || !slug) return res.status(400).json({ error: "name and slug required" });
+	const {
+		name,
+		slug,
+		category_type = "industry",
+		metadata = {},
+	} = req.body || {};
+	if (!name || !slug)
+		return res.status(400).json({ error: "name and slug required" });
 	try {
 		const r = await pool.query(
 			`INSERT INTO platform_categories (name, slug, category_type, metadata)
 			 VALUES ($1,$2,$3,$4::jsonb) RETURNING *`,
 			[name, slug, category_type, JSON.stringify(metadata)],
 		);
-		await writeAudit(req.user.user_id, "create_category", "platform_categories", r.rows[0].category_id, name);
+		await writeAudit(
+			req.user.user_id,
+			"create_category",
+			"platform_categories",
+			r.rows[0].category_id,
+			name,
+		);
 		return res.status(201).json({ category: r.rows[0] });
 	} catch (err) {
-		if (err.code === "23505") return res.status(409).json({ error: "Slug already exists" });
+		if (err.code === "23505")
+			return res.status(409).json({ error: "Slug already exists" });
 		return res.status(500).json({ error: err.message });
 	}
 };
@@ -112,7 +145,8 @@ exports.updateCategory = async (req, res) => {
 			 WHERE category_id = $4 RETURNING *`,
 			[name, is_active, metadata ? JSON.stringify(metadata) : null, id],
 		);
-		if (!r.rows.length) return res.status(404).json({ error: "Category not found" });
+		if (!r.rows.length)
+			return res.status(404).json({ error: "Category not found" });
 		return res.json({ category: r.rows[0] });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
@@ -121,10 +155,12 @@ exports.updateCategory = async (req, res) => {
 
 exports.deleteCategory = async (req, res) => {
 	try {
-		const r = await pool.query("DELETE FROM platform_categories WHERE category_id = $1 RETURNING category_id", [
-			req.params.id,
-		]);
-		if (!r.rows.length) return res.status(404).json({ error: "Category not found" });
+		const r = await pool.query(
+			"DELETE FROM platform_categories WHERE category_id = $1 RETURNING category_id",
+			[req.params.id],
+		);
+		if (!r.rows.length)
+			return res.status(404).json({ error: "Category not found" });
 		return res.json({ message: "Category deleted" });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
@@ -134,7 +170,12 @@ exports.deleteCategory = async (req, res) => {
 // Public suggestion endpoint for new categories. Try to store in a suggestion table;
 // if that table doesn't exist fall back to creating a disabled platform category.
 exports.suggestCategory = async (req, res) => {
-	const { name, category_type = "industry", contact_email = null, note = null } = req.body || {};
+	const {
+		name,
+		category_type = "industry",
+		contact_email = null,
+		note = null,
+	} = req.body || {};
 	if (!name) return res.status(400).json({ error: "name required" });
 	try {
 		// Primary: try suggestions table (if present)
@@ -144,19 +185,47 @@ exports.suggestCategory = async (req, res) => {
 				 VALUES ($1,$2,$3,$4) RETURNING *`,
 				[name.trim(), category_type, contact_email, note],
 			);
-			await writeAudit(req.user?.user_id || null, "suggest_category", "category_suggestions", r.rows[0].suggestion_id, name);
-			return res.status(201).json({ suggestion: r.rows[0], message: "Suggestion received" });
+			await writeAudit(
+				req.user?.user_id || null,
+				"suggest_category",
+				"category_suggestions",
+				r.rows[0].suggestion_id,
+				name,
+			);
+			return res
+				.status(201)
+				.json({ suggestion: r.rows[0], message: "Suggestion received" });
 		} catch (innerErr) {
 			// If the suggestions table doesn't exist, fall back to adding a disabled platform category
 			if (innerErr && /category_suggestions/.test(innerErr.message || "")) {
-				const slug = name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+				const slug = name
+					.trim()
+					.toLowerCase()
+					.replace(/\s+/g, "-")
+					.replace(/[^a-z0-9-]/g, "");
 				const r2 = await pool.query(
 					`INSERT INTO platform_categories (name, slug, category_type, is_active, metadata)
 					 VALUES ($1,$2,$3,false,$4::jsonb) RETURNING *`,
-					[name.trim(), slug, category_type, JSON.stringify({ suggested: true, contact_email, note })],
+					[
+						name.trim(),
+						slug,
+						category_type,
+						JSON.stringify({ suggested: true, contact_email, note }),
+					],
 				);
-				await writeAudit(req.user?.user_id || null, "suggest_category_fallback", "platform_categories", r2.rows[0].category_id, name);
-				return res.status(201).json({ category: r2.rows[0], message: "Suggestion received (stored for admin review)" });
+				await writeAudit(
+					req.user?.user_id || null,
+					"suggest_category_fallback",
+					"platform_categories",
+					r2.rows[0].category_id,
+					name,
+				);
+				return res
+					.status(201)
+					.json({
+						category: r2.rows[0],
+						message: "Suggestion received (stored for admin review)",
+					});
 			}
 			throw innerErr;
 		}
@@ -195,8 +264,15 @@ exports.verifyUserEmail = async (req, res) => {
 			 WHERE user_id = $1 RETURNING user_id, email, email_verified`,
 			[userId],
 		);
-		if (!r.rows.length) return res.status(404).json({ error: "User not found" });
-		await writeAudit(req.user.user_id, "admin_verify_email", "users", userId, null);
+		if (!r.rows.length)
+			return res.status(404).json({ error: "User not found" });
+		await writeAudit(
+			req.user.user_id,
+			"admin_verify_email",
+			"users",
+			userId,
+			null,
+		);
 		return res.json({ user: r.rows[0], message: "Email marked verified" });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
@@ -211,7 +287,8 @@ exports.restoreUser = async (req, res) => {
 			 WHERE user_id = $1 RETURNING user_id, email, is_active, is_approved`,
 			[userId],
 		);
-		if (!r.rows.length) return res.status(404).json({ error: "User not found" });
+		if (!r.rows.length)
+			return res.status(404).json({ error: "User not found" });
 		await writeAudit(req.user.user_id, "restore_user", "users", userId, null);
 		return res.json({ user: r.rows[0], message: "User restored" });
 	} catch (err) {
@@ -242,15 +319,28 @@ exports.createInvestmentDispute = async (req, res) => {
 	const { investment_id, investment_request_id, reason } = req.body || {};
 	if (!reason) return res.status(400).json({ error: "reason required" });
 	if (!investment_id && !investment_request_id) {
-		return res.status(400).json({ error: "investment_id or investment_request_id required" });
+		return res
+			.status(400)
+			.json({ error: "investment_id or investment_request_id required" });
 	}
 	try {
 		const r = await pool.query(
 			`INSERT INTO investment_disputes (investment_id, investment_request_id, reported_by_user_id, reason)
 			 VALUES ($1,$2,$3,$4) RETURNING *`,
-			[investment_id || null, investment_request_id || null, req.user.user_id, reason],
+			[
+				investment_id || null,
+				investment_request_id || null,
+				req.user.user_id,
+				reason,
+			],
 		);
-		await writeAudit(req.user.user_id, "create_investment_dispute", "investment_disputes", r.rows[0].dispute_id, reason);
+		await writeAudit(
+			req.user.user_id,
+			"create_investment_dispute",
+			"investment_disputes",
+			r.rows[0].dispute_id,
+			reason,
+		);
 		return res.status(201).json({ dispute: r.rows[0] });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
@@ -261,7 +351,8 @@ exports.resolveInvestmentDispute = async (req, res) => {
 	const { id } = req.params;
 	const { status, resolution_notes } = req.body || {};
 	const allowed = ["investigating", "resolved", "dismissed"];
-	if (!allowed.includes(status)) return res.status(400).json({ error: "Invalid status" });
+	if (!allowed.includes(status))
+		return res.status(400).json({ error: "Invalid status" });
 	try {
 		const r = await pool.query(
 			`UPDATE investment_disputes SET
@@ -273,7 +364,8 @@ exports.resolveInvestmentDispute = async (req, res) => {
 			 WHERE dispute_id = $4 RETURNING *`,
 			[status, resolution_notes, req.user.user_id, id],
 		);
-		if (!r.rows.length) return res.status(404).json({ error: "Dispute not found" });
+		if (!r.rows.length)
+			return res.status(404).json({ error: "Dispute not found" });
 		return res.json({ dispute: r.rows[0] });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
@@ -282,7 +374,9 @@ exports.resolveInvestmentDispute = async (req, res) => {
 
 exports.verifyInvestmentLegitimacy = async (req, res) => {
 	const { id } = req.params;
-	const type = String(req.path || "").includes("investment-requests") ? "request" : "investment";
+	const type = String(req.path || "").includes("investment-requests")
+		? "request"
+		: "investment";
 	const admin = req.user;
 	try {
 		if (type === "investment") {
@@ -290,8 +384,15 @@ exports.verifyInvestmentLegitimacy = async (req, res) => {
 				`UPDATE investments SET admin_verified = true WHERE investment_id = $1 RETURNING *`,
 				[id],
 			);
-			if (!r.rows.length) return res.status(404).json({ error: "Investment not found" });
-			await writeAudit(admin.user_id, "verify_investment", "investments", id, null);
+			if (!r.rows.length)
+				return res.status(404).json({ error: "Investment not found" });
+			await writeAudit(
+				admin.user_id,
+				"verify_investment",
+				"investments",
+				id,
+				null,
+			);
 			return res.json({ investment: r.rows[0] });
 		}
 		const r = await pool.query(
@@ -299,8 +400,15 @@ exports.verifyInvestmentLegitimacy = async (req, res) => {
 			 WHERE investment_request_id = $2 RETURNING *`,
 			[admin.user_id, id],
 		);
-		if (!r.rows.length) return res.status(404).json({ error: "Investment request not found" });
-		await writeAudit(admin.user_id, "verify_investment_request", "investment_requests", id, null);
+		if (!r.rows.length)
+			return res.status(404).json({ error: "Investment request not found" });
+		await writeAudit(
+			admin.user_id,
+			"verify_investment_request",
+			"investment_requests",
+			id,
+			null,
+		);
 		return res.json({ investment_request: r.rows[0] });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
@@ -321,7 +429,8 @@ exports.getPaymentById = async (req, res) => {
 			 WHERE p.payment_id = $1`,
 			[req.params.paymentId],
 		);
-		if (!r.rows.length) return res.status(404).json({ error: "Payment not found" });
+		if (!r.rows.length)
+			return res.status(404).json({ error: "Payment not found" });
 		return res.json({ payment: r.rows[0] });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
@@ -338,9 +447,17 @@ exports.refundPayment = async (req, res) => {
 			[notes, paymentId],
 		);
 		if (!r.rows.length) {
-			return res.status(400).json({ error: "Payment not found or not refundable" });
+			return res
+				.status(400)
+				.json({ error: "Payment not found or not refundable" });
 		}
-		await writeAudit(req.user.user_id, "refund_payment", "payments", paymentId, notes);
+		await writeAudit(
+			req.user.user_id,
+			"refund_payment",
+			"payments",
+			paymentId,
+			notes,
+		);
 		return res.json({ payment: r.rows[0], message: "Payment marked refunded" });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
@@ -356,8 +473,15 @@ exports.flagPaymentSuspicious = async (req, res) => {
 			 WHERE payment_id = $3 RETURNING *`,
 			[!!suspicious, notes, paymentId],
 		);
-		if (!r.rows.length) return res.status(404).json({ error: "Payment not found" });
-		await writeAudit(req.user.user_id, suspicious ? "flag_payment_suspicious" : "unflag_payment", "payments", paymentId, notes);
+		if (!r.rows.length)
+			return res.status(404).json({ error: "Payment not found" });
+		await writeAudit(
+			req.user.user_id,
+			suspicious ? "flag_payment_suspicious" : "unflag_payment",
+			"payments",
+			paymentId,
+			notes,
+		);
 		return res.json({ payment: r.rows[0] });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
@@ -373,8 +497,15 @@ exports.recordChargeback = async (req, res) => {
 			 WHERE payment_id = $2 RETURNING *`,
 			[notes, paymentId],
 		);
-		if (!r.rows.length) return res.status(404).json({ error: "Payment not found" });
-		await writeAudit(req.user.user_id, "chargeback_payment", "payments", paymentId, notes);
+		if (!r.rows.length)
+			return res.status(404).json({ error: "Payment not found" });
+		await writeAudit(
+			req.user.user_id,
+			"chargeback_payment",
+			"payments",
+			paymentId,
+			notes,
+		);
 		return res.json({ payment: r.rows[0] });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
@@ -402,13 +533,17 @@ exports.listSuspiciousPayments = async (_req, res) => {
 exports.listContentFlags = async (req, res) => {
 	const { status = "pending" } = req.query;
 	try {
-		await pool.query(`
+		await pool
+			.query(
+				`
 			INSERT INTO content_flags (entity_type, entity_id, reason, status)
 			SELECT 'chat_log', log_id, flagged_reason, 'pending'
 			FROM chat_moderation_logs
 			WHERE flagged_reason IS NOT NULL
 			ON CONFLICT (entity_type, entity_id) DO NOTHING
-		`).catch(() => {});
+		`,
+			)
+			.catch(() => {});
 
 		const r = await pool.query(
 			`SELECT * FROM content_flags WHERE ($1 = 'all' OR status = $1) ORDER BY created_at DESC LIMIT 200`,
@@ -424,14 +559,22 @@ exports.reviewContentFlag = async (req, res) => {
 	const { id } = req.params;
 	const { status, notes } = req.body || {};
 	const allowed = ["approved", "removed", "dismissed"];
-	if (!allowed.includes(status)) return res.status(400).json({ error: "Invalid status" });
+	if (!allowed.includes(status))
+		return res.status(400).json({ error: "Invalid status" });
 	try {
-		const flag = await pool.query("SELECT * FROM content_flags WHERE flag_id = $1", [id]);
-		if (!flag.rows.length) return res.status(404).json({ error: "Flag not found" });
+		const flag = await pool.query(
+			"SELECT * FROM content_flags WHERE flag_id = $1",
+			[id],
+		);
+		if (!flag.rows.length)
+			return res.status(404).json({ error: "Flag not found" });
 		const f = flag.rows[0];
 
 		if (status === "removed" && f.entity_type === "project") {
-			await pool.query("UPDATE projects SET status = 'cancelled' WHERE project_id = $1", [f.entity_id]);
+			await pool.query(
+				"UPDATE projects SET status = 'cancelled' WHERE project_id = $1",
+				[f.entity_id],
+			);
 		}
 
 		const r = await pool.query(
@@ -439,7 +582,13 @@ exports.reviewContentFlag = async (req, res) => {
 			 WHERE flag_id = $3 RETURNING *`,
 			[status, req.user.user_id, id],
 		);
-		await writeAudit(req.user.user_id, "review_content_flag", "content_flags", id, notes || status);
+		await writeAudit(
+			req.user.user_id,
+			"review_content_flag",
+			"content_flags",
+			id,
+			notes || status,
+		);
 		return res.json({ flag: r.rows[0] });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
@@ -556,7 +705,13 @@ exports.triggerBackup = async (req, res) => {
 			 ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_by = EXCLUDED.updated_by`,
 			[JSON.stringify(meta), admin.user_id],
 		);
-		await writeAudit(admin.user_id, "trigger_backup", "platform_settings", null, "metadata snapshot");
+		await writeAudit(
+			admin.user_id,
+			"trigger_backup",
+			"platform_settings",
+			null,
+			"metadata snapshot",
+		);
 		return res.json({ message: "Backup metadata recorded", backup: meta });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
@@ -593,7 +748,12 @@ exports.logSystemError = async (req, res) => {
 		const r = await pool.query(
 			`INSERT INTO system_error_logs (source, level, message, metadata)
 			 VALUES ($1,$2,$3,$4::jsonb) RETURNING *`,
-			[source || "admin", level, message, metadata ? JSON.stringify(metadata) : null],
+			[
+				source || "admin",
+				level,
+				message,
+				metadata ? JSON.stringify(metadata) : null,
+			],
 		);
 		return res.status(201).json({ log: r.rows[0] });
 	} catch (err) {

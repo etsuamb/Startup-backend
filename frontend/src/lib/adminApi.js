@@ -127,7 +127,9 @@ async function fetchAdminDocumentBlob(documentId, path) {
 	const token = getToken();
 	if (!token) throw new Error("Not authenticated");
 	const url = `${API_BASE}${path}`;
-	const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+	const res = await fetch(url, {
+		headers: { Authorization: `Bearer ${token}` },
+	});
 	if (!res.ok) {
 		let message = "Could not open document";
 		try {
@@ -144,7 +146,10 @@ async function fetchAdminDocumentBlob(documentId, path) {
 }
 
 /** Open a pending user's uploaded file in a new tab (auth required). */
-export async function openAdminDocument(documentId, { isMentorDocument = false } = {}) {
+export async function openAdminDocument(
+	documentId,
+	{ isMentorDocument = false } = {},
+) {
 	const primary = isMentorDocument
 		? `/admin/mentor-documents/${documentId}`
 		: `/admin/documents/${documentId}`;
@@ -203,7 +208,10 @@ export function fetchInvestmentRequests() {
 }
 
 export function updateInvestmentRequestStatus(id, status, comment = "") {
-	return apiPutJson(`/admin/investment-requests/${id}/status`, { status, comment });
+	return apiPutJson(`/admin/investment-requests/${id}/status`, {
+		status,
+		comment,
+	});
 }
 
 export function fetchInvestments({ limit = 100, offset = 0 } = {}) {
@@ -223,7 +231,10 @@ export function fetchDashboardFunding(params = {}) {
 }
 
 export function updateFundingApproval(fundingId, status, comment = "") {
-	return apiPatchJson(`/admin/dashboard/funding/${fundingId}/approval`, { status, comment });
+	return apiPatchJson(`/admin/dashboard/funding/${fundingId}/approval`, {
+		status,
+		comment,
+	});
 }
 
 /** Server-side CSV exports */
@@ -231,7 +242,9 @@ export async function downloadReportExport(type) {
 	const token = getToken();
 	if (!token) throw new Error("Not authenticated");
 	const url = `${API_BASE}/admin/reports/export?type=${encodeURIComponent(type)}`;
-	const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+	const res = await fetch(url, {
+		headers: { Authorization: `Bearer ${token}` },
+	});
 	if (!res.ok) {
 		let message = "Export failed";
 		try {
@@ -260,7 +273,9 @@ export async function downloadAuditLogsExport({ since, until } = {}) {
 	if (since) q.set("since", since);
 	if (until) q.set("until", until);
 	const url = `${API_BASE}/admin/audit-logs/export${q.toString() ? `?${q}` : ""}`;
-	const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+	const res = await fetch(url, {
+		headers: { Authorization: `Bearer ${token}` },
+	});
 	if (!res.ok) throw new Error("Audit export failed");
 	const blob = await res.blob();
 	const blobUrl = URL.createObjectURL(blob);
@@ -316,7 +331,9 @@ export function fetchChatViolations() {
 }
 
 export function fetchChatModerationStats(hours = 24) {
-	return apiFetch(`/admin/chat-moderation/stats?hours=${encodeURIComponent(String(hours))}`);
+	return apiFetch(
+		`/admin/chat-moderation/stats?hours=${encodeURIComponent(String(hours))}`,
+	);
 }
 
 export function suspendUserChat(userId, { hours = 72, notes = "" } = {}) {
@@ -345,7 +362,9 @@ export function warnChatUser(userId, message) {
 
 /** Monitoring: failed logins and security events (dashboard APIs) */
 export function fetchMonitoringSummary(hours = 24) {
-	return apiFetch(`/admin/dashboard/monitoring/summary?hours=${encodeURIComponent(String(hours))}`);
+	return apiFetch(
+		`/admin/dashboard/monitoring/summary?hours=${encodeURIComponent(String(hours))}`,
+	);
 }
 
 export function fetchLoginAttempts(params = {}) {
@@ -356,7 +375,9 @@ export function fetchLoginAttempts(params = {}) {
 	if (params.ip) q.set("ip", String(params.ip));
 	if (params.success !== undefined) q.set("success", String(params.success));
 	const qs = q.toString();
-	return apiFetch(`/admin/dashboard/monitoring/login-attempts${qs ? `?${qs}` : ""}`);
+	return apiFetch(
+		`/admin/dashboard/monitoring/login-attempts${qs ? `?${qs}` : ""}`,
+	);
 }
 
 export function fetchSecurityEvents(params = {}) {
@@ -366,7 +387,9 @@ export function fetchSecurityEvents(params = {}) {
 	if (params.type) q.set("type", String(params.type));
 	if (params.severity) q.set("severity", String(params.severity));
 	const qs = q.toString();
-	return apiFetch(`/admin/dashboard/monitoring/security-events${qs ? `?${qs}` : ""}`);
+	return apiFetch(
+		`/admin/dashboard/monitoring/security-events${qs ? `?${qs}` : ""}`,
+	);
 }
 
 /** Admin password change with email verification */
@@ -422,7 +445,12 @@ export function fetchDashboardDocuments(params = {}) {
 	return apiFetch(`/admin/dashboard/documents${qs ? `?${qs}` : ""}`);
 }
 
-export function updateDocumentVerification(documentId, verification_status, notes = "", source = "document") {
+export function updateDocumentVerification(
+	documentId,
+	verification_status,
+	notes = "",
+	source = "document",
+) {
 	return apiPatchJson(`/admin/dashboard/documents/${documentId}/verification`, {
 		verification_status,
 		notes,
@@ -499,15 +527,22 @@ export function createInvestmentDispute(body) {
 }
 
 export function resolveInvestmentDispute(id, status, resolution_notes = "") {
-	return apiPatchJson(`/admin/investment-disputes/${id}`, { status, resolution_notes });
+	return apiPatchJson(`/admin/investment-disputes/${id}`, {
+		status,
+		resolution_notes,
+	});
 }
 
 export function verifyInvestmentRequest(id) {
-	return apiFetch(`/admin/investment-requests/${id}/verify-legitimacy`, { method: "POST" });
+	return apiFetch(`/admin/investment-requests/${id}/verify-legitimacy`, {
+		method: "POST",
+	});
 }
 
 export function verifyInvestment(id) {
-	return apiFetch(`/admin/investments/${id}/verify-legitimacy`, { method: "POST" });
+	return apiFetch(`/admin/investments/${id}/verify-legitimacy`, {
+		method: "POST",
+	});
 }
 
 /** Payments extended */
@@ -566,7 +601,9 @@ export function fetchFinancialReport() {
 }
 
 export function fetchUsageReport(days = 30) {
-	return apiFetch(`/admin/reports/usage?days=${encodeURIComponent(String(days))}`);
+	return apiFetch(
+		`/admin/reports/usage?days=${encodeURIComponent(String(days))}`,
+	);
 }
 
 export function fetchKpiReport() {
@@ -592,7 +629,7 @@ export function fetchCategories(type) {
 }
 
 export function suggestPlatformCategory(body) {
-  return apiPostJson(`/platform/categories/suggest`, body);
+	return apiPostJson(`/platform/categories/suggest`, body);
 }
 
 export function createCategory(body) {
@@ -620,10 +657,11 @@ export function triggerBackup() {
 }
 
 export function fetchErrorLogs(limit = 100) {
-	return apiFetch(`/admin/maintenance/error-logs?limit=${encodeURIComponent(String(limit))}`);
+	return apiFetch(
+		`/admin/maintenance/error-logs?limit=${encodeURIComponent(String(limit))}`,
+	);
 }
 
 export function fetchFraudSummary() {
 	return apiFetch("/admin/monitoring/fraud-summary");
 }
-
