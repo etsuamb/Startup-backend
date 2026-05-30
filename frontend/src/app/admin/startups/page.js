@@ -5,10 +5,8 @@ import {
 	fetchDashboardInvestors,
 	fetchDashboardMentors,
 	fetchDashboardStartups,
-	updateInvestorApproval,
-	updateMentorApproval,
-	updateStartupStatus,
 } from "@/lib/adminApi";
+import AdminDirectoryDetailsModal from "@/components/admin/AdminDirectoryDetailsModal";
 
 const TABS = [
 	{ id: "all", label: "All" },
@@ -44,7 +42,6 @@ function normalizeStartups(rows) {
 		extra: s.business_stage,
 		listed: Boolean(s.is_listed),
 		status: s.status || "Pending",
-		editable: Boolean(s.is_approved && s.is_active),
 		raw: s,
 	}));
 }
@@ -61,7 +58,6 @@ function normalizeMentors(rows) {
 		extra: m.years_experience != null ? `${m.years_experience} yrs` : null,
 		listed: Boolean(m.is_approved),
 		status: m.is_approved ? "Listed" : "Hidden",
-		editable: Boolean(m.user_approved && m.is_active),
 		raw: m,
 	}));
 }
@@ -78,7 +74,6 @@ function normalizeInvestors(rows) {
 		extra: i.investment_stage,
 		listed: Boolean(i.is_approved),
 		status: i.is_approved ? "Listed" : "Hidden",
-		editable: Boolean(i.user_approved && i.is_active),
 		raw: i,
 	}));
 }
@@ -106,9 +101,7 @@ export default function AdminDirectoryPage() {
 	const [statusFilter, setStatusFilter] = useState("");
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
-	const [busyId, setBusyId] = useState(null);
-	const [editRow, setEditRow] = useState(null);
-	const [note, setNote] = useState("");
+	const [detailRow, setDetailRow] = useState(null);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -148,7 +141,7 @@ export default function AdminDirectoryPage() {
 		} finally {
 			setLoading(false);
 		}
-	}, [tab, visibilityFilter, statusFilter]);
+	}, [visibilityFilter, statusFilter]);
 
 	useEffect(() => {
 		load();
@@ -170,67 +163,14 @@ export default function AdminDirectoryPage() {
 
 	const showStartupStatusFilter = tab === "all" || tab === "startup";
 
-	async function saveEdit() {
-		if (!editRow) return;
-		setBusyId(`${editRow.kind}-${editRow.id}`);
-		setError("");
-		try {
-			if (editRow.kind === "startup") {
-				await updateStartupStatus(editRow.id, editRow.nextValue, note);
-			} else if (editRow.kind === "mentor") {
-				await updateMentorApproval(editRow.id, editRow.nextValue === "listed", note);
-			} else {
-				await updateInvestorApproval(editRow.id, editRow.nextValue === "listed", note);
-			}
-			setEditRow(null);
-			setNote("");
-			load();
-		} catch (ex) {
-			setError(ex.message || "Update failed");
-		} finally {
-			setBusyId(null);
-		}
-	}
-
 	return (
 		<div className="max-w-7xl mx-auto pb-12">
-			{editRow ? (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog">
-					<div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl border border-slate-200">
-						<h2 className="text-lg font-semibold text-slate-900">Update</h2>
-						<p className="mt-1 text-sm text-slate-600 truncate">{editRow.name}</p>
-						<p className="mt-3 text-sm font-medium text-slate-800 capitalize">
-							{editRow.kind} · {editRow.nextLabel}
-						</p>
-						<input
-							type="text"
-							value={note}
-							onChange={(e) => setNote(e.target.value)}
-							placeholder="Note (optional)"
-							className="mt-4 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-						/>
-						<div className="mt-6 flex gap-2">
-							<button
-								type="button"
-								onClick={() => {
-									setEditRow(null);
-									setNote("");
-								}}
-								className="flex-1 rounded-lg border border-slate-200 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-							>
-								Cancel
-							</button>
-							<button
-								type="button"
-								onClick={saveEdit}
-								disabled={busyId != null}
-								className="flex-1 rounded-lg bg-emerald-600 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-							>
-								{busyId != null ? "Saving…" : "Save"}
-							</button>
-						</div>
-					</div>
-				</div>
+			{detailRow ? (
+				<AdminDirectoryDetailsModal
+					row={detailRow}
+					onClose={() => setDetailRow(null)}
+					onUpdated={load}
+				/>
 			) : null}
 
 			<header className="mb-6 rounded-[32px] bg-gradient-to-r from-slate-900 to-slate-800 text-white p-8">
@@ -344,107 +284,62 @@ export default function AdminDirectoryPage() {
 									<th className="px-4 py-3 font-semibold">Detail</th>
 									<th className="px-4 py-3 font-semibold">Visibility</th>
 									<th className="px-4 py-3 font-semibold">Status</th>
-									<th className="px-4 py-3 font-semibold w-32" />
+									<th className="px-4 py-3 font-semibold">Actions</th>
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-slate-100">
-								{filtered.map((r) => {
-									const rowKey = `${r.kind}-${r.id}`;
-									const isBusy = busyId === rowKey;
-
-									return (
-										<tr key={rowKey} className="hover:bg-slate-50/60">
-											<td className="px-4 py-3.5">
+								{filtered.map((r) => (
+									<tr key={`${r.kind}-${r.id}`} className="hover:bg-slate-50/60">
+										<td className="px-4 py-3.5">
+											<span
+												className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium capitalize ring-1 ring-inset ${
+													TYPE_STYLE[r.kind]
+												}`}
+											>
+												{r.kind}
+											</span>
+										</td>
+										<td className="px-4 py-3.5">
+											<p className="font-medium text-slate-900">{r.name}</p>
+											{r.subtitle ? (
+												<p className="text-xs text-slate-500 truncate max-w-[180px]">{r.subtitle}</p>
+											) : null}
+										</td>
+										<td className="px-4 py-3.5">
+											<p className="text-slate-800">{r.person}</p>
+											<p className="text-xs text-slate-500">{r.email}</p>
+										</td>
+										<td className="px-4 py-3.5 text-slate-700 max-w-[140px] truncate">
+											{r.focus || "—"}
+										</td>
+										<td className="px-4 py-3.5 text-slate-700">{r.extra || "—"}</td>
+										<td className="px-4 py-3.5">
+											<ListedCell listed={r.listed} />
+										</td>
+										<td className="px-4 py-3.5">
+											{r.kind === "startup" ? (
 												<span
-													className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium capitalize ring-1 ring-inset ${
-														TYPE_STYLE[r.kind]
+													className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
+														STATUS_STYLE[r.status] || STATUS_STYLE.Pending
 													}`}
 												>
-													{r.kind}
+													{r.status}
 												</span>
-											</td>
-											<td className="px-4 py-3.5">
-												<p className="font-medium text-slate-900">{r.name}</p>
-												{r.subtitle ? (
-													<p className="text-xs text-slate-500 truncate max-w-[180px]">{r.subtitle}</p>
-												) : null}
-											</td>
-											<td className="px-4 py-3.5">
-												<p className="text-slate-800">{r.person}</p>
-												<p className="text-xs text-slate-500">{r.email}</p>
-											</td>
-											<td className="px-4 py-3.5 text-slate-700 max-w-[140px] truncate">
-												{r.focus || "—"}
-											</td>
-											<td className="px-4 py-3.5 text-slate-700">{r.extra || "—"}</td>
-											<td className="px-4 py-3.5">
-												<ListedCell listed={r.listed} />
-											</td>
-											<td className="px-4 py-3.5">
-												{r.kind === "startup" ? (
-													<span
-														className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
-															STATUS_STYLE[r.status] || STATUS_STYLE.Pending
-														}`}
-													>
-														{r.status}
-													</span>
-												) : (
-													<span className="text-xs font-medium text-slate-600">{r.status}</span>
-												)}
-											</td>
-											<td className="px-4 py-3.5">
-												{r.kind === "startup" ? (
-													<select
-														disabled={!r.editable || isBusy}
-														value={r.status}
-														title={r.editable ? undefined : "Account inactive"}
-														onChange={(e) => {
-															const next = e.target.value;
-															if (next === r.status) return;
-															setEditRow({
-																kind: "startup",
-																id: r.id,
-																name: r.name,
-																nextValue: next,
-																nextLabel: next,
-															});
-														}}
-														className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-medium disabled:opacity-40"
-													>
-														{STARTUP_STATUSES.map((st) => (
-															<option key={st} value={st}>
-																{st}
-															</option>
-														))}
-													</select>
-												) : (
-													<select
-														disabled={!r.editable || isBusy}
-														value={r.listed ? "listed" : "hidden"}
-														title={r.editable ? undefined : "Account inactive"}
-														onChange={(e) => {
-															const next = e.target.value;
-															const nextLabel = next === "listed" ? "Listed" : "Hidden";
-															if ((next === "listed") === r.listed) return;
-															setEditRow({
-																kind: r.kind,
-																id: r.id,
-																name: r.name,
-																nextValue: next,
-																nextLabel,
-															});
-														}}
-														className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-medium disabled:opacity-40"
-													>
-														<option value="listed">Listed</option>
-														<option value="hidden">Hidden</option>
-													</select>
-												)}
-											</td>
-										</tr>
-									);
-								})}
+											) : (
+												<span className="text-xs font-medium text-slate-600">{r.status}</span>
+											)}
+										</td>
+										<td className="px-4 py-3.5">
+											<button
+												type="button"
+												onClick={() => setDetailRow(r)}
+												className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:border-emerald-300 hover:text-emerald-800 hover:bg-emerald-50/50 transition"
+											>
+												View Details
+											</button>
+										</td>
+									</tr>
+								))}
 							</tbody>
 						</table>
 					</div>

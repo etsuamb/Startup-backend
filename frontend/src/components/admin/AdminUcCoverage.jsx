@@ -7,7 +7,7 @@ const SECTIONS = [
 		title: "User management",
 		links: [
 			{ href: "/admin/users", label: "Approve / reject / search users" },
-			{ href: "/admin/documents", label: "Verify documents" },
+			{ href: "/admin/projects", label: "Review projects" },
 		],
 	},
 	{

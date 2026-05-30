@@ -1118,6 +1118,26 @@ exports.listProjects = async (req, res) => {
 	}
 };
 
+// GET /api/admin/projects/:projectId
+exports.getProject = async (req, res) => {
+	const { projectId } = req.params;
+	try {
+		const r = await pool.query(
+			`SELECT p.*, s.startup_name, s.startup_id, s.industry AS startup_industry,
+			        u.email AS startup_email, u.first_name AS founder_first_name, u.last_name AS founder_last_name
+			 FROM projects p
+			 JOIN startups s ON s.startup_id = p.startup_id
+			 JOIN users u ON u.user_id = s.user_id
+			 WHERE p.project_id = $1`,
+			[projectId],
+		);
+		if (!r.rowCount) return res.status(404).json({ message: "Project not found" });
+		return res.json({ project: r.rows[0] });
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
 // GET /api/admin/investment-requests
 exports.adminListInvestmentRequests = async (req, res) => {
 	try {
@@ -1130,6 +1150,32 @@ exports.adminListInvestmentRequests = async (req, res) => {
 			 ORDER BY ir.created_at DESC`,
 		);
 		return res.json({ investment_requests: r.rows });
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
+// GET /api/admin/investment-requests/:id
+exports.getInvestmentRequest = async (req, res) => {
+	const { id } = req.params;
+	try {
+		const r = await pool.query(
+			`SELECT ir.*, s.startup_name, s.startup_id,
+			        i.organization_name AS investor_organization, i.investor_type,
+			        i.investor_id, p.project_title, p.funding_goal, p.amount_raised AS project_amount_raised,
+			        su.email AS startup_email, su.first_name AS startup_contact_first, su.last_name AS startup_contact_last,
+			        iu.email AS investor_email, iu.first_name AS investor_first_name, iu.last_name AS investor_last_name
+			 FROM investment_requests ir
+			 JOIN startups s ON s.startup_id = ir.startup_id
+			 JOIN users su ON su.user_id = s.user_id
+			 JOIN investors i ON i.investor_id = ir.investor_id
+			 JOIN users iu ON iu.user_id = i.user_id
+			 JOIN projects p ON p.project_id = ir.project_id
+			 WHERE ir.investment_request_id = $1`,
+			[id],
+		);
+		if (!r.rowCount) return res.status(404).json({ message: "Investment request not found" });
+		return res.json({ investment_request: r.rows[0] });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -1225,6 +1271,33 @@ exports.listInvestments = async (req, res) => {
 				[limit, offset],
 			);
 		return res.json({ investments: r.rows });
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
+// GET /api/admin/investments/:id
+exports.getInvestment = async (req, res) => {
+	const { id } = req.params;
+	try {
+		const r = await pool.query(
+			`SELECT inv.*, ir.requested_amount, ir.status AS request_status, ir.project_id,
+			        ir.admin_verified AS request_admin_verified, p.project_title,
+			        s.startup_name, s.startup_id, iv.organization_name AS investor_organization,
+			        su.email AS startup_email, su.first_name AS startup_first_name, su.last_name AS startup_last_name,
+			        iu.email AS investor_email, iu.first_name AS investor_first_name, iu.last_name AS investor_last_name
+			 FROM investments inv
+			 JOIN investment_requests ir ON ir.investment_request_id = inv.investment_request_id
+			 JOIN projects p ON p.project_id = ir.project_id
+			 JOIN startups s ON s.startup_id = ir.startup_id
+			 JOIN users su ON su.user_id = s.user_id
+			 JOIN investors iv ON iv.investor_id = ir.investor_id
+			 JOIN users iu ON iu.user_id = iv.user_id
+			 WHERE inv.investment_id = $1`,
+			[id],
+		);
+		if (!r.rowCount) return res.status(404).json({ message: "Investment not found" });
+		return res.json({ investment: r.rows[0] });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}

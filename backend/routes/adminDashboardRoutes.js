@@ -12,6 +12,7 @@ const adminOnly = [authenticate, authorizeRoles("Admin")];
 router.get("/startups", ...adminOnly, ctrl.listStartups);
 router.get("/startups/:id", ...adminOnly, ctrl.getStartup);
 router.patch("/startups/:id/status", ...adminOnly, ctrl.updateStartupStatus);
+router.patch("/startups/:id/listing", ...adminOnly, ctrl.updateStartupListing);
 
 // Mentor management
 router.get("/mentors", ...adminOnly, ctrl.listMentors);

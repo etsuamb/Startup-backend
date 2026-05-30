@@ -225,6 +225,67 @@ exports.updateStartupStatus = async (req, res) => {
 	}
 };
 
+exports.updateStartupListing = async (req, res) => {
+	try {
+		await ensureDashboardSchema();
+		const { id } = req.params;
+		const listed = req.body?.listed;
+		if (typeof listed !== "boolean") {
+			return res.status(400).json({ message: "Provide listed: true or listed: false" });
+		}
+
+		const ownerRes = await pool.query(
+			`SELECT s.user_id, u.is_approved, u.is_active
+			 FROM startups s
+			 JOIN users u ON u.user_id = s.user_id
+			 WHERE s.startup_id = $1`,
+			[id],
+		);
+		if (!ownerRes.rowCount) return res.status(404).json({ message: "Startup not found" });
+		const owner = ownerRes.rows[0];
+		if (listed && (!owner.is_approved || !owner.is_active)) {
+			return res.status(400).json({
+				message:
+					"Cannot list this startup until the founder account is approved on the Users page.",
+			});
+		}
+
+		const r = await pool.query(
+			`UPDATE startups SET is_listed = $1 WHERE startup_id = $2 RETURNING *`,
+			[listed, id],
+		);
+
+		const uid = owner.user_id;
+		if (uid) {
+			await pool.query(
+				`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id)
+				 VALUES ($1, 'startup', 'Directory visibility updated', $2, 'startups', $3)`,
+				[
+					uid,
+					listed
+						? "Your startup is now listed in the public directory."
+						: "Your startup has been hidden from the public directory.",
+					id,
+				],
+			);
+		}
+		await audit(
+			req.user.user_id,
+			listed ? "list_startup" : "unlist_startup",
+			"startups",
+			id,
+			listed ? "listed" : "hidden",
+		);
+
+		return res.json({
+			message: listed ? "Startup is now listed" : "Startup is now hidden",
+			startup: r.rows[0],
+		});
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
 // ——— Mentors ———
 
 exports.listMentors = async (req, res) => {

@@ -2,15 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-	fetchAdminProjects,
 	fetchChatModerationLogs,
 	fetchChatModerationStats,
 	fetchChatViolations,
 	fetchContentFlags,
-	flagProjectContent,
-	removeProject,
 	reviewContentFlag,
-	restoreProject,
 	suspendUserChat,
 	unsuspendUserChat,
 	warnChatUser,
@@ -22,9 +18,7 @@ export default function AdminModerationPage() {
 	const [logs, setLogs] = useState([]);
 	const [violations, setViolations] = useState([]);
 	const [flags, setFlags] = useState([]);
-	const [projects, setProjects] = useState([]);
 	const [stats, setStats] = useState(null);
-	const [selectedProject, setSelectedProject] = useState(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [msg, setMsg] = useState("");
@@ -33,18 +27,16 @@ export default function AdminModerationPage() {
 		setLoading(true);
 		setError("");
 		try {
-			const [logData, violData, statData, flagData, projData] = await Promise.all([
+			const [logData, violData, statData, flagData] = await Promise.all([
 				fetchChatModerationLogs({ limit: 50 }),
 				fetchChatViolations(),
 				fetchChatModerationStats(24),
 				fetchContentFlags("pending"),
-				fetchAdminProjects({ limit: 50 }),
 			]);
 			setLogs(logData.logs || []);
 			setViolations(violData.violations || []);
 			setStats(statData.stats || null);
 			setFlags(flagData.flags || []);
-			setProjects(projData.projects || []);
 		} catch (ex) {
 			setError(ex.message || "Failed to load moderation data");
 		} finally {
@@ -149,60 +141,14 @@ export default function AdminModerationPage() {
 					))}
 				</div>
 			) : tab === "projects" ? (
-				<>
-					<div className="bg-white rounded-2xl border overflow-x-auto">
-						<table className="w-full text-sm">
-							<thead className="bg-slate-50 text-xs uppercase text-left">
-								<tr>
-									<th className="px-4 py-3">Project</th>
-									<th className="px-4 py-3">Startup</th>
-									<th className="px-4 py-3">Status</th>
-									<th className="px-4 py-3">Actions</th>
-								</tr>
-							</thead>
-							<tbody className="divide-y">
-								{projects.map((p) => (
-									<tr key={p.project_id}>
-										<td className="px-4 py-3">{p.project_title}</td>
-										<td className="px-4 py-3">{p.startup_name}</td>
-										<td className="px-4 py-3">{p.status}</td>
-										<td className="px-4 py-3 flex flex-wrap gap-2">
-											<button type="button" onClick={() => setSelectedProject(p)} className="text-xs font-bold text-emerald-700 hover:underline">View details</button>
-											<button type="button" onClick={async () => { await flagProjectContent(p.project_id); load(); }} className="text-xs font-bold text-amber-700">Flag</button>
-											<button type="button" onClick={async () => { await removeProject(p.project_id); load(); }} className="text-xs font-bold text-red-600">Remove</button>
-											{p.status === "cancelled" ? <button type="button" onClick={async () => { await restoreProject(p.project_id); load(); }} className="text-xs font-bold text-emerald-700">Restore</button> : null}
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
-					{selectedProject ? (
-						<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-							<div className="bg-white rounded-2xl max-w-2xl w-full p-6 border shadow-xl max-h-[90vh] overflow-y-auto">
-								<div className="flex justify-between items-start mb-4">
-									<div>
-										<h2 className="text-xl font-bold text-slate-900">{selectedProject.project_title}</h2>
-										<p className="text-sm text-slate-500">{selectedProject.startup_name} · {selectedProject.startup_email}</p>
-									</div>
-									<button type="button" onClick={() => setSelectedProject(null)} className="text-slate-400 hover:text-slate-600 text-xl">×</button>
-								</div>
-								<dl className="grid sm:grid-cols-2 gap-3 text-sm mb-4">
-									<div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-500 uppercase">Status</dt><dd className="font-medium capitalize">{selectedProject.status}</dd></div>
-									<div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-500 uppercase">Funding goal</dt><dd className="font-medium">{Number(selectedProject.funding_goal || 0).toLocaleString()} ETB</dd></div>
-									<div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-500 uppercase">Raised</dt><dd className="font-medium">{Number(selectedProject.amount_raised || 0).toLocaleString()} ETB</dd></div>
-									<div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-500 uppercase">Timeline</dt><dd>{selectedProject.start_date ? new Date(selectedProject.start_date).toLocaleDateString() : "—"} – {selectedProject.end_date ? new Date(selectedProject.end_date).toLocaleDateString() : "—"}</dd></div>
-								</dl>
-								{selectedProject.project_description ? (
-									<div className="rounded-xl border border-slate-100 p-4">
-										<p className="text-xs font-bold text-slate-500 uppercase mb-2">Description</p>
-										<p className="text-sm text-slate-700 whitespace-pre-wrap">{selectedProject.project_description}</p>
-									</div>
-								) : null}
-							</div>
-						</div>
-					) : null}
-				</>
+				<div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
+					<p className="text-sm text-slate-600 mb-4">
+						Project moderation has moved to the dedicated Projects page for full details and admin actions.
+					</p>
+					<a href="/admin/projects" className="inline-flex rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-700">
+						Open Projects
+					</a>
+				</div>
 			) : tab === "logs" ? (
 				<div className="bg-white rounded-2xl border border-slate-100 divide-y divide-slate-100">
 					{logs.length === 0 ? (

@@ -41,6 +41,21 @@ export function updateStartupStatus(startupId, status, comment) {
 	});
 }
 
+export function updateStartupListing(startupId, listed, comment) {
+	return apiPatchJson(`/admin/dashboard/startups/${startupId}/listing`, {
+		listed,
+		comment,
+	});
+}
+
+export function fetchDashboardMentor(mentorId) {
+	return apiFetch(`/admin/dashboard/mentors/${mentorId}`);
+}
+
+export function fetchDashboardInvestor(investorId) {
+	return apiFetch(`/admin/dashboard/investors/${investorId}`);
+}
+
 export function fetchDashboardMentors(params = {}) {
 	const q = new URLSearchParams();
 	if (params.approval) q.set("approval", params.approval);
@@ -432,6 +447,18 @@ export function fetchAdminProjects(params = {}) {
 	if (params.offset) q.set("offset", String(params.offset));
 	const qs = q.toString();
 	return apiFetch(`/admin/projects${qs ? `?${qs}` : ""}`);
+}
+
+export function fetchAdminProject(projectId) {
+	return apiFetch(`/admin/projects/${projectId}`);
+}
+
+export function fetchInvestmentRequest(requestId) {
+	return apiFetch(`/admin/investment-requests/${requestId}`);
+}
+
+export function fetchInvestment(investmentId) {
+	return apiFetch(`/admin/investments/${investmentId}`);
 }
 
 export function updateProjectStatus(projectId, status) {

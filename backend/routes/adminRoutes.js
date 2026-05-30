@@ -64,10 +64,24 @@ router.get(
 );
 
 router.get(
+	"/projects/:projectId",
+	authenticate,
+	authorizeRoles("Admin"),
+	adminController.getProject,
+);
+
+router.get(
 	"/investment-requests",
 	authenticate,
 	authorizeRoles("Admin"),
 	adminController.adminListInvestmentRequests,
+);
+
+router.get(
+	"/investment-requests/:id",
+	authenticate,
+	authorizeRoles("Admin"),
+	adminController.getInvestmentRequest,
 );
 
 router.put(
@@ -82,6 +96,13 @@ router.get(
 	authenticate,
 	authorizeRoles("Admin"),
 	adminController.listInvestments,
+);
+
+router.get(
+	"/investments/:id",
+	authenticate,
+	authorizeRoles("Admin"),
+	adminController.getInvestment,
 );
 
 // Admin user approval workflow

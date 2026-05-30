@@ -291,11 +291,11 @@ export default function AdminDashboard() {
 							<p className="text-sm text-slate-500 mt-1">Validate and moderate startup profiles before publication.</p>
 						</Link>
 						<Link
-							href="/admin/documents"
+							href="/admin/projects"
 							className="block rounded-3xl border border-slate-200 px-5 py-4 hover:border-slate-300 hover:bg-slate-50 transition"
 						>
-							<p className="font-semibold text-slate-900">Document verification</p>
-							<p className="text-sm text-slate-500 mt-1">Verify KYC and uploaded files.</p>
+							<p className="font-semibold text-slate-900">Review projects</p>
+							<p className="text-sm text-slate-500 mt-1">Moderate startup fundraising posts and update status.</p>
 						</Link>
 						<Link
 							href="/admin/mentorship"
