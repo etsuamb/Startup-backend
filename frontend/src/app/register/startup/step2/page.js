@@ -1,7 +1,14 @@
+"use client";
+
 import Link from "next/link";
+import { useRegFlow } from "@/components/register/RegFlowProvider";
 import RegistrationStepForm from "@/components/register/RegistrationStepForm";
+import { IndustrySelectWithOther } from "@/components/register/IndustryFields";
 
 export default function StartupRegistrationStep2() {
+  const { fields } = useRegFlow();
+  const f = fields || {};
+
   return (
     <div className="min-h-screen bg-white font-sans text-gray-900 flex flex-col lg:flex-row">
       
@@ -99,39 +106,22 @@ export default function StartupRegistrationStep2() {
                         name="startup_name"
                         required
                         type="text"
+                        defaultValue={f.startup_name || ""}
                         placeholder="e.g. Axum Pay"
                         className="w-full px-4 py-3 bg-white border border-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-[#167b66] transition text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-gray-800 mb-2">Sector / Industry</label>
-                      <div className="relative">
-                        <select name="industry" required className="w-full px-4 py-3 bg-white border border-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-[#167b66] transition text-sm appearance-none text-gray-600">
-                          <option value="">Select Sector</option>
-                          <option value="Agriculture">Agriculture</option>
-                          <option value="Agro-processing">Agro-processing</option>
-                          <option value="Construction">Construction</option>
-                          <option value="Education">Education</option>
-                          <option value="Energy">Energy</option>
-                          <option value="Environment and Water">Environment and Water</option>
-                          <option value="Finance and Insurance">Finance and Insurance</option>
-                          <option value="Food and Beverage">Food and Beverage</option>
-                          <option value="Health and Wellness">Health and Wellness</option>
-                          <option value="ICT / Technology">ICT / Technology</option>
-                          <option value="Logistics and Transportation">Logistics and Transportation</option>
-                          <option value="Manufacturing">Manufacturing</option>
-                          <option value="Media and Entertainment">Media and Entertainment</option>
-                          <option value="Mining and Extractives">Mining and Extractives</option>
-                          <option value="Professional Services">Professional Services</option>
-                          <option value="Real Estate">Real Estate</option>
-                          <option value="Retail and Consumer Goods">Retail and Consumer Goods</option>
-                          <option value="Tourism and Hospitality">Tourism and Hospitality</option>
-                          <option value="Textiles and Apparel">Textiles and Apparel</option>
-                        </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </div>
-                      </div>
+                      <IndustrySelectWithOther
+                        name="industry"
+                        label="Sector / Industry"
+                        required
+                        defaultValue={f.industry || ""}
+                        placeholder="Select Sector"
+                        labelClassName="block text-xs font-bold text-gray-800"
+                        selectClassName="mt-2 w-full px-4 py-3 bg-white border border-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-[#167b66] transition text-sm appearance-none text-gray-600"
+                        inputClassName="mt-3 w-full px-4 py-3 bg-white border border-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-[#167b66] transition text-sm text-gray-700"
+                      />
                     </div>
                   </div>
                   <div>
@@ -140,6 +130,7 @@ export default function StartupRegistrationStep2() {
                       name="startup_tagline"
                       required
                       type="text"
+                      defaultValue={f.startup_tagline || ""}
                       placeholder="The digital future of Ethiopia in one sentence"
                       className="w-full px-4 py-3 bg-white border border-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-[#167b66] transition text-sm"
                     />
@@ -158,7 +149,7 @@ export default function StartupRegistrationStep2() {
                   <div>
                     <label className="block text-xs font-bold text-gray-800 mb-2">Startup stage</label>
                     <div className="relative">
-                      <select name="business_stage" required className="w-full px-4 py-3 bg-white border border-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-[#167b66] transition text-sm appearance-none text-gray-600">
+                      <select name="business_stage" required defaultValue={f.business_stage || ""} className="w-full px-4 py-3 bg-white border border-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-[#167b66] transition text-sm appearance-none text-gray-600">
                         <option value="">Select Stage</option>
                         <option value="Idea Stage">Idea Stage</option>
                         <option value="Pre-Seed">Pre-Seed</option>
@@ -173,7 +164,7 @@ export default function StartupRegistrationStep2() {
                   <div>
                     <label className="block text-xs font-bold text-gray-800 mb-2">Startup type</label>
                     <div className="relative">
-                      <select name="startup_type" required className="w-full px-4 py-3 bg-white border border-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-[#167b66] transition text-sm appearance-none text-gray-600">
+                      <select name="startup_type" required defaultValue={f.startup_type || ""} className="w-full px-4 py-3 bg-white border border-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-[#167b66] transition text-sm appearance-none text-gray-600">
                         <option value="">Select Type</option>
                         <option value="B2B">B2B (Business to Business)</option>
                         <option value="B2C">B2C (Business to Consumer)</option>
@@ -203,6 +194,7 @@ export default function StartupRegistrationStep2() {
                         name="founded_year"
                         required
                         type="number"
+                        defaultValue={f.founded_year || ""}
                         min="1980"
                         max="2030"
                         placeholder="2024"
@@ -215,6 +207,7 @@ export default function StartupRegistrationStep2() {
                         <select
                           name="region"
                           required
+                          defaultValue={f.region || ""}
                           className="w-full px-4 py-3 bg-white border border-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-[#167b66] transition text-sm appearance-none text-gray-600"
                         >
                           <option value="">Select Region</option>
@@ -241,6 +234,7 @@ export default function StartupRegistrationStep2() {
                         name="city"
                         required
                         type="text"
+                        defaultValue={f.city || ""}
                         placeholder="e.g. Addis Ababa, Dire Dawa"
                         className="w-full px-4 py-3 bg-white border border-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-[#167b66] transition text-sm"
                       />
@@ -253,6 +247,7 @@ export default function StartupRegistrationStep2() {
                         name="team_size"
                         required
                         type="number"
+                        defaultValue={f.team_size || ""}
                         min="1"
                         placeholder="5"
                         className="w-full px-4 py-3 bg-white border border-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-[#167b66] transition text-sm"
@@ -264,6 +259,7 @@ export default function StartupRegistrationStep2() {
                         name="founder_role"
                         required
                         type="text"
+                        defaultValue={f.founder_role || ""}
                         placeholder="CEO, CTO, Lead Engineer..."
                         className="w-full px-4 py-3 bg-white border border-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-[#167b66] transition text-sm"
                       />

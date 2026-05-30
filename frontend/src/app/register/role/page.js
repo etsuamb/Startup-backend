@@ -140,8 +140,8 @@ export default function ChooseRole() {
       <footer className="w-full py-8 px-6 flex justify-center mt-auto">
         <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-2 text-[11px] font-medium text-gray-400 uppercase tracking-wider">
           <span className="font-bold text-[#0a4d3c] normal-case tracking-normal">StartupConnect Ethiopia</span>
-          <Link href="#" className="hover:text-gray-800 transition">Privacy Policy</Link>
-          <Link href="#" className="hover:text-gray-800 transition">Terms of Service</Link>
+          <Link href="/privacy-policy" className="hover:text-gray-800 transition">Privacy Policy</Link>
+          <Link href="/terms-of-service" className="hover:text-gray-800 transition">Terms of Service</Link>
           <Link href="#" className="hover:text-gray-800 transition">Contact Support</Link>
           <span>&copy; {new Date().getFullYear()} StartupConnect Ethiopia. All rights reserved.</span>
         </div>

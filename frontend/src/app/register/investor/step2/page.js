@@ -1,7 +1,24 @@
+"use client";
+
 import Link from "next/link";
+import { useMemo } from "react";
+import { useRegFlow } from "@/components/register/RegFlowProvider";
 import RegistrationStepForm from "@/components/register/RegistrationStepForm";
+import { CustomIndustryInput, INDUSTRY_OPTIONS } from "@/components/register/IndustryFields";
 
 export default function InvestorRegistrationStep2() {
+  const { fields } = useRegFlow();
+  const f = fields || {};
+  const selectedIndustries = useMemo(
+    () => Array.isArray(f.preferred_industry)
+      ? f.preferred_industry
+      : (f.preferred_industry ? [f.preferred_industry] : []),
+    [f.preferred_industry],
+  );
+  const customIndustry = selectedIndustries
+    .filter((industry) => !INDUSTRY_OPTIONS.includes(industry))
+    .join(", ");
+
   return (
     <div className="min-h-screen bg-[#fcfcfc] font-sans text-gray-900 flex flex-col lg:flex-row">
       <div className="hidden lg:flex w-[40%] bg-[#061e16] relative overflow-hidden flex-col justify-between py-12 px-12">
@@ -85,7 +102,7 @@ export default function InvestorRegistrationStep2() {
                         name="investor_type"
                         value={option}
                         className="peer sr-only"
-                        defaultChecked={option === "Individual"}
+                        defaultChecked={(f.investor_type || "Individual") === option}
                         required
                       />
                       <div className="rounded-3xl border border-gray-200 bg-white p-4 transition hover:border-[#136150] hover:bg-[#f0f7f5] peer-checked:border-[#0f3d32] peer-checked:bg-[#ecf8f2]">
@@ -111,32 +128,15 @@ export default function InvestorRegistrationStep2() {
                   <div>
                     <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3">Preferred industries</label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {[
-                        "Agriculture",
-                        "Agro-processing",
-                        "Construction",
-                        "Education",
-                        "Energy",
-                        "Environment and Water",
-                        "Finance and Insurance",
-                        "Food and Beverage",
-                        "Health and Wellness",
-                        "ICT / Technology",
-                        "Logistics and Transportation",
-                        "Manufacturing",
-                        "Media and Entertainment",
-                        "Mining and Extractives",
-                        "Professional Services",
-                        "Real Estate",
-                        "Retail and Consumer Goods",
-                        "Tourism and Hospitality",
-                        "Textiles and Apparel",
-                      ].map((sector) => (
+                      {INDUSTRY_OPTIONS.map((sector) => (
                         <label key={sector} className="flex items-center gap-2 rounded-2xl border border-gray-200 px-3 py-2 text-xs font-bold text-gray-700 cursor-pointer hover:border-[#136150] transition">
-                          <input type="checkbox" name="preferred_industry" value={sector} className="text-[#136150] border-gray-300 rounded focus:ring-[#136150]" />
+                          <input type="checkbox" name="preferred_industry" value={sector} defaultChecked={selectedIndustries.includes(sector)} className="text-[#136150] border-gray-300 rounded focus:ring-[#136150]" />
                           {sector}
                         </label>
                       ))}
+                    </div>
+                    <div className="mt-4">
+                      <CustomIndustryInput name="preferred_industry" defaultValue={customIndustry} />
                     </div>
                   </div>
 
@@ -144,7 +144,7 @@ export default function InvestorRegistrationStep2() {
                     <div>
                       <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2.5">Startup stage</label>
                       <div className="relative">
-                        <select name="investment_stage" required className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-sm text-gray-800 outline-none focus:border-[#136150] focus:ring-2 focus:ring-[#136150]">
+                        <select name="investment_stage" required defaultValue={f.investment_stage || ""} className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-sm text-gray-800 outline-none focus:border-[#136150] focus:ring-2 focus:ring-[#136150]">
                           <option value="">Select stage</option>
                           <option value="Idea Stage">Idea Stage</option>
                           <option value="Pre-Seed">Pre-Seed</option>
@@ -160,7 +160,7 @@ export default function InvestorRegistrationStep2() {
                     <div>
                       <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2.5">Investment range (USD)</label>
                       <div className="relative">
-                        <select name="investment_range" required className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-sm text-gray-800 outline-none focus:border-[#136150] focus:ring-2 focus:ring-[#136150]">
+                        <select name="investment_range" required defaultValue={f.investment_range || ""} className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-sm text-gray-800 outline-none focus:border-[#136150] focus:ring-2 focus:ring-[#136150]">
                           <option value="">Select range</option>
                           <option value="250000">Under $250,000</option>
                           <option value="1000000">$250,000 - $1,000,000</option>
@@ -176,7 +176,7 @@ export default function InvestorRegistrationStep2() {
                     <div>
                       <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2.5">Location preference</label>
                       <div className="relative">
-                        <select name="location_preference" required className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-sm text-gray-800 outline-none focus:border-[#136150] focus:ring-2 focus:ring-[#136150]">
+                        <select name="location_preference" required defaultValue={f.location_preference || ""} className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-sm text-gray-800 outline-none focus:border-[#136150] focus:ring-2 focus:ring-[#136150]">
                           <option value="">Select location</option>
                           <option value="Addis Ababa">Addis Ababa</option>
                           <option value="Dire Dawa">Dire Dawa</option>
@@ -202,6 +202,7 @@ export default function InvestorRegistrationStep2() {
                         name="linked_in_or_website"
                         type="url"
                         required
+                        defaultValue={f.linked_in_or_website || ""}
                         placeholder="https://linkedin.com/in/..."
                         pattern="https?://.+"
                         title="Please provide a valid URL starting with http:// or https://"
@@ -214,6 +215,7 @@ export default function InvestorRegistrationStep2() {
                       <textarea
                         name="bio"
                         required
+                        defaultValue={f.bio || ""}
                         minLength={50}
                         maxLength={300}
                         rows="5"
@@ -231,6 +233,7 @@ export default function InvestorRegistrationStep2() {
                         type="checkbox"
                         value="Verified Investor"
                         required
+                        defaultChecked={f.personal_verification === "Verified Investor"}
                         className="h-4 w-4 rounded border-gray-300 text-[#136150] focus:ring-[#136150]"
                       />
                       I confirm that I am an accredited investor and the information provided is accurate.

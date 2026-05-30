@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { saveRegistrationAccountInfo } from "@/lib/registerAccountStorage";
+import { loadRegistrationAccountInfo, saveRegistrationAccountInfo } from "@/lib/registerAccountStorage";
 import { validateRegistrationEmail } from "@/lib/authApi";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
@@ -21,6 +21,7 @@ export default function RegisterAccountInfo() {
     password: false,
     confirmPassword: false,
   });
+  const [accountDraftReady, setAccountDraftReady] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -36,6 +37,37 @@ export default function RegisterAccountInfo() {
   };
 
   const [validatingEmail, setValidatingEmail] = useState(false);
+
+  useEffect(() => {
+    const saved = loadRegistrationAccountInfo();
+    if (!saved) {
+      setAccountDraftReady(true);
+      return;
+    }
+    const phoneTail = String(saved.phone_number || "").replace(/^\+?251/, "");
+    setFormData({
+      firstName: saved.first_name || "",
+      lastName: saved.last_name || "",
+      email: saved.email || "",
+      password: saved.password || "",
+      confirmPassword: saved.confirm_password || "",
+      phoneTail,
+    });
+    setAccountDraftReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!accountDraftReady) return;
+    saveRegistrationAccountInfo({
+      first_name: formData.firstName,
+      last_name: formData.lastName,
+      full_name: `${formData.firstName} ${formData.lastName}`.trim(),
+      email: formData.email,
+      password: formData.password,
+      confirm_password: formData.confirmPassword,
+      phone_number: formData.phoneTail ? `+251${String(formData.phoneTail).replace(/\D/g, "")}` : "",
+    });
+  }, [accountDraftReady, formData]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -383,10 +415,10 @@ export default function RegisterAccountInfo() {
           <span className="font-bold text-gray-500 normal-case tracking-normal">
             StartupConnect Ethiopia
           </span>
-          <Link href="#" className="hover:text-gray-800 transition">
+          <Link href="/privacy-policy" className="hover:text-gray-800 transition">
             Privacy Policy
           </Link>
-          <Link href="#" className="hover:text-gray-800 transition">
+          <Link href="/terms-of-service" className="hover:text-gray-800 transition">
             Terms of Service
           </Link>
           <Link href="#" className="hover:text-gray-800 transition">

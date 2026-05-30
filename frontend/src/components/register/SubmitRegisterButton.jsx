@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useRegFlow } from "./RegFlowProvider";
 import { buildRegisterFormData } from "@/lib/buildRegisterFormData";
+import { clearRegistrationAccountInfo } from "@/lib/registerAccountStorage";
 import { registerMultipart } from "@/lib/api";
 
 export default function SubmitRegisterButton({
@@ -25,6 +26,7 @@ export default function SubmitRegisterButton({
 			const fd = buildRegisterFormData(role, fields, files);
 			await registerMultipart(fd);
 			sessionStorage.removeItem("google_profile_token");
+			clearRegistrationAccountInfo();
 			reset();
 			router.push(nextPath);
 		} catch (e) {

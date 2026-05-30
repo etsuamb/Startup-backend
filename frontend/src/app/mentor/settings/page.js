@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { fetchMentorDocument, fetchMentorProfile, updateMentorProfile } from "@/lib/mentorApi";
+import { fetchPlatformCategories } from "@/lib/adminApi";
 import { getCurrentAccount, updateCurrentAccount } from "@/lib/authApi";
 import { clearSession } from "@/lib/authStorage";
 import { useRouter } from "next/navigation";
@@ -254,13 +255,8 @@ const EXPERTISE_AREAS = [
   "Fintech", "EdTech", "CleanTech", "E-commerce", "SaaS", "Supply Chain",
 ];
 
-const INDUSTRIES = [
-  "Agriculture", "Agro-processing", "Construction", "Education", "Energy",
-  "Finance and Insurance", "Food and Beverage", "Health and Wellness",
-  "ICT / Technology", "Logistics and Transportation", "Manufacturing",
-  "Media and Entertainment", "Professional Services", "Real Estate",
-  "Retail and Consumer Goods", "Tourism and Hospitality",
-];
+// Industries are loaded from platform categories so admin-managed values appear everywhere.
+
 
 const LANGUAGES = [
   "Amharic", "English", "Oromo", "Tigrinya", "Somali", "Sidama",
@@ -314,6 +310,7 @@ export default function MentorSettingsPage() {
   // ── Expertise state ──
   const [expertiseAreas,    setExpertiseAreas]    = useState([]);
   const [primaryIndustry,   setPrimaryIndustry]   = useState("");
+  const [industries,        setIndustries]        = useState([]);
   const [spokenLanguages,   setSpokenLanguages]   = useState([]);
   const [mentorshipFocus,   setMentorshipFocus]   = useState("");
   const [sessionRate,       setSessionRate]       = useState("");
@@ -415,6 +412,17 @@ export default function MentorSettingsPage() {
         }
       })
       .finally(() => alive && setLoading(false));
+
+    // load platform industries for selects
+    (async () => {
+      try {
+        const cats = await fetchPlatformCategories("industry");
+        const list = (cats?.categories || []).map((c) => c.name || c).filter(Boolean);
+        setIndustries(list);
+      } catch (e) {
+        // ignore
+      }
+    })();
     return () => { alive = false; };
   }, []);
 
@@ -738,7 +746,7 @@ export default function MentorSettingsPage() {
               label="Primary industry"
               value={primaryIndustry}
               onChange={(e) => setPrimaryIndustry(e.target.value)}
-              options={INDUSTRIES}
+              options={industries}
               placeholder="Select primary industry"
             />
             <FormField label="Mentorship focus statement" hint="A one-liner about your unique mentorship style.">

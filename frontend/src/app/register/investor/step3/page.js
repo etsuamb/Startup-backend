@@ -1,7 +1,13 @@
+"use client";
+
 import Link from "next/link";
+import { useRegFlow } from "@/components/register/RegFlowProvider";
 import RegistrationStepForm from "@/components/register/RegistrationStepForm";
 
 export default function InvestorRegistrationStep3() {
+  const { fields } = useRegFlow();
+  const f = fields || {};
+
   return (
     <div className="min-h-screen bg-[#fcfcfc] font-sans text-gray-900 flex flex-col lg:flex-row">
       <div className="hidden lg:flex w-[40%] bg-[#061e16] relative overflow-hidden flex-col justify-between py-12 px-12">
@@ -112,6 +118,7 @@ export default function InvestorRegistrationStep3() {
                       minLength={50}
                       maxLength={200}
                       rows="5"
+                      defaultValue={f.investment_history_summary || ""}
                       placeholder="Briefly summarize your investment history, key sectors, and portfolio size..."
                       className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-[#136150] focus:ring-2 focus:ring-[#136150] resize-none"
                     />
@@ -125,6 +132,7 @@ export default function InvestorRegistrationStep3() {
                     name="investor_acknowledgement"
                     value="I confirm the documents are accurate"
                     required
+                    defaultChecked={f.investor_acknowledgement === "I confirm the documents are accurate"}
                     className="h-4 w-4 rounded border-gray-300 text-[#136150] focus:ring-[#136150]"
                   />
                   I confirm these documents are accurate and that I am willing to provide additional verification if requested.

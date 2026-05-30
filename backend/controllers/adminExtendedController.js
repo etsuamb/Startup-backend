@@ -65,6 +65,23 @@ exports.listCategories = async (req, res) => {
 	}
 };
 
+exports.listPublicCategories = async (req, res) => {
+	const { type } = req.query;
+	try {
+		let q = "SELECT * FROM platform_categories WHERE is_active = true";
+		const params = [];
+		if (type) {
+			params.push(type);
+			q += ` AND category_type = $${params.length}`;
+		}
+		q += " ORDER BY name ASC";
+		const r = await pool.query(q, params);
+		return res.json({ categories: r.rows });
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
 exports.createCategory = async (req, res) => {
 	const { name, slug, category_type = "industry", metadata = {} } = req.body || {};
 	if (!name || !slug) return res.status(400).json({ error: "name and slug required" });
@@ -109,6 +126,40 @@ exports.deleteCategory = async (req, res) => {
 		]);
 		if (!r.rows.length) return res.status(404).json({ error: "Category not found" });
 		return res.json({ message: "Category deleted" });
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
+// Public suggestion endpoint for new categories. Try to store in a suggestion table;
+// if that table doesn't exist fall back to creating a disabled platform category.
+exports.suggestCategory = async (req, res) => {
+	const { name, category_type = "industry", contact_email = null, note = null } = req.body || {};
+	if (!name) return res.status(400).json({ error: "name required" });
+	try {
+		// Primary: try suggestions table (if present)
+		try {
+			const r = await pool.query(
+				`INSERT INTO category_suggestions (name, category_type, contact_email, note)
+				 VALUES ($1,$2,$3,$4) RETURNING *`,
+				[name.trim(), category_type, contact_email, note],
+			);
+			await writeAudit(req.user?.user_id || null, "suggest_category", "category_suggestions", r.rows[0].suggestion_id, name);
+			return res.status(201).json({ suggestion: r.rows[0], message: "Suggestion received" });
+		} catch (innerErr) {
+			// If the suggestions table doesn't exist, fall back to adding a disabled platform category
+			if (innerErr && /category_suggestions/.test(innerErr.message || "")) {
+				const slug = name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+				const r2 = await pool.query(
+					`INSERT INTO platform_categories (name, slug, category_type, is_active, metadata)
+					 VALUES ($1,$2,$3,false,$4::jsonb) RETURNING *`,
+					[name.trim(), slug, category_type, JSON.stringify({ suggested: true, contact_email, note })],
+				);
+				await writeAudit(req.user?.user_id || null, "suggest_category_fallback", "platform_categories", r2.rows[0].category_id, name);
+				return res.status(201).json({ category: r2.rows[0], message: "Suggestion received (stored for admin review)" });
+			}
+			throw innerErr;
+		}
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}

@@ -122,7 +122,13 @@ export default function StartupRegistrationStep4() {
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-gray-900 mb-0.5">Terms of Service & Privacy Policy</h4>
-                  <p className="text-xs text-gray-500 leading-relaxed">I have read and agree to StartupConnect Ethiopia <span className="text-[#167b66] hover:underline">Privacy Policy</span> and <span className="text-[#167b66] hover:underline">Terms of Use</span> regarding data processing and verification protocols.</p>
+                  <p className="text-xs text-gray-500 leading-relaxed">
+                    I have read and agree to StartupConnect Ethiopia{" "}
+                    <Link href="/privacy-policy" className="text-[#167b66] hover:underline">Privacy Policy</Link>
+                    {" "}and{" "}
+                    <Link href="/terms-of-service" className="text-[#167b66] hover:underline">Terms of Use</Link>
+                    {" "}regarding data processing and verification protocols.
+                  </p>
                 </div>
               </label>
             </div>

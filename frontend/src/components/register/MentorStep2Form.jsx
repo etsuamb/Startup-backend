@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRegFlow } from "@/components/register/RegFlowProvider";
+import { IndustrySelectWithOther } from "@/components/register/IndustryFields";
 import RegistrationStepForm from "@/components/register/RegistrationStepForm";
 
 export default function MentorRegistrationStep2Form() {
@@ -154,66 +155,22 @@ export default function MentorRegistrationStep2Form() {
       </div>
 
       <div className="grid sm:grid-cols-2 gap-6">
-        <label className="block text-sm font-bold text-[#0f3d32]">
-          Primary industry
-          <select
-            name="primary_industry"
-            required
-            defaultValue={f.primary_industry || ""}
-            className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-[#136150] focus:ring-2 focus:ring-[#136150] appearance-none"
-          >
-            <option value="">Select industry</option>
-            <option value="Agriculture">Agriculture</option>
-            <option value="Agro-processing">Agro-processing</option>
-            <option value="Construction">Construction</option>
-            <option value="Education">Education</option>
-            <option value="Energy">Energy</option>
-            <option value="Environment and Water">Environment and Water</option>
-            <option value="Finance and Insurance">Finance and Insurance</option>
-            <option value="Food and Beverage">Food and Beverage</option>
-            <option value="Health and Wellness">Health and Wellness</option>
-            <option value="ICT / Technology">ICT / Technology</option>
-            <option value="Logistics and Transportation">Logistics and Transportation</option>
-            <option value="Manufacturing">Manufacturing</option>
-            <option value="Media and Entertainment">Media and Entertainment</option>
-            <option value="Mining and Extractives">Mining and Extractives</option>
-            <option value="Professional Services">Professional Services</option>
-            <option value="Real Estate">Real Estate</option>
-            <option value="Retail and Consumer Goods">Retail and Consumer Goods</option>
-            <option value="Tourism and Hospitality">Tourism and Hospitality</option>
-            <option value="Textiles and Apparel">Textiles and Apparel</option>
-          </select>
-        </label>
+        <IndustrySelectWithOther
+          name="primary_industry"
+          label="Primary industry"
+          required
+          defaultValue={f.primary_industry || ""}
+          selectClassName="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-[#136150] focus:ring-2 focus:ring-[#136150] appearance-none"
+          inputClassName="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-[#136150] focus:ring-2 focus:ring-[#136150]"
+        />
 
-        <label className="block text-sm font-bold text-[#0f3d32]">
-          Secondary industry
-          <select
-            name="secondary_industry"
-            defaultValue={f.secondary_industry || ""}
-            className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-[#136150] focus:ring-2 focus:ring-[#136150] appearance-none"
-          >
-            <option value="">Select industry</option>
-            <option value="Agriculture">Agriculture</option>
-            <option value="Agro-processing">Agro-processing</option>
-            <option value="Construction">Construction</option>
-            <option value="Education">Education</option>
-            <option value="Energy">Energy</option>
-            <option value="Environment and Water">Environment and Water</option>
-            <option value="Finance and Insurance">Finance and Insurance</option>
-            <option value="Food and Beverage">Food and Beverage</option>
-            <option value="Health and Wellness">Health and Wellness</option>
-            <option value="ICT / Technology">ICT / Technology</option>
-            <option value="Logistics and Transportation">Logistics and Transportation</option>
-            <option value="Manufacturing">Manufacturing</option>
-            <option value="Media and Entertainment">Media and Entertainment</option>
-            <option value="Mining and Extractives">Mining and Extractives</option>
-            <option value="Professional Services">Professional Services</option>
-            <option value="Real Estate">Real Estate</option>
-            <option value="Retail and Consumer Goods">Retail and Consumer Goods</option>
-            <option value="Tourism and Hospitality">Tourism and Hospitality</option>
-            <option value="Textiles and Apparel">Textiles and Apparel</option>
-          </select>
-        </label>
+        <IndustrySelectWithOther
+          name="secondary_industry"
+          label="Secondary industry"
+          defaultValue={f.secondary_industry || ""}
+          selectClassName="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-[#136150] focus:ring-2 focus:ring-[#136150] appearance-none"
+          inputClassName="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-[#136150] focus:ring-2 focus:ring-[#136150]"
+        />
       </div>
 
       <div className="grid sm:grid-cols-2 gap-6">

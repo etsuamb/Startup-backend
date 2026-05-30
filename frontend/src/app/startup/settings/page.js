@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState, useMemo } from "react";
 import Sidebar from "@/components/startup/Sidebar";
 import { getStartupProfile, updateStartupProfile, getNotificationSettings, updateNotificationSettings } from "@/lib/startupApi";
+import { fetchPlatformCategories } from "@/lib/adminApi";
 import { getCurrentAccount, updateCurrentAccount } from "@/lib/authApi";
 import { canPreviewDocument, openUploadedFileForView } from "@/lib/viewUploadedFile";
 import ViewableFileTrigger from "@/components/startup/ViewableFileTrigger";
@@ -332,14 +333,10 @@ function ProfileCompleteness({ fields }) {
 }
 
 // ─── Industry / Stage / Type options ──────────────────────────────────────────
-const INDUSTRIES = [
-  "Agriculture", "Agro-processing", "Construction", "Education", "Energy",
-  "Environment and Water", "Finance and Insurance", "Food and Beverage",
-  "Health and Wellness", "ICT / Technology", "Logistics and Transportation",
-  "Manufacturing", "Media and Entertainment", "Mining and Extractives",
-  "Professional Services", "Real Estate", "Retail and Consumer Goods",
-  "Tourism and Hospitality", "Textiles and Apparel",
-];
+// Industries will be loaded from the platform categories API so admin-managed categories
+// appear consistently across the app. Fallback to empty array until loaded.
+// Use `fetchPlatformCategories('industry')` to populate this.
+
 
 const STAGES = [
   { value: "Idea Stage", label: "Idea Stage" },
@@ -406,6 +403,7 @@ export default function StartupSettingsPage() {
   const [founderFullName, setFounderFullName] = useState("");
   const [startupName, setStartupName] = useState("");
   const [industry, setIndustry] = useState("");
+  const [industries, setIndustries] = useState([]);
   const [tagline, setTagline] = useState("");
   const [stage, setStage] = useState("");
   const [startupType, setStartupType] = useState("");
@@ -503,6 +501,15 @@ export default function StartupSettingsPage() {
   useEffect(() => {
     loadProfile();
     loadNotificationSettings();
+    (async () => {
+      try {
+        const cats = await fetchPlatformCategories("industry");
+        const list = (cats?.categories || []).filter(Boolean).map((c) => c.name || c);
+        setIndustries(list);
+      } catch (e) {
+        // ignore — keep empty list fallback
+      }
+    })();
   }, [loadProfile, loadNotificationSettings]);
 
   // ── Profile completeness ──
@@ -758,7 +765,7 @@ export default function StartupSettingsPage() {
             </FormField>
 
             <div className="grid gap-5 sm:grid-cols-2">
-              <SelectField label="Industry" value={industry} onChange={(e) => setIndustry(e.target.value)} options={INDUSTRIES} placeholder="Select industry" />
+              <SelectField label="Industry" value={industry} onChange={(e) => setIndustry(e.target.value)} options={industries} placeholder="Select industry" />
               <SelectField label="Business stage" value={stage} onChange={(e) => setStage(e.target.value)} options={STAGES} placeholder="Select stage" />
             </div>
 

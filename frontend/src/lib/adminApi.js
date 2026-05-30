@@ -177,6 +177,11 @@ export function fetchMaintenanceStatus() {
 	return apiFetch("/admin/maintenance/status");
 }
 
+// Public platform categories (industries, etc.)
+export function fetchPlatformCategories(type) {
+	const q = type ? `?type=${encodeURIComponent(type)}` : "";
+	return apiFetch(`/platform/categories${q}`);
+}
 export function clearOldAuditLogs(days = 365) {
 	return apiFetch("/admin/maintenance/clear-audit-logs", {
 		method: "POST",
@@ -584,6 +589,10 @@ export function updatePlatformSettings(value, key = "platform_config") {
 export function fetchCategories(type) {
 	const q = type ? `?type=${encodeURIComponent(type)}` : "";
 	return apiFetch(`/admin/platform/categories${q}`);
+}
+
+export function suggestPlatformCategory(body) {
+  return apiPostJson(`/platform/categories/suggest`, body);
 }
 
 export function createCategory(body) {

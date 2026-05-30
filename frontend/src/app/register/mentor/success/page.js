@@ -137,8 +137,8 @@ export default function MentorApplicationSuccess() {
             <span className="text-[13px] text-gray-500">© 2024 StartupConnect Ethiopia</span>
           </div>
           <div className="flex items-center gap-8 text-[12px] text-gray-500">
-            <Link href="#" className="hover:text-gray-900 transition">Privacy Policy</Link>
-            <Link href="#" className="hover:text-gray-900 transition">Terms of Service</Link>
+            <Link href="/privacy-policy" className="hover:text-gray-900 transition">Privacy Policy</Link>
+            <Link href="/terms-of-service" className="hover:text-gray-900 transition">Terms of Service</Link>
             <Link href="#" className="hover:text-gray-900 transition">Support</Link>
           </div>
         </footer>
