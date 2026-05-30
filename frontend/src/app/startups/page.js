@@ -12,6 +12,7 @@ export default function BrowseStartups() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const limit = 12;
 
   const industryOptions = [
     "Agriculture",
@@ -51,7 +52,7 @@ export default function BrowseStartups() {
       if (opts.stage !== undefined ? opts.stage : stage)
         params.set("stage", opts.stage !== undefined ? opts.stage : stage);
       params.set("page", opts.page || page);
-      params.set("limit", opts.limit || 12);
+      params.set("limit", opts.limit || limit);
 
       const res = await fetch(
         `/api-backend/startups/search?${params.toString()}`,
@@ -161,7 +162,13 @@ export default function BrowseStartups() {
 
         {/* Filters Section */}
         <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto mb-10">
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-4">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              fetchStartups({ q: query.trim(), industry, stage, page: 1 });
+            }}
+            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-4"
+          >
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -173,7 +180,7 @@ export default function BrowseStartups() {
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter")
-                      fetchStartups({ q: e.target.value, page: 1 });
+                      fetchStartups({ q: e.target.value.trim(), page: 1 });
                   }}
                   placeholder="Search startups by name or keyword..."
                   className="w-full px-4 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
@@ -225,9 +232,37 @@ export default function BrowseStartups() {
               <span className="text-sm font-medium text-gray-700">
                 Active Filters:
               </span>
-              <span className="text-sm text-gray-500 italic">None</span>
+              {query || industry || stage ? (
+                <div className="flex flex-wrap gap-2">
+                  {query ? <span className="rounded bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700">Search: {query}</span> : null}
+                  {industry ? <span className="rounded bg-green-50 px-2 py-1 text-xs font-semibold text-primary">Industry: {industry}</span> : null}
+                  {stage ? <span className="rounded bg-orange-50 px-2 py-1 text-xs font-semibold text-orange-700">Stage: {stage}</span> : null}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuery("");
+                      setIndustry("");
+                      setStage("");
+                      fetchStartups({ q: "", industry: "", stage: "", page: 1 });
+                    }}
+                    className="text-xs font-bold text-primary hover:underline"
+                  >
+                    Clear
+                  </button>
+                </div>
+              ) : (
+                <span className="text-sm text-gray-500 italic">None</span>
+              )}
             </div>
-          </div>
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                className="rounded-md bg-primary px-5 py-2 text-sm font-bold text-white transition hover:bg-primary-dark"
+              >
+                Apply Search
+              </button>
+            </div>
+          </form>
         </section>
 
         {/* Startups Grid */}
@@ -306,18 +341,24 @@ export default function BrowseStartups() {
 
           {/* Pagination */}
           <div className="mt-12 flex justify-center items-center gap-2">
-            <button className="w-10 h-10 flex items-center justify-center bg-primary text-white rounded-md font-medium">
-              1
+            <button
+              type="button"
+              disabled={page <= 1 || loading}
+              onClick={() => fetchStartups({ page: page - 1 })}
+              className="h-10 rounded-md border border-gray-200 px-4 text-sm font-medium text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Previous
             </button>
-            <button className="w-10 h-10 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-md font-medium transition">
-              2
-            </button>
-            <button className="w-10 h-10 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-md font-medium transition">
-              3
-            </button>
-            <span className="px-2 text-gray-400">...</span>
-            <button className="w-10 h-10 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-md font-medium transition">
-              5
+            <span className="h-10 min-w-24 rounded-md bg-primary px-4 py-2 text-center text-sm font-bold text-white">
+              {page} / {Math.max(1, Math.ceil(total / limit))}
+            </span>
+            <button
+              type="button"
+              disabled={page >= Math.max(1, Math.ceil(total / limit)) || loading}
+              onClick={() => fetchStartups({ page: page + 1 })}
+              className="h-10 rounded-md border border-gray-200 px-4 text-sm font-medium text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Next
             </button>
           </div>
         </section>

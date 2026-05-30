@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/investor/Sidebar";
+import { INDUSTRY_OPTIONS } from "@/components/register/IndustryFields";
 import {
 	getInvestorProfile,
 	getInvestorStartups,
@@ -130,6 +131,8 @@ function StartupCard({ startup, viewMode }) {
 	);
 }
 
+const STAGE_OPTIONS = ["Idea Stage", "Pre-Seed", "Seed", "Early Growth", "Growth", "Series A"];
+
 export default function InvestorDiscover() {
 	const [viewMode, setViewMode] = useState("grid");
 	const [profile, setProfile] = useState(null);
@@ -204,6 +207,14 @@ export default function InvestorDiscover() {
 			"Investor",
 		[profile],
 	);
+	const industryOptions = useMemo(() => {
+		const fromResults = startups.map((startup) => startup.industry).filter(Boolean);
+		return Array.from(new Set([...INDUSTRY_OPTIONS, ...fromResults])).sort();
+	}, [startups]);
+	const stageOptions = useMemo(() => {
+		const fromResults = startups.map((startup) => startup.business_stage).filter(Boolean);
+		return Array.from(new Set([...STAGE_OPTIONS, ...fromResults])).sort();
+	}, [startups]);
 
 	function updateFilter(key, value) {
 		setFilters((current) => ({ ...current, [key]: value }));
@@ -285,11 +296,11 @@ export default function InvestorDiscover() {
 									className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0a4d3c]/20 focus:border-[#0a4d3c]"
 								>
 									<option value="">All Industries</option>
-									<option value="Agritech">Agritech</option>
-									<option value="Fintech">Fintech</option>
-									<option value="Healthtech">Healthtech</option>
-									<option value="Edtech">Edtech</option>
-									<option value="Energy">Energy</option>
+									{industryOptions.map((option) => (
+										<option key={option} value={option}>
+											{option}
+										</option>
+									))}
 								</select>
 							</div>
 
@@ -301,10 +312,11 @@ export default function InvestorDiscover() {
 									className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0a4d3c]/20 focus:border-[#0a4d3c]"
 								>
 									<option value="">All Stages</option>
-									<option value="Pre-seed">Pre-seed</option>
-									<option value="Seed">Seed</option>
-									<option value="Series A">Series A</option>
-									<option value="Growth">Growth</option>
+									{stageOptions.map((option) => (
+										<option key={option} value={option}>
+											{option}
+										</option>
+									))}
 								</select>
 							</div>
 

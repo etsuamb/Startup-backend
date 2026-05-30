@@ -567,18 +567,31 @@ exports.searchInvestors = async (req, res) => {
 		const params = [];
 
 		if (industry) {
-			params.push(industry);
-			query += ` AND i.preferred_industry = $${params.length}`;
+			params.push(`%${String(industry).trim()}%`);
+			query += ` AND COALESCE(i.preferred_industry, '') ILIKE $${params.length}`;
 		}
 
 		if (country) {
-			params.push(country);
-			query += ` AND i.country = $${params.length}`;
+			params.push(`%${String(country).trim()}%`);
+			query += ` AND (
+				COALESCE(i.country, '') ILIKE $${params.length}
+				OR COALESCE(i.location_preference, '') ILIKE $${params.length}
+			)`;
 		}
 
 		if (search) {
-			params.push(`%${search}%`);
-			query += ` AND (i.organization_name ILIKE $${params.length} OR u.first_name ILIKE $${params.length})`;
+			params.push(`%${String(search).trim()}%`);
+			query += ` AND (
+				COALESCE(i.organization_name, '') ILIKE $${params.length}
+				OR COALESCE(i.preferred_industry, '') ILIKE $${params.length}
+				OR COALESCE(i.investor_type, '') ILIKE $${params.length}
+				OR COALESCE(i.investment_stage, '') ILIKE $${params.length}
+				OR COALESCE(i.location_preference, '') ILIKE $${params.length}
+				OR COALESCE(i.country, '') ILIKE $${params.length}
+				OR COALESCE(i.bio, '') ILIKE $${params.length}
+				OR COALESCE(u.first_name, '') ILIKE $${params.length}
+				OR COALESCE(u.last_name, '') ILIKE $${params.length}
+			)`;
 		}
 
 		const countQuery = query.replace(/SELECT[\s\S]+?FROM/i, "SELECT COUNT(*)::int AS total FROM");
@@ -626,7 +639,12 @@ exports.searchMentors = async (req, res) => {
 
 		if (expertise) {
 			params.push(`%${expertise}%`);
-			query += ` AND m.expertise ILIKE $${params.length}`;
+			query += ` AND (
+				COALESCE(m.expertise, '') ILIKE $${params.length}
+				OR COALESCE(m.primary_industry, '') ILIKE $${params.length}
+				OR COALESCE(m.secondary_industry, '') ILIKE $${params.length}
+				OR COALESCE(m.professional_title, '') ILIKE $${params.length}
+			)`;
 		}
 
 		if (experience) {
@@ -635,13 +653,28 @@ exports.searchMentors = async (req, res) => {
 		}
 
 		if (country) {
-			params.push(country);
-			query += ` AND m.country = $${params.length}`;
+			params.push(`%${String(country).trim()}%`);
+			query += ` AND (
+				COALESCE(m.country, '') ILIKE $${params.length}
+				OR COALESCE(m.city_location, '') ILIKE $${params.length}
+			)`;
 		}
 
 		if (search) {
-			params.push(`%${search}%`);
-			query += ` AND (m.headline ILIKE $${params.length} OR u.first_name ILIKE $${params.length})`;
+			params.push(`%${String(search).trim()}%`);
+			query += ` AND (
+				COALESCE(m.headline, '') ILIKE $${params.length}
+				OR COALESCE(m.bio, '') ILIKE $${params.length}
+				OR COALESCE(m.expertise, '') ILIKE $${params.length}
+				OR COALESCE(m.primary_industry, '') ILIKE $${params.length}
+				OR COALESCE(m.secondary_industry, '') ILIKE $${params.length}
+				OR COALESCE(m.professional_title, '') ILIKE $${params.length}
+				OR COALESCE(m.current_organization, '') ILIKE $${params.length}
+				OR COALESCE(m.city_location, '') ILIKE $${params.length}
+				OR COALESCE(m.country, '') ILIKE $${params.length}
+				OR COALESCE(u.first_name, '') ILIKE $${params.length}
+				OR COALESCE(u.last_name, '') ILIKE $${params.length}
+			)`;
 		}
 
 		const countQuery = query.replace(/SELECT[\s\S]+?FROM/i, "SELECT COUNT(*)::int AS total FROM");

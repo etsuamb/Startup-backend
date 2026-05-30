@@ -569,21 +569,28 @@ exports.searchPublicStartups = async (req, res) => {
 
     if (q && q.trim() !== "") {
       whereClauses.push(
-        `(LOWER(s.startup_name) LIKE LOWER($${idx}) OR LOWER(s.description) LIKE LOWER($${idx}))`,
+        `(LOWER(COALESCE(s.startup_name, '')) LIKE LOWER($${idx})
+          OR LOWER(COALESCE(s.description, '')) LIKE LOWER($${idx})
+          OR LOWER(COALESCE(s.startup_tagline, '')) LIKE LOWER($${idx})
+          OR LOWER(COALESCE(s.industry, '')) LIKE LOWER($${idx})
+          OR LOWER(COALESCE(s.business_stage, '')) LIKE LOWER($${idx})
+          OR LOWER(COALESCE(s.location, '')) LIKE LOWER($${idx})
+          OR LOWER(COALESCE(s.city, '')) LIKE LOWER($${idx})
+          OR LOWER(COALESCE(s.region, '')) LIKE LOWER($${idx}))`,
       );
       params.push(`%${q.trim()}%`);
       idx++;
     }
 
     if (industry && industry.trim() !== "") {
-      whereClauses.push(`s.industry = $${idx}`);
-      params.push(industry.trim());
+      whereClauses.push(`COALESCE(s.industry, '') ILIKE $${idx}`);
+      params.push(`%${industry.trim()}%`);
       idx++;
     }
 
     if (stage && stage.trim() !== "") {
-      whereClauses.push(`s.business_stage = $${idx}`);
-      params.push(stage.trim());
+      whereClauses.push(`COALESCE(s.business_stage, '') ILIKE $${idx}`);
+      params.push(`%${stage.trim()}%`);
       idx++;
     }
 

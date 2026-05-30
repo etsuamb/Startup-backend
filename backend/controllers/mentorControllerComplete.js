@@ -397,13 +397,13 @@ exports.listStartups = async (req, res) => {
 		const params = [];
 
 		if (industry) {
-			params.push(industry);
-			query += ` AND s.industry = $${params.length}`;
+			params.push(`%${String(industry).trim()}%`);
+			query += ` AND COALESCE(s.industry, '') ILIKE $${params.length}`;
 		}
 
 		if (stage) {
-			params.push(stage);
-			query += ` AND s.business_stage = $${params.length}`;
+			params.push(`%${String(stage).trim()}%`);
+			query += ` AND COALESCE(s.business_stage, '') ILIKE $${params.length}`;
 		}
 
 		if (location) {
@@ -412,8 +412,17 @@ exports.listStartups = async (req, res) => {
 		}
 
 		if (search) {
-			params.push(`%${search}%`);
-			query += ` AND (s.startup_name ILIKE $${params.length} OR s.description ILIKE $${params.length})`;
+			params.push(`%${String(search).trim()}%`);
+			query += ` AND (
+				COALESCE(s.startup_name, '') ILIKE $${params.length}
+				OR COALESCE(s.description, '') ILIKE $${params.length}
+				OR COALESCE(s.startup_tagline, '') ILIKE $${params.length}
+				OR COALESCE(s.industry, '') ILIKE $${params.length}
+				OR COALESCE(s.business_stage, '') ILIKE $${params.length}
+				OR COALESCE(s.city, '') ILIKE $${params.length}
+				OR COALESCE(s.region, '') ILIKE $${params.length}
+				OR COALESCE(s.location, '') ILIKE $${params.length}
+			)`;
 		}
 
 		const countQuery = query.replace(
