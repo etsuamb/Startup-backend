@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getCurrentAccount, resendVerification } from "@/lib/authApi";
-import { hasFullPlatformAccess } from "@/lib/accountGate";
+import { hasFullPlatformAccess, normalizeAuthUser } from "@/lib/accountGate";
 
 export default function AccountAccessBanner() {
 	const [user, setUser] = useState(null);
@@ -14,7 +14,7 @@ export default function AccountAccessBanner() {
 		let alive = true;
 		getCurrentAccount()
 			.then((data) => {
-				if (alive) setUser(data?.user || null);
+				if (alive) setUser(normalizeAuthUser(data?.user) || null);
 			})
 			.catch(() => {});
 		return () => {

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { loginRequest } from "@/lib/authApi";
 import { setSession } from "@/lib/authStorage";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
-import { routeAfterLogin } from "@/lib/accountGate";
+import { routeAfterLogin, userFromLoginResponse } from "@/lib/accountGate";
 
 export default function LoginForm() {
 	const router = useRouter();
@@ -40,17 +40,13 @@ export default function LoginForm() {
 				role: data.user?.role,
 				userName: `${data.user?.first_name || ""} ${data.user?.last_name || ""}`.trim(),
 			});
-			routeAfterLogin(router, {
-				...data.user,
-				email_verified:
-					data.emailVerified !== undefined
-						? data.emailVerified
-						: data.user?.email_verified,
-				is_approved:
-					data.isApproved !== undefined ? data.isApproved : data.user?.is_approved,
-			});
+			routeAfterLogin(router, userFromLoginResponse(data));
 		} catch (ex) {
-			setErr(ex.message || "Login failed");
+			if (ex.data?.code === "USE_GOOGLE_LOGIN") {
+				setErr("This account uses Google Sign-In. Use the Google button below.");
+			} else {
+				setErr(ex.message || "Login failed");
+			}
 		} finally {
 			setLoading(false);
 		}

@@ -418,14 +418,9 @@ exports.verifyLogin2FA = async (req, res) => {
 			return res.status(401).json({ message: "Invalid verification code" });
 		}
 
-		const tokens = await authSecurity.issueAuthTokens(user, req);
-		return res.json({
-			message: "Login successful",
-			...tokens,
-			user: publicUser(user),
-			emailVerified: !!user.email_verified,
-			isApproved: !!user.is_approved,
-		});
+		const ip = securityMonitoringService.readIpAddress(req);
+		const userAgent = req.headers["user-agent"] || "";
+		return finishLoginOr2FA(req, res, user, user.email, ip, userAgent);
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -623,19 +618,21 @@ exports.googleAuth = async (req, res) => {
 		]);
 
 		if (userR.rowCount) {
-			const user = userR.rows[0];
-			if (user.provider_type === "local" && !user.google_id) {
-				return res.status(409).json({
-					message:
-						"An account with this email already exists. Sign in with your password or reset your password.",
-					code: "ACCOUNT_EXISTS_LOCAL",
-				});
-			}
+			let user = userR.rows[0];
 			if (!user.google_id) {
-				await pool.query(`UPDATE users SET google_id = $1, provider_type = 'google' WHERE user_id = $2`, [
-					googleId,
-					user.user_id,
-				]);
+				await pool.query(
+					`UPDATE users
+					    SET google_id = $1,
+					        provider_type = 'google',
+					        email_verified = CASE
+					          WHEN $2::boolean AND COALESCE(email_verified, false) = false THEN true
+					          ELSE email_verified
+					        END,
+					        updated_at = CURRENT_TIMESTAMP
+					  WHERE user_id = $3`,
+					[googleId, !!payload.email_verified, user.user_id],
+				);
+				user = (await loadUserById(user.user_id)) || user;
 			}
 			if (!user.is_active) {
 				return res.status(403).json({ message: "Account disabled" });
@@ -730,9 +727,32 @@ exports.googleCompleteRole = async (req, res) => {
 		if (!allowedRoles.includes(String(role).trim())) {
 			return res.status(400).json({ message: "Invalid role" });
 		}
-		const existing = await pool.query(`SELECT user_id FROM users WHERE email = $1`, [decoded.email]);
+		const existing = await pool.query(`SELECT * FROM users WHERE email = $1`, [decoded.email]);
 		if (existing.rowCount) {
-			return res.status(409).json({ message: "Account already exists" });
+			let user = existing.rows[0];
+			if (!user.google_id && decoded.googleId) {
+				await pool.query(
+					`UPDATE users SET google_id = $1, provider_type = 'google', email_verified = true,
+					 updated_at = CURRENT_TIMESTAMP WHERE user_id = $2`,
+					[decoded.googleId, user.user_id],
+				);
+				user = (await loadUserById(user.user_id)) || user;
+			}
+			if (!user.is_active) {
+				return res.status(403).json({ message: "Account disabled" });
+			}
+			if (await hasRoleProfile(user)) {
+				const ip = securityMonitoringService.readIpAddress(req);
+				const userAgent = req.headers["user-agent"] || "";
+				return finishLoginOr2FA(req, res, user, decoded.email, ip, userAgent);
+			}
+			return res.json({
+				needsProfileCompletion: true,
+				role: user.role,
+				user: publicUser(user),
+				googleSignupToken: googleProfileToken(user.user_id),
+				message: "Complete your profile registration before accessing the dashboard.",
+			});
 		}
 		const randomPassword = await bcrypt.hash(require("crypto").randomBytes(32).toString("hex"), 10);
 		const insertR = await pool.query(
@@ -762,6 +782,9 @@ exports.googleCompleteRole = async (req, res) => {
 };
 
 async function finishLoginOr2FA(req, res, user, email, ip, userAgent) {
+	const fresh = (await loadUserById(user.user_id)) || user;
+	user = fresh;
+
 	if (user.two_factor_enabled) {
 		const pendingToken = await authSecurity.createPendingLogin(user.user_id, req);
 		if (user.two_factor_method === "email") {
@@ -792,12 +815,19 @@ async function finishLoginOr2FA(req, res, user, email, ip, userAgent) {
 		ipAddress: ip,
 		userAgent,
 	});
+	const emailVerified =
+		user.role === "Admin" ||
+		String(user.provider_type || "").toLowerCase() === "google"
+			? user.email_verified !== false
+			: !!user.email_verified;
+	const isApproved = user.role === "Admin" ? true : !!user.is_approved;
+
 	return res.json({
 		message: "Login successful",
 		...tokens,
 		user: publicUser(user),
-		emailVerified: !!user.email_verified,
-		isApproved: !!user.is_approved,
+		emailVerified,
+		isApproved,
 	});
 }
 

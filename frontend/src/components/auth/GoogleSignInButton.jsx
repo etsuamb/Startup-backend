@@ -10,7 +10,7 @@ import {
 } from "@/lib/registerAccountStorage";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { routeAfterLogin } from "@/lib/accountGate";
+import { routeAfterLogin, userFromLoginResponse } from "@/lib/accountGate";
 
 export default function GoogleSignInButton({ onError, role }) {
 	const router = useRouter();
@@ -67,7 +67,16 @@ export default function GoogleSignInButton({ onError, role }) {
 			}
 
 			if (data.needsProfileCompletion) {
-				sessionStorage.setItem("google_profile_token", data.googleSignupToken || "");
+				if (data.token) {
+					setSession({
+						token: data.token,
+						refreshToken: data.refreshToken,
+						role: data.user?.role,
+						userName: `${data.user?.first_name || ""} ${data.user?.last_name || ""}`.trim(),
+					});
+				} else if (data.googleSignupToken) {
+					sessionStorage.setItem("google_profile_token", data.googleSignupToken);
+				}
 				saveRegistrationAccountInfo({
 					first_name: data.user?.first_name || "",
 					last_name: data.user?.last_name || "",
@@ -104,15 +113,7 @@ export default function GoogleSignInButton({ onError, role }) {
 					role: data.user?.role,
 					userName: `${data.user?.first_name || ""} ${data.user?.last_name || ""}`.trim(),
 				});
-				routeAfterLogin(router, {
-					...data.user,
-					email_verified:
-						data.emailVerified !== undefined
-							? data.emailVerified
-							: data.user?.email_verified,
-					is_approved:
-						data.isApproved !== undefined ? data.isApproved : data.user?.is_approved,
-				});
+				routeAfterLogin(router, userFromLoginResponse(data));
 			}
 		} catch (ex) {
 			onError?.(ex.message || "Google sign-in failed");

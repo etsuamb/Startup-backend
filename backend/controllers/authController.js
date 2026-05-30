@@ -1013,24 +1013,14 @@ exports.login = async (req, res) => {
 			);
 		}
 
-		const tokens = await authSecurity.issueAuthTokens(user, req);
-
-		await securityMonitoringService.logLoginAttempt({
-			email: normalizedEmail,
-			userId: user.user_id,
-			success: true,
-			failureReason: null,
-			ipAddress: ip_address,
-			userAgent: user_agent,
-		});
-
-		return res.json({
-			message: "Login successful",
-			...tokens,
-			user: authSecurityController.publicUser(user),
-			emailVerified: !!user.email_verified,
-			isApproved: !!user.is_approved,
-		});
+		return authSecurityController.finishLoginOr2FA(
+			req,
+			res,
+			user,
+			normalizedEmail,
+			ip_address,
+			user_agent,
+		);
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}

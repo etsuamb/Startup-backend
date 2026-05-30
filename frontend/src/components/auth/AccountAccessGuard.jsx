@@ -7,6 +7,7 @@ import { getRole, getToken } from "@/lib/authStorage";
 import {
 	hasFullPlatformAccess,
 	isSettingsPath,
+	normalizeAuthUser,
 	settingsPathForRole,
 } from "@/lib/accountGate";
 
@@ -32,7 +33,7 @@ export default function AccountAccessGuard({ children, requiredRole }) {
 
 			try {
 				const data = await getCurrentAccount();
-				const user = data?.user;
+				const user = normalizeAuthUser(data?.user);
 				if (!alive) return;
 
 				if (!hasFullPlatformAccess(user) && !isSettingsPath(pathname, role)) {

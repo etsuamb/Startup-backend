@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { googleCompleteRole } from "@/lib/authApi";
+import { setSession } from "@/lib/authStorage";
+import { routeAfterLogin, userFromLoginResponse } from "@/lib/accountGate";
 import {
 	clearRegistrationAccountInfo,
 	saveRegistrationAccountInfo,
@@ -33,28 +35,60 @@ export default function GoogleRolePage() {
 		}
 	}, [router]);
 
+	function goToProfileRegistration(data, role, href) {
+		if (data.token) {
+			setSession({
+				token: data.token,
+				refreshToken: data.refreshToken,
+				role: data.user?.role || role,
+				userName: `${data.user?.first_name || ""} ${data.user?.last_name || ""}`.trim(),
+			});
+		} else if (data.googleSignupToken) {
+			sessionStorage.setItem("google_profile_token", data.googleSignupToken);
+		}
+		clearRegistrationAccountInfo();
+		saveRegistrationAccountInfo({
+			first_name: data.user?.first_name || signup.profile?.firstName || "",
+			last_name: data.user?.last_name || signup.profile?.lastName || "",
+			full_name:
+				`${data.user?.first_name || signup.profile?.firstName || ""} ${
+					data.user?.last_name || signup.profile?.lastName || ""
+				}`.trim(),
+			email: data.user?.email || signup.profile?.email || "",
+			phone_number: data.user?.phone_number || "",
+		});
+		router.push(href);
+	}
+
 	async function pickRole(role, href) {
 		setErr("");
 		setLoading(true);
 		try {
 			const data = await googleCompleteRole(signup.googleSignupToken, role);
 			sessionStorage.removeItem("google_signup");
-			if (data.googleSignupToken) {
-				sessionStorage.setItem("google_profile_token", data.googleSignupToken);
+
+			if (data.token) {
+				setSession({
+					token: data.token,
+					refreshToken: data.refreshToken,
+					role: data.user?.role || role,
+					userName: `${data.user?.first_name || ""} ${data.user?.last_name || ""}`.trim(),
+				});
+				routeAfterLogin(router, userFromLoginResponse(data));
+				return;
 			}
-			clearRegistrationAccountInfo();
-			saveRegistrationAccountInfo({
-				first_name: data.user?.first_name || signup.profile?.firstName || "",
-				last_name: data.user?.last_name || signup.profile?.lastName || "",
-				full_name:
-					`${data.user?.first_name || signup.profile?.firstName || ""} ${
-						data.user?.last_name || signup.profile?.lastName || ""
-					}`.trim(),
-				email: data.user?.email || signup.profile?.email || "",
-				phone_number: data.user?.phone_number || "",
-			});
-			router.push(href);
+
+			if (data.needsProfileCompletion) {
+				goToProfileRegistration(data, role, href);
+				return;
+			}
+
+			goToProfileRegistration(data, role, href);
 		} catch (ex) {
+			if (ex.status === 409 || ex.data?.code === "ACCOUNT_EXISTS") {
+				setErr("This email already has an account. Use Log in with Google or your password.");
+				return;
+			}
 			setErr(ex.message || "Could not create account");
 		} finally {
 			setLoading(false);
