@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Sidebar from "@/components/startup/Sidebar";
 import StartupTopBar from "@/components/startup/StartupTopBar";
 import {
@@ -49,6 +50,8 @@ function formatSessionType(type) {
 }
 
 function MeetingsContent() {
+  const searchParams = useSearchParams();
+  const focusedMeetingId = searchParams.get("meetingId") || "";
   const [offers, setOffers] = useState([]);
   const [meetings, setMeetings] = useState([]);
   const [selectedOfferId, setSelectedOfferId] = useState("");
@@ -287,7 +290,14 @@ function MeetingsContent() {
 
               <div className="space-y-4 overflow-y-auto pr-2 pb-2">
                 {upcomingMeetings.length ? upcomingMeetings.map((meeting) => (
-                  <div key={meeting.unique_id} className="rounded-xl border border-gray-100 bg-[#f8fafc] p-4 hover:border-[#0f3d32]/20 transition-colors">
+                  <div
+                    key={meeting.unique_id}
+                    className={`rounded-xl border bg-[#f8fafc] p-4 transition-colors ${
+                      String(meeting.unique_id) === focusedMeetingId
+                        ? "border-emerald-500 ring-2 ring-emerald-200"
+                        : "border-gray-100 hover:border-[#0f3d32]/20"
+                    }`}
+                  >
                     <div className="mb-3 flex items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-bold text-gray-900">{meeting.actor_name}</p>

@@ -11,6 +11,7 @@ const crypto = require("crypto");
 const securityMonitoringService = require("../services/securityMonitoringService");
 const authSecurity = require("../services/authSecurityService");
 const authSecurityController = require("./authSecurityController");
+const { getPlatformConfig } = require("../services/platformSettingsService");
 
 const isValidUrl = (value) => {
 	if (!value) return false;
@@ -129,7 +130,6 @@ exports.register = async (req, res) => {
 		expertise_area,
 		professional_bio,
 		linkedin_portfolio,
-		certification_credentials,
 		availability_preference,
 		session_pricing,
 		current_organization,
@@ -209,6 +209,13 @@ exports.register = async (req, res) => {
 				message: "Role must be one of Startup, Investor, or Mentor",
 			});
 		}
+
+		const platformConfig = await getPlatformConfig();
+		if (!isGoogleProfileCompletion && platformConfig.userRegistration === false) {
+			return res.status(403).json({
+				message: "New user registration is currently disabled by the platform administrator",
+			});
+		}
 		if (isGoogleProfileCompletion && googleProfileUser.role !== normalizedRole) {
 			return res.status(400).json({
 				message: "Selected role does not match this Google signup session",
@@ -250,6 +257,12 @@ exports.register = async (req, res) => {
 			) {
 				return res.status(400).json({
 					message: "Business registration proof file is required for Startup registration",
+				});
+			}
+
+			if (!req.files || !req.files.startup_logo || !req.files.startup_logo.length) {
+				return res.status(400).json({
+					message: "Startup logo is required for Startup registration",
 				});
 			}
 		}
@@ -297,6 +310,12 @@ exports.register = async (req, res) => {
 					message: "TIN certificate file is required for Investor registration",
 				});
 			}
+
+			if (!req.files || !req.files.profile_picture || !req.files.profile_picture.length) {
+				return res.status(400).json({
+					message: "Profile picture is required for Investor registration",
+				});
+			}
 		}
 
 		if (normalizedRole === "Mentor") {
@@ -317,9 +336,6 @@ exports.register = async (req, res) => {
 				str(req.body.linkedinPortfolio) ||
 				str(req.body.linkedInOrPortfolio) ||
 				"";
-			const mentorCertsText =
-				str(certification_credentials) || str(req.body.certificationCredentials) || "";
-
 			if (mentorLinkedin && !isValidUrl(mentorLinkedin)) {
 				return res.status(400).json({
 					message: "linkedin_portfolio must be a valid URL starting with http:// or https://",
@@ -354,7 +370,6 @@ exports.register = async (req, res) => {
 				!mentorExpertise ||
 				!mentorBio ||
 				!mentorLinkedin ||
-				!mentorCertsText ||
 				!mentorAvailPref ||
 				mentorSessionPrice === undefined ||
 				mentorSessionPrice === null ||
@@ -374,7 +389,7 @@ exports.register = async (req, res) => {
 			) {
 				return res.status(400).json({
 					message:
-						"Mentor registration requires phone_number, professional_title, year_of_experience, language(s), expertise_area, professional_bio, linkedin_portfolio, certification_credentials, availability_preference, session_pricing, current_organization, current_title, primary_industry, city_location, mentor_platform, session_frequency, required_time_slots, mentoring_style, notable_startups_mentored, and key_achievement",
+						"Mentor registration requires phone_number, professional_title, year_of_experience, language(s), expertise_area, professional_bio, linkedin_portfolio, availability_preference, session_pricing, current_organization, current_title, primary_industry, city_location, mentor_platform, session_frequency, required_time_slots, mentoring_style, notable_startups_mentored, and key_achievement",
 				});
 			}
 
@@ -419,6 +434,12 @@ exports.register = async (req, res) => {
 				});
 			}
 
+			if (!req.files || !req.files.profile_picture || !req.files.profile_picture.length) {
+				return res.status(400).json({
+					message: "Profile picture is required for Mentor registration",
+				});
+			}
+
 			mentorResolved = {
 				professionalTitle: mentorTitle,
 				yearsExperience: parsedMentorYears,
@@ -426,7 +447,7 @@ exports.register = async (req, res) => {
 				expertiseArea: mentorExpertise,
 				professionalBio: mentorBio,
 				linkedinOrPortfolio: mentorLinkedin,
-				certificationCredentials: mentorCertsText,
+				certificationCredentials: "",
 				availabilityPreference: mentorAvailPref,
 				sessionPricing: parsedSessionPricing,
 				currentOrganization: mentorOrg,
@@ -638,14 +659,15 @@ exports.register = async (req, res) => {
 
 				startupProfile = startupInsertResult.rows[0];
 
+				const autoApproveStartup = platformConfig.strictVerification !== true;
 				await client.query(
 					`UPDATE startups
-					 SET is_listed = true, admin_status = 'Active'
+					 SET is_listed = $2, admin_status = $3
 					 WHERE startup_id = $1`,
-					[startupProfile.startup_id],
+					[startupProfile.startup_id, autoApproveStartup, autoApproveStartup ? "Active" : "Pending"],
 				);
-				startupProfile.is_listed = true;
-				startupProfile.admin_status = "Active";
+				startupProfile.is_listed = autoApproveStartup;
+				startupProfile.admin_status = autoApproveStartup ? "Active" : "Pending";
 
 				if (req.files.startup_logo && req.files.startup_logo.length) {
 					uploadedDocs.push(
@@ -726,6 +748,7 @@ exports.register = async (req, res) => {
 
 				investorProfile = investorInsertResult.rows[0];
 
+				uploadedDocs.push(await saveDoc("investor", investorProfile.investor_id, req.files.profile_picture[0], "Profile picture"));
 				uploadedDocs.push(await saveDoc("investor", investorProfile.investor_id, req.files.registration_doc[0], "Registration document"));
 				uploadedDocs.push(await saveDoc("investor", investorProfile.investor_id, req.files.trade_license[0], "Trade license"));
 				uploadedDocs.push(await saveDoc("investor", investorProfile.investor_id, req.files.tin_certificate[0], "TIN certificate"));
@@ -813,6 +836,9 @@ exports.register = async (req, res) => {
 				mentorProfile.is_approved = true;
 
 				const mentorDocMeta = [];
+				mentorDocMeta.push(
+					await saveDoc("mentor", mentorProfile.mentor_id, req.files.profile_picture[0], "Profile picture"),
+				);
 				if (req.files && req.files.mentor_id && req.files.mentor_id.length) {
 					mentorDocMeta.push(
 						await saveDoc("mentor", mentorProfile.mentor_id, req.files.mentor_id[0], "Government-issued ID"),
@@ -851,29 +877,31 @@ exports.register = async (req, res) => {
 			const admins = adminsRes.rows;
 
 			for (const admin of admins) {
-				// Insert registration notification
-				await client.query(
-					`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id)
-					 VALUES ($1, 'registration', $2, $3, 'user', $4)`,
-					[
-						admin.user_id,
-						`New ${normalizedRole} Registered`,
-						`A new ${normalizedRole} account for ${effectiveFirstName} ${effectiveLastName} (${normalizedEmail}) has registered and is pending approval.`,
-						user.user_id
-					]
-				);
+				if (platformConfig.notifNewUsers !== false) {
+					await client.query(
+						`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id)
+						 VALUES ($1, 'registration', $2, $3, 'user', $4)`,
+						[
+							admin.user_id,
+							`New ${normalizedRole} Registered`,
+							`A new ${normalizedRole} account for ${effectiveFirstName} ${effectiveLastName} (${normalizedEmail}) has registered and is pending approval.`,
+							user.user_id,
+						],
+					);
+				}
 
-				// Insert verification request notification
-				await client.query(
-					`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id)
-					 VALUES ($1, 'verification', $2, $3, 'user', $4)`,
-					[
-						admin.user_id,
-						`Verification Request: ${effectiveFirstName} ${effectiveLastName}`,
-						`${effectiveFirstName} ${effectiveLastName} (${normalizedRole}) has submitted documents for verification.`,
-						user.user_id
-					]
-				);
+				if (platformConfig.notifVerification !== false) {
+					await client.query(
+						`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id)
+						 VALUES ($1, 'verification', $2, $3, 'user', $4)`,
+						[
+							admin.user_id,
+							`Verification Request: ${effectiveFirstName} ${effectiveLastName}`,
+							`${effectiveFirstName} ${effectiveLastName} (${normalizedRole}) has submitted documents for verification.`,
+							user.user_id,
+						],
+					);
+				}
 			}
 
 			await client.query("COMMIT");
@@ -1235,6 +1263,51 @@ exports.revokeAllOtherSessions = async (req, res) => {
 			);
 		}
 		return res.json({ message: "All other sessions revoked successfully" });
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
+// GET /api/auth/profile-picture (Authenticated)
+exports.getProfilePicture = async (req, res) => {
+	const { user_id: userId, role } = req.user;
+	const owners = {
+		Startup: { table: "startups", id: "startup_id" },
+		Investor: { table: "investors", id: "investor_id" },
+		Mentor: { table: "mentors", id: "mentor_id" },
+	};
+	const owner = owners[role];
+	if (!owner) return res.status(404).json({ message: "Profile picture not found" });
+
+	const descriptionClause =
+		role === "Startup"
+			? `(LOWER(COALESCE(d.description, '')) LIKE '%company logo%'
+			    OR (LOWER(COALESCE(d.description, '')) LIKE '%logo%'
+			        AND LOWER(COALESCE(d.description, '')) NOT LIKE '%profile%'))`
+			: `(LOWER(COALESCE(d.description, '')) LIKE '%profile picture%'
+			    OR LOWER(COALESCE(d.description, '')) LIKE '%profile photo%'
+			    OR LOWER(COALESCE(d.description, '')) LIKE '%avatar%')`;
+
+	try {
+		const result = await pool.query(
+			`SELECT d.file_name, d.file_type, d.file_data
+			 FROM documents d
+			 JOIN ${owner.table} p ON p.${owner.id} = d.${owner.id}
+			 WHERE p.user_id = $1
+			   AND ${descriptionClause}
+			 ORDER BY d.created_at DESC
+			 LIMIT 1`,
+			[userId],
+		);
+		const picture = result.rows[0];
+		if (!picture?.file_data) {
+			return res.status(404).json({ message: "Profile picture not found" });
+		}
+		const safeName = String(picture.file_name || "profile-picture").replace(/[^\w.\- ()]/g, "_");
+		res.setHeader("Content-Type", picture.file_type || "application/octet-stream");
+		res.setHeader("Content-Disposition", `inline; filename="${safeName}"`);
+		res.setHeader("Cache-Control", "private, max-age=300");
+		return res.send(picture.file_data);
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}

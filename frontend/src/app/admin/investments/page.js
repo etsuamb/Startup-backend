@@ -60,7 +60,7 @@ function InvestmentDetailModal({ type, id, initialRecord, onClose, onUpdated }) 
 	}, [type, id, initialRecord]);
 
 	useEffect(() => {
-		load();
+		queueMicrotask(load);
 	}, [load]);
 
 	async function run(fn) {
@@ -305,6 +305,13 @@ export default function AdminInvestmentsPage() {
 	const [msg, setMsg] = useState("");
 	const [detail, setDetail] = useState(null);
 
+	useEffect(() => {
+		queueMicrotask(() => {
+			const requestId = new URLSearchParams(window.location.search).get("requestId");
+			if (requestId) setDetail({ type: "request", id: requestId });
+		});
+	}, []);
+
 	const load = useCallback(async () => {
 		setLoading(true);
 		setError("");
@@ -331,7 +338,7 @@ export default function AdminInvestmentsPage() {
 	}, []);
 
 	useEffect(() => {
-		load();
+		queueMicrotask(load);
 	}, [load]);
 
 	const filteredRequests = filter ? requests.filter((r) => r.status === filter) : requests;

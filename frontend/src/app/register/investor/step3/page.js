@@ -25,7 +25,7 @@ export default function InvestorRegistrationStep3() {
             <div className="flex items-center gap-2"><img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" /><span className="font-bold text-lg text-white tracking-tight">StartupConnect</span></div>
           </Link>
           <h1 className="text-4xl lg:text-5xl font-light text-white mb-6 leading-tight">
-            Build Ethiopia's next investment stories with real founder partnerships.
+            Build Ethiopia&apos;s next investment stories with real founder partnerships.
           </h1>
           <p className="text-[#10b981] text-sm leading-relaxed max-w-sm font-medium">
             Upload your investment documents so we can fast-track your approval and connect you to vetted opportunities.
@@ -79,12 +79,13 @@ export default function InvestorRegistrationStep3() {
                       type="file"
                       name="registration_doc"
                       required
-                      accept=".pdf,.jpg,.jpeg,.png"
+                      accept=".pdf,application/pdf"
+                      data-file-kind="pdf"
                       className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-[#136150] focus:ring-2 focus:ring-[#136150]"
                     />
                     <p className="text-[12px] text-gray-500 mt-2">
                       Upload a company registration document if you are investing through an entity.
-                      If you are registering as an individual investor, upload a government-issued ID or passport.
+                      If you are registering as an individual investor, upload a scanned PDF of your government-issued ID or passport.
                     </p>
                   </label>
 
@@ -94,7 +95,8 @@ export default function InvestorRegistrationStep3() {
                       type="file"
                       name="trade_license"
                       required
-                      accept=".pdf,.jpg,.jpeg,.png"
+                      accept=".pdf,application/pdf"
+                      data-file-kind="pdf"
                       className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-[#136150] focus:ring-2 focus:ring-[#136150]"
                     />
                   </label>
@@ -105,7 +107,8 @@ export default function InvestorRegistrationStep3() {
                       type="file"
                       name="tin_certificate"
                       required
-                      accept=".pdf,.jpg,.jpeg,.png"
+                      accept=".pdf,application/pdf"
+                      data-file-kind="pdf"
                       className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-[#136150] focus:ring-2 focus:ring-[#136150]"
                     />
                   </label>

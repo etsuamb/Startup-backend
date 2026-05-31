@@ -575,8 +575,8 @@ exports.videoStart = async (req, res) => {
 		const peerUserId = isStartupUser(conv, userId) ? conv.investor_user_id : conv.startup_user_id;
 		await pool.query(
 			`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id)
-       VALUES ($1, 'video', 'Incoming video call', $2, 'chat_video_calls', $3)`,
-			[peerUserId, `Room ${roomId}`, ins.rows[0].video_call_id],
+       VALUES ($1, 'video', 'Incoming video call', $2, 'chat_conversations', $3)`,
+			[peerUserId, `Room ${roomId}`, convId],
 		);
 
 		return res.status(201).json({ video_call: { ...ins.rows[0], join_url: videoJoinUrl(roomId) } });

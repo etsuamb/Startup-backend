@@ -174,16 +174,6 @@ exports.updateStartupStatus = async (req, res) => {
 			});
 		}
 
-		const isListed = status === "Active" || status === "Funded";
-		const r = await pool.query(
-			`UPDATE startups
-			 SET admin_status = $1, is_listed = $2
-			 WHERE startup_id = $3
-			 RETURNING *`,
-			[status, isListed, id],
-		);
-		if (!r.rowCount) return res.status(404).json({ message: "Startup not found" });
-
 		const ownerRes = await pool.query(
 			`SELECT s.user_id, u.is_approved, u.is_active
 			 FROM startups s
@@ -191,13 +181,22 @@ exports.updateStartupStatus = async (req, res) => {
 			 WHERE s.startup_id = $1`,
 			[id],
 		);
+		if (!ownerRes.rowCount) return res.status(404).json({ message: "Startup not found" });
 		const owner = ownerRes.rows[0];
 		if ((status === "Active" || status === "Funded") && (!owner?.is_approved || !owner?.is_active)) {
 			return res.status(400).json({
 				message:
-					"Cannot list this startup publicly until the founder account is approved on the Users page.",
+					"Cannot mark this startup active until the founder account is approved on the Users page.",
 			});
 		}
+
+		const r = await pool.query(
+			`UPDATE startups
+			 SET admin_status = $1
+			 WHERE startup_id = $2
+			 RETURNING *`,
+			[status, id],
+		);
 
 		const uid = owner?.user_id;
 		if (uid) {
@@ -216,9 +215,6 @@ exports.updateStartupStatus = async (req, res) => {
 		return res.json({
 			message: "Startup lifecycle updated",
 			startup: r.rows[0],
-			listing_effect: isListed
-				? "Startup is visible to investors in discover."
-				: "Startup is hidden from investor discover.",
 		});
 	} catch (err) {
 		return res.status(500).json({ error: err.message });

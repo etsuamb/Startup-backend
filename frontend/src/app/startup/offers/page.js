@@ -398,7 +398,7 @@ export default function StartupOffersPage() {
   }
 
   useEffect(() => {
-    fetchOffers();
+    queueMicrotask(fetchOffers);
   }, []);
 
   async function handleAccept(offer) {
@@ -410,7 +410,7 @@ export default function StartupOffersPage() {
       );
       showToast("Offer accepted successfully!", "success");
     } catch (err) {
-      showToast("Failed to accept offer. Please try again.", "error");
+      setError(err.message || "Failed to accept offer. Please try again.");
     } finally {
       setActionLoading(null);
     }
@@ -425,7 +425,7 @@ export default function StartupOffersPage() {
       );
       showToast("Offer declined.", "success");
     } catch (err) {
-      showToast("Failed to decline offer. Please try again.", "error");
+      setError(err.message || "Failed to decline offer. Please try again.");
     } finally {
       setActionLoading(null);
     }
@@ -480,13 +480,11 @@ export default function StartupOffersPage() {
       <Sidebar />
 
       {/* Toast */}
-      {toast && (
+      {toast && toast.type === "success" && (
         <div
-          className={`fixed top-5 right-5 z-50 flex items-center gap-2.5 rounded-2xl px-5 py-3.5 shadow-lg text-sm font-semibold transition-all ${
-            toast.type === "success" ? "bg-[#0f3d32] text-white" : "bg-red-600 text-white"
-          }`}
+          className="fixed top-5 right-5 z-50 flex items-center gap-2.5 rounded-2xl bg-[#0f3d32] px-5 py-3.5 text-sm font-semibold text-white shadow-lg transition-all"
         >
-          {toast.type === "success" ? <IconCheck /> : <IconX />}
+          <IconCheck />
           {toast.message}
         </div>
       )}

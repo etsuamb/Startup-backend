@@ -10,7 +10,6 @@ import {
 	getInvestorProfile,
 	getInvestorRecommendations,
 	getInvestorStartups,
-	searchInvestorStartups,
 } from "@/lib/investorApi";
 
 function formatCurrency(value) {
@@ -81,9 +80,7 @@ export default function InvestorDashboard() {
 	const [recommendations, setRecommendations] = useState([]);
 	const [fundingOffers, setFundingOffers] = useState([]);
 	const [startups, setStartups] = useState([]);
-	const [search, setSearch] = useState("");
 	const [loading, setLoading] = useState(true);
-	const [searching, setSearching] = useState(false);
 	const [error, setError] = useState("");
 
 	useEffect(() => {
@@ -121,31 +118,6 @@ export default function InvestorDashboard() {
 			alive = false;
 		};
 	}, []);
-
-	useEffect(() => {
-		let alive = true;
-		const timer = setTimeout(async () => {
-			if (!search.trim()) {
-				setSearching(false);
-				return;
-			}
-
-			setSearching(true);
-			try {
-				const data = await searchInvestorStartups({ search, limit: 6 });
-				if (alive) setStartups(data.startups || []);
-			} catch (err) {
-				if (alive) setError(err.message || "Unable to search startups.");
-			} finally {
-				if (alive) setSearching(false);
-			}
-		}, 350);
-
-		return () => {
-			alive = false;
-			clearTimeout(timer);
-		};
-	}, [search]);
 
 	const profileName = useMemo(() => {
 		if (!profile) return "Investor";
@@ -234,7 +206,6 @@ export default function InvestorDashboard() {
 							<div className="flex justify-between items-center mb-5">
 								<div>
 									<h2 className="text-xl font-bold text-gray-900">Recommended Startups</h2>
-									{searching ? <p className="text-xs text-gray-500 mt-1">Searching...</p> : null}
 								</div>
 								<Link href="/investor/recommendations" className="text-sm font-bold text-[#0a4d3c] hover:underline">
 									View Recommendations

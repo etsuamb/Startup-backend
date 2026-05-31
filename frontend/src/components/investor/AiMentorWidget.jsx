@@ -35,7 +35,7 @@ export default function InvestorAiMentorWidget() {
 		if (!open) return;
 		getInvestorAiMentorSessions()
 			.then((data) => setSessions(Array.isArray(data?.sessions) ? data.sessions : []))
-			.catch(() => {});
+			.catch((err) => setError(err?.message || "Unable to load AI assistant chat history."));
 	}, [open]);
 
 	useEffect(() => {
@@ -98,7 +98,7 @@ export default function InvestorAiMentorWidget() {
 			]);
 			getInvestorAiMentorSessions()
 				.then((sessionsData) => setSessions(Array.isArray(sessionsData?.sessions) ? sessionsData.sessions : []))
-				.catch(() => {});
+				.catch((err) => setError(err?.message || "Unable to refresh AI assistant chat history."));
 		} catch (err) {
 			setError(err?.message || "AI assistant could not respond.");
 		} finally {

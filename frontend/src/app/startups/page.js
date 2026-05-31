@@ -12,6 +12,7 @@ export default function BrowseStartups() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const limit = 12;
 
   const industryOptions = [
@@ -40,6 +41,7 @@ export default function BrowseStartups() {
 
   const fetchStartups = async (opts = {}) => {
     setLoading(true);
+    setError("");
     try {
       const params = new URLSearchParams();
       if (opts.q !== undefined ? opts.q : query)
@@ -64,6 +66,7 @@ export default function BrowseStartups() {
       setPage(data.page || 1);
     } catch (err) {
       console.error("Failed to fetch startups", err);
+      setError(err.message || "Unable to load startups. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -162,6 +165,11 @@ export default function BrowseStartups() {
 
         {/* Filters Section */}
         <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto mb-10">
+          {error ? (
+            <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+              {error}
+            </p>
+          ) : null}
           <form
             onSubmit={(event) => {
               event.preventDefault();

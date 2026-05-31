@@ -67,6 +67,7 @@ const tabs = [
 ];
 
 export default function Offers() {
+  const [focusedRequestId, setFocusedRequestId] = useState("");
   const [offers, setOffers] = useState([]);
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
@@ -76,6 +77,12 @@ export default function Offers() {
   const [actionError, setActionError] = useState("");
   const [withdrawingId, setWithdrawingId] = useState(null);
   const [acceptingId, setAcceptingId] = useState(null);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      setFocusedRequestId(new URLSearchParams(window.location.search).get("requestId") || "");
+    });
+  }, []);
 
   useEffect(() => {
     let ignore = false;
@@ -274,7 +281,14 @@ export default function Offers() {
                           const canCancel = status === "pending";
                           const isReceivedRequest = String(offer.initiated_by || "startup").toLowerCase() === "startup";
                           return (
-                            <tr key={offer.investment_request_id} className="hover:bg-gray-50 transition">
+                            <tr
+                              key={offer.investment_request_id}
+                              className={`hover:bg-gray-50 transition ${
+                                String(offer.investment_request_id) === focusedRequestId
+                                  ? "bg-emerald-50 ring-2 ring-inset ring-emerald-500"
+                                  : ""
+                              }`}
+                            >
                               <td className="px-6 py-4">
                                 <div className="flex items-center gap-4">
                                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-[13px] font-bold ${avatarClass(offer.industry)}`}>

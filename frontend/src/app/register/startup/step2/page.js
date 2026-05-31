@@ -35,7 +35,7 @@ export default function StartupRegistrationStep2() {
             Empower the <br/> Next Generation <br/> of Ethiopian <br/> Founders
           </h1>
           <p className="text-[#10b981] text-sm leading-relaxed max-w-sm font-medium">
-            Join a prestigious network of industry leaders curating the future of Ethiopia's innovation ecosystem through high-impact mentorship.
+            Join a prestigious network of industry leaders curating the future of Ethiopia&apos;s innovation ecosystem through high-impact mentorship.
           </p>
         </div>
 
@@ -83,7 +83,7 @@ export default function StartupRegistrationStep2() {
 
                 <div className="bg-[#f8f9fa] p-6 rounded-xl border border-gray-100 flex flex-col gap-5">
                   <div>
-                    <label className="block text-xs font-bold text-gray-800 mb-2">Startup logo / icon</label>
+                    <label className="block text-xs font-bold text-gray-800 mb-2">Startup logo / icon <span className="text-red-500">*</span></label>
                     <div className="flex items-center gap-4">
                       <div className="w-20 h-20 rounded-xl bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden">
                         <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
@@ -92,10 +92,12 @@ export default function StartupRegistrationStep2() {
                         <input
                           name="startup_logo"
                           type="file"
-                          accept="image/*"
+                          required
+                          accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                          data-file-kind="image"
                           className="text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#167b66] file:text-white hover:file:bg-[#0f5c4a]"
                         />
-                        <p className="text-[10px] text-gray-500 mt-1">Upload your startup logo (PNG, JPG, SVG)</p>
+                        <p className="text-[10px] text-gray-500 mt-1">Upload your startup logo (JPG or PNG). It will appear in your account menu.</p>
                       </div>
                     </div>
                   </div>

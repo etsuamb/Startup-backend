@@ -27,6 +27,17 @@ function normalizeText(value) {
 		.trim();
 }
 
+function isCompanyLogoDocument(doc) {
+	const description = normalizeText(doc?.description || doc?.document_type);
+	const fileName = normalizeText(doc?.file_name);
+	const fileType = normalizeText(doc?.file_type);
+	const isLogo =
+		description.includes("company logo") ||
+		(description.includes("logo") && !description.includes("profile"));
+	const isImage = fileType.startsWith("image/") || /\.(png|jpe?g|gif|webp|svg)$/.test(fileName);
+	return isLogo && isImage;
+}
+
 function isLogoDocument(doc) {
 	const description = normalizeText(doc?.description || doc?.document_type);
 	const fileName = normalizeText(doc?.file_name);
@@ -48,6 +59,7 @@ export default function StartupTopBar({
 	onSearchChange,
 	onSearchSubmit,
 	searchPlaceholder = "Search startup workspace...",
+	showSearch = true,
 	profileName = "My Startup",
 	profileSubtitle = "Startup account",
 	profileDocuments,
@@ -60,10 +72,10 @@ export default function StartupTopBar({
 	const [profileImageSrc, setProfileImageSrc] = useState(null);
 	const effectiveProfile = loadedProfile?.startup || null;
 	const directProfileImage =
-		effectiveProfile?.profile_image_url ||
-		effectiveProfile?.profile_picture_url ||
 		effectiveProfile?.logo_url ||
 		effectiveProfile?.logo_path ||
+		effectiveProfile?.profile_image_url ||
+		effectiveProfile?.profile_picture_url ||
 		effectiveProfile?.avatar_url ||
 		null;
 	const effectiveName =
@@ -81,7 +93,7 @@ export default function StartupTopBar({
 	const avatar = useMemo(() => initials(effectiveName), [effectiveName]);
 	const logoDocument = useMemo(() => {
 		const docs = Array.isArray(effectiveDocuments) ? effectiveDocuments : [];
-		return docs.find(isLogoDocument) || null;
+		return docs.find(isCompanyLogoDocument) || docs.find(isLogoDocument) || null;
 	}, [effectiveDocuments]);
 
 	useEffect(() => {
@@ -157,7 +169,7 @@ export default function StartupTopBar({
 	return (
 		<header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-4 py-4 shadow-sm sm:px-8">
 			<div className="flex items-center gap-4">
-				<form onSubmit={handleSearchSubmit} className="relative hidden w-full max-w-xl sm:block">
+				{showSearch ? <form onSubmit={handleSearchSubmit} className="relative hidden w-full max-w-xl sm:block">
 					<div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
 						<svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" />
@@ -170,7 +182,7 @@ export default function StartupTopBar({
 						placeholder={searchPlaceholder}
 						className="h-11 w-full rounded-full border border-gray-100 bg-[#f6f8f9] pl-10 pr-4 text-sm outline-none transition focus:border-[#0f3d32] focus:bg-white focus:ring-2 focus:ring-[#0f3d32]/10"
 					/>
-				</form>
+				</form> : null}
 
 				<div className="ml-auto flex items-center gap-2 sm:gap-3">
 					{onRefresh && (

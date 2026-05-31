@@ -25,7 +25,7 @@ export default function InvestorRegistration() {
             <div className="flex items-center gap-2"><img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" /><span className="font-bold text-lg text-white tracking-tight">StartupConnect</span></div>
           </Link>
           <h1 className="text-4xl lg:text-5xl font-light text-white mb-6 leading-tight">
-            Invest in Ethiopia's next growth stories.
+            Invest in Ethiopia&apos;s next growth stories.
           </h1>
           <p className="text-[#10b981] text-sm leading-relaxed max-w-sm font-medium">
             Your account details were captured before actor selection. Continue to complete your investor profile.

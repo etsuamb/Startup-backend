@@ -20,7 +20,8 @@ export default function MentorRegisterSubmitClient() {
 					</label>
 					<input
 						type="file"
-						accept=".pdf,.jpg,.jpeg,.png"
+						accept=".pdf,application/pdf"
+						data-file-kind="pdf"
 						multiple
 						className="text-xs w-full"
 						onChange={(e) => {
@@ -38,7 +39,8 @@ export default function MentorRegisterSubmitClient() {
 				</label>
 				<input
 					type="file"
-					accept="video/mp4,video/quicktime"
+					accept="video/mp4,video/quicktime,video/webm"
+					data-file-kind="video"
 					className="text-xs w-full"
 					onChange={(e) => {
 					const file = e.target.files && e.target.files[0];

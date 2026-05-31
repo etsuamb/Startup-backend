@@ -8,6 +8,7 @@ import Sidebar from "@/components/mentor/Sidebar";
 import AccountAccessGuard from "@/components/auth/AccountAccessGuard";
 import { clearSession } from "@/lib/authStorage";
 import { fetchMentorDashboard } from "@/lib/mentorApi";
+import ProfilePictureAvatar from "@/components/auth/ProfilePictureAvatar";
 
 function Icon({ path, className = "h-4 w-4" }) {
 	return (
@@ -43,14 +44,20 @@ function MentorTopbar() {
 	const [profile, setProfile] = useState(null);
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [search, setSearch] = useState("");
+	const [profileError, setProfileError] = useState("");
 
 	useEffect(() => {
 		let alive = true;
 		fetchMentorDashboard()
 			.then((data) => {
-				if (alive) setProfile(data?.profile || null);
+				if (alive) {
+					setProfile(data?.profile || null);
+					setProfileError("");
+				}
 			})
-			.catch(() => {});
+			.catch((error) => {
+				if (alive) setProfileError(error.message || "Unable to load mentor profile.");
+			});
 		return () => {
 			alive = false;
 		};
@@ -71,8 +78,9 @@ function MentorTopbar() {
 	}
 
 	return (
-		<header className="sticky top-0 z-30 flex h-[72px] shrink-0 items-center justify-between border-b border-gray-100 bg-white px-5 shadow-sm sm:px-8">
-			<form onSubmit={onSearchSubmit} className="relative w-full max-w-[460px]">
+		<div className="sticky top-0 z-30 shrink-0 bg-white shadow-sm">
+		<header className="flex h-[72px] items-center justify-between border-b border-gray-100 px-5 sm:px-8">
+			{pathname !== "/mentor/dashboard" ? <form onSubmit={onSearchSubmit} className="relative w-full max-w-[460px]">
 				<div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
 					<Icon path="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
 				</div>
@@ -83,7 +91,7 @@ function MentorTopbar() {
 					placeholder={pagePlaceholder(pathname)}
 					className="h-10 w-full rounded-full border border-transparent bg-[#eef1f4] pl-11 pr-4 text-xs font-medium text-gray-700 outline-none transition focus:border-[#0b4a3c]/20 focus:bg-white focus:ring-2 focus:ring-[#0b4a3c]/10"
 				/>
-			</form>
+			</form> : <div />}
 
 			<div className="ml-4 flex items-center gap-3">
 				<NotificationBell />
@@ -106,9 +114,10 @@ function MentorTopbar() {
 							<p className="max-w-[160px] truncate text-xs font-black text-gray-950">{name}</p>
 							<p className="max-w-[160px] truncate text-[10px] font-medium text-gray-500">{title}</p>
 						</div>
-						<div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0b4a3c] text-xs font-black text-white ring-2 ring-white">
-							{initials(name)}
-						</div>
+						<ProfilePictureAvatar
+							initials={initials(name)}
+							className="h-10 w-10 rounded-full ring-2 ring-white"
+						/>
 						<Icon path="M19 9l-7 7-7-7" className={`hidden h-3.5 w-3.5 text-gray-400 transition sm:block ${menuOpen ? "rotate-180" : ""}`} />
 					</button>
 					{menuOpen ? (
@@ -134,6 +143,12 @@ function MentorTopbar() {
 				</div>
 			</div>
 		</header>
+		{profileError ? (
+			<p role="alert" className="border-b border-red-100 bg-red-50 px-5 py-2 text-xs font-semibold text-red-700 sm:px-8">
+				{profileError}
+			</p>
+		) : null}
+		</div>
 	);
 }
 

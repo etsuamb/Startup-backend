@@ -8,32 +8,42 @@ import { hasFullPlatformAccess, normalizeAuthUser } from "@/lib/accountGate";
 export default function AccountAccessBanner() {
 	const [user, setUser] = useState(null);
 	const [message, setMessage] = useState("");
+	const [error, setError] = useState("");
 	const [sending, setSending] = useState(false);
 
 	useEffect(() => {
 		let alive = true;
 		getCurrentAccount()
 			.then((data) => {
-				if (alive) setUser(normalizeAuthUser(data?.user) || null);
+				if (alive) {
+					setUser(normalizeAuthUser(data?.user) || null);
+					setError("");
+				}
 			})
-			.catch(() => {});
+			.catch((err) => {
+				if (alive) setError(err.message || "Unable to load account access status.");
+			});
 		return () => {
 			alive = false;
 		};
 	}, []);
 
+	if (error) {
+		return <p role="alert" className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</p>;
+	}
 	if (!user || hasFullPlatformAccess(user)) return null;
 
 	const needsEmail = user.email_verified === false;
 
 	async function onResend() {
 		setMessage("");
+		setError("");
 		setSending(true);
 		try {
 			const data = await resendVerification(user.email);
 			setMessage(data?.message || "Verification email sent.");
 		} catch (err) {
-			setMessage(err.message || "Could not send verification email.");
+			setError(err.message || "Could not send verification email.");
 		} finally {
 			setSending(false);
 		}

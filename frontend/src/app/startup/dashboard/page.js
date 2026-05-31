@@ -273,7 +273,7 @@ export default function StartupDashboard() {
       <Sidebar />
       <main className="flex-grow flex flex-col overflow-y-auto">
         <StartupTopBar
-          searchPlaceholder="Search dashboard, projects, offers..."
+          showSearch={false}
           profileName={startup?.startup_name ?? "My Startup"}
           profileSubtitle={accountLabel}
           refreshing={refreshing}

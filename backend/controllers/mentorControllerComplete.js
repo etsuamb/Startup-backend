@@ -266,12 +266,14 @@ exports.acceptMentorshipRequest = async (req, res) => {
 
 		if (startupRes.rows.length > 0) {
 			await pool.query(
-				"INSERT INTO notifications (user_id, notification_type, title, message) VALUES ($1, $2, $3, $4)",
+				`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id)
+				 VALUES ($1, $2, $3, $4, 'mentorship_requests', $5)`,
 				[
 					startupRes.rows[0].user_id,
 					"mentorship",
 					"Mentorship Accepted",
 					"Your mentorship request has been accepted!",
+					requestId,
 				],
 			);
 		}
@@ -310,6 +312,19 @@ exports.rejectMentorshipRequest = async (req, res) => {
 
 		if (result.rows.length === 0) {
 			return res.status(404).json({ message: "Request not found" });
+		}
+
+		const startupRes = await pool.query(
+			"SELECT user_id FROM startups WHERE startup_id = $1",
+			[result.rows[0].startup_id],
+		);
+
+		if (startupRes.rows.length > 0) {
+			await pool.query(
+				`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id)
+				 VALUES ($1, 'mentorship', 'Mentorship Rejected', $2, 'mentorship_requests', $3)`,
+				[startupRes.rows[0].user_id, reason || "Your mentorship request was rejected.", requestId],
+			);
 		}
 
 		res.json({ message: "Mentorship request rejected" });

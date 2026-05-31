@@ -6,6 +6,7 @@ const router = express.Router();
 const authController = require("../controllers/authController");
 const { authRateLimit } = require("../middleware/authRateLimit");
 const authSecurityController = require("../controllers/authSecurityController");
+const validateRegistrationUploadFormats = require("../middleware/registrationUploadValidation");
 const {
 	authenticate,
 	authorizeRoles,
@@ -16,6 +17,7 @@ const {
 router.post(
 	"/register",
 	upload.fields([
+		{ name: "profile_picture", maxCount: 1 },
 		{ name: "founder_id", maxCount: 1 },
 		{ name: "startup_logo", maxCount: 1 },
 		{ name: "business_registration_proof", maxCount: 1 },
@@ -27,8 +29,11 @@ router.post(
 		{ name: "certifications", maxCount: 15 },
 		{ name: "intro_video", maxCount: 1 },
 	]),
+	validateRegistrationUploadFormats,
 	authController.register,
 );
+
+router.get("/profile-picture", authenticate, authController.getProfilePicture);
 
 // Login user
 router.post("/login", authRateLimit({ scope: "login", max: 20 }), authController.login);

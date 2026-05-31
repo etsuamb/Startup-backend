@@ -89,10 +89,11 @@ export default function AdminDirectoryDetailsModal({ row, onClose, onUpdated }) 
 	}, [row]);
 
 	useEffect(() => {
-		loadDetail();
+		const timer = setTimeout(() => loadDetail(), 0);
+		return () => clearTimeout(timer);
 	}, [loadDetail]);
 
-	const profile = detail?.profile || {};
+	const profile = useMemo(() => detail?.profile || {}, [detail?.profile]);
 	const roleKey = ROLE_LABEL[row?.kind] || "Startup";
 	const fieldMap = profileFieldMap[roleKey] || [];
 
@@ -149,7 +150,6 @@ export default function AdminDirectoryDetailsModal({ row, onClose, onUpdated }) 
 		try {
 			await updateStartupStatus(row.id, nextStatus, note);
 			setStartupStatus(nextStatus);
-			setListed(nextStatus === "Active" || nextStatus === "Funded");
 			setNote("");
 			await loadDetail();
 			onUpdated?.();
@@ -320,7 +320,7 @@ export default function AdminDirectoryDetailsModal({ row, onClose, onUpdated }) 
 												))}
 											</select>
 											<p className="mt-1.5 text-xs text-slate-500">
-												Active and Funded statuses also list the startup in discover.
+												Operational status is separate from public directory visibility.
 											</p>
 										</div>
 									) : null}

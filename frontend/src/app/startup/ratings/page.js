@@ -33,19 +33,20 @@ function SectionCard({ children, className = "" }) {
 function Toast({ message, type, onClose }) {
   if (!message) return null;
   const isSuccess = type === "success";
+  if (!isSuccess) {
+    return (
+      <p role="alert" className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+        {message}
+      </p>
+    );
+  }
   return (
     <div
-      className={`fixed top-5 right-5 z-50 flex items-center gap-3 rounded-2xl px-5 py-3.5 shadow-lg text-sm font-semibold animate-in slide-in-from-right ${
-        isSuccess ? "bg-[#0f3d32] text-white" : "bg-red-600 text-white"
-      }`}
+      className="fixed top-5 right-5 z-50 flex items-center gap-3 rounded-2xl bg-[#0f3d32] px-5 py-3.5 text-sm font-semibold text-white shadow-lg animate-in slide-in-from-right"
     >
-      {isSuccess ? (
+      {(
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-        </svg>
-      ) : (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
         </svg>
       )}
       {message}
@@ -85,7 +86,9 @@ function RatingContent() {
 
   const showToast = (message, type = "success") => {
     setToast({ message, type });
-    setTimeout(() => setToast({ message: null, type: null }), 3500);
+    if (type !== "error") {
+      setTimeout(() => setToast({ message: null, type: null }), 3500);
+    }
   };
 
   function applyExistingRating(mentorId, ratings = recentRatings) {

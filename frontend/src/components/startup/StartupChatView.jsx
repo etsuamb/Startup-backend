@@ -122,6 +122,7 @@ export default function StartupChatView({
 }) {
   const searchParams = useSearchParams();
   const targetPartnerId = targetQueryParam ? searchParams.get(targetQueryParam) : null;
+  const targetConversationId = searchParams.get("conversationId");
   const [conversations, setConversations] = useState([]);
   const [selected, setSelected] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -185,7 +186,7 @@ export default function StartupChatView({
     return list;
   }, [conversations, listFilter, searchQuery]);
 
-  const refreshConversations = useCallback(async (preferredPartnerId = null) => {
+  const refreshConversations = useCallback(async (preferredPartnerId = null, preferredConversationId = null) => {
     const data = await loadConversations();
     const list = await Promise.all(
       (data.conversations || []).map(async (row) => {
@@ -204,6 +205,10 @@ export default function StartupChatView({
     setSelected((current) => {
       if (current && list.some((c) => c.id === current.id)) {
         return list.find((c) => c.id === current.id) || current;
+      }
+      if (preferredConversationId) {
+        const preferred = list.find((c) => String(c.id) === String(preferredConversationId));
+        if (preferred) return preferred;
       }
       if (preferredPartnerId) {
         const preferred = list.find((c) => String(c.partnerId) === String(preferredPartnerId));
@@ -247,7 +252,7 @@ export default function StartupChatView({
             setError(isChatAccessError(err) ? chatAccessMessage(err) : err.message || "Unable to open conversation.");
           }
         }
-        await refreshConversations(targetPartnerId);
+        await refreshConversations(targetPartnerId, targetConversationId);
       } catch (err) {
         setError(isChatAccessError(err) ? chatAccessMessage(err) : err.message || "Unable to load conversations.");
       } finally {
@@ -255,11 +260,11 @@ export default function StartupChatView({
       }
     }
     init();
-  }, [createConversation, refreshConversations, targetPartnerId]);
+  }, [createConversation, refreshConversations, targetConversationId, targetPartnerId]);
 
   useEffect(() => {
     if (!selected?.id) {
-      setMessages([]);
+      queueMicrotask(() => setMessages([]));
       return;
     }
     (async () => {

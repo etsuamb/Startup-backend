@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getToken } from "@/lib/authStorage";
-import { getNotifications } from "@/lib/notificationApi";
+import { useRouter } from "next/navigation";
+import { getRole, getToken } from "@/lib/authStorage";
+import { getNotifications, markNotificationAsRead } from "@/lib/notificationApi";
+import { resolveNotificationHref } from "@/lib/notificationNavigation";
 
 const seenNotificationIds = new Set();
 const POLL_INTERVAL_MS = 10000;
@@ -14,10 +16,14 @@ function buildPopup(notification) {
     title: notification.title || "New notification",
     message: notification.message || "You have a new update.",
     created_at: notification.created_at || new Date().toISOString(),
+    notification_type: notification.notification_type,
+    reference_type: notification.reference_type,
+    reference_id: notification.reference_id,
   };
 }
 
 export default function NotificationPopupHost() {
+  const router = useRouter();
   const [popups, setPopups] = useState([]);
   const initializedRef = useRef(false);
   const mountedRef = useRef(false);
@@ -117,13 +123,20 @@ export default function NotificationPopupHost() {
 
   if (popups.length === 0) return null;
 
+  function handlePopupClick(notification) {
+    setPopups((items) => items.filter((item) => item.notification_id !== notification.notification_id));
+    void markNotificationAsRead(notification.notification_id, true).catch(() => {});
+    router.push(resolveNotificationHref(notification, getRole()));
+  }
+
   return (
     <div className="fixed right-5 top-20 z-[90] flex w-[min(360px,calc(100vw-2.5rem))] flex-col gap-3">
       {popups.map((notification) => (
-        <div
+        <button
+          type="button"
           key={notification.notification_id}
-          role="status"
-          className="rounded-2xl border border-emerald-100 bg-white p-4 text-left shadow-xl ring-1 ring-black/5"
+          onClick={() => handlePopupClick(notification)}
+          className="rounded-2xl border border-emerald-100 bg-white p-4 text-left shadow-xl ring-1 ring-black/5 transition hover:bg-emerald-50"
         >
           <div className="flex items-start gap-3">
             <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0f3d32] text-white">
@@ -144,7 +157,7 @@ export default function NotificationPopupHost() {
             </div>
             <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
           </div>
-        </div>
+        </button>
       ))}
     </div>
   );

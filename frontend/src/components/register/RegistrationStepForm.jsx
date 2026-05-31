@@ -75,7 +75,9 @@ export default function RegistrationStepForm({ nextHref, className = "", childre
 	return (
 		<form
 			className={className}
-			onChange={(e) => saveDraft(e.currentTarget)}
+			onChange={(e) => {
+				saveDraft(e.currentTarget);
+			}}
 			onSubmit={(e) => {
 				e.preventDefault();
 				saveDraft(e.currentTarget);

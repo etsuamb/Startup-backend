@@ -563,6 +563,8 @@ exports.searchInvestors = async (req, res) => {
 			JOIN users u ON i.user_id = u.user_id
 			WHERE u.role = 'Investor'
 			  AND COALESCE(u.is_active, true) = true
+			  AND u.is_approved = true
+			  AND COALESCE(i.is_approved, false) = true
 		`;
 		const params = [];
 
@@ -634,6 +636,8 @@ exports.searchMentors = async (req, res) => {
 			JOIN users u ON m.user_id = u.user_id
 			WHERE u.role = 'Mentor'
 			  AND COALESCE(u.is_active, true) = true
+			  AND u.is_approved = true
+			  AND COALESCE(m.is_approved, false) = true
 		`;
 		const params = [];
 
@@ -1136,8 +1140,9 @@ exports.createMentorshipRequest = async (req, res) => {
 
 		// Notify mentor
 		await pool.query(
-			"INSERT INTO notifications (user_id, notification_type, title, message) SELECT user_id, $1, $2, $3 FROM mentors WHERE mentor_id = $4",
-			["mentorship", "New Mentorship Request", subject, mentor_id]
+			`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id)
+			 SELECT user_id, $1, $2, $3, 'mentorship_requests', $4 FROM mentors WHERE mentor_id = $5`,
+			["mentorship", "New Mentorship Request", subject, result.rows[0].mentorship_request_id, mentor_id]
 		);
 
 		res.status(201).json(result.rows[0]);

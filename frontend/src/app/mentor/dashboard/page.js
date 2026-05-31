@@ -143,17 +143,7 @@ export default function MentorDashboard() {
 
 	return (
 		<div className="min-h-full bg-[#fbfcfc] text-[#061f1a]">
-			<header className="sticky top-0 z-20 flex h-[72px] items-center justify-between border-b border-gray-100 bg-white px-5 sm:px-8">
-				<div className="relative w-full max-w-[360px]">
-					<div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
-						<Icon path="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" className="h-4 w-4" />
-					</div>
-					<input
-						type="search"
-						placeholder="Search startups, sessions, or resources..."
-						className="h-10 w-full rounded-full border border-transparent bg-[#eef1f4] pl-11 pr-4 text-xs font-medium text-gray-700 outline-none transition focus:border-[#0b4a3c]/20 focus:bg-white focus:ring-2 focus:ring-[#0b4a3c]/10"
-					/>
-				</div>
+			<header className="sticky top-0 z-20 flex h-[72px] items-center justify-end border-b border-gray-100 bg-white px-5 sm:px-8">
 
 				<div className="flex items-center gap-4">
 					<NotificationBell />
@@ -385,7 +375,7 @@ export default function MentorDashboard() {
 					<section className="border-l-2 border-[#0b4a3c] bg-[#eef4f1] p-5">
 						<p className="mb-3 text-[10px] font-black uppercase tracking-[0.22em] text-[#0b4a3c]">Institutional Insight</p>
 						<p className="text-sm font-semibold italic leading-6 text-[#092820]">
-							"The most successful startups in Ethiopia are not just solving problems; they are creating infrastructure for the next generation of commerce."
+							&quot;The most successful startups in Ethiopia are not just solving problems; they are creating infrastructure for the next generation of commerce.&quot;
 						</p>
 						<p className="mt-4 text-[10px] font-bold text-gray-500">Quarterly Mentor Review</p>
 					</section>

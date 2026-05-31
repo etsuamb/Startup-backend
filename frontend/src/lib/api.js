@@ -48,7 +48,14 @@ function friendlyApiMessage(data, status, fallback) {
 export async function apiFetch(path, options = {}) {
 	const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
 	const headers = { ...authHeaders(), ...(options.headers || {}) };
-	const res = await fetch(url, { ...options, headers });
+	let res;
+	try {
+		res = await fetch(url, { ...options, headers });
+	} catch (error) {
+		const err = new Error("Unable to reach the server. Check your connection and try again.");
+		err.cause = error;
+		throw err;
+	}
 	const text = await res.text();
 	let data;
 	try {
@@ -114,9 +121,16 @@ export async function apiPatchJson(path, body) {
 
 export async function apiFetchBlob(path) {
 	const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
-	const res = await fetch(url, {
-		headers: authHeaders(),
-	});
+	let res;
+	try {
+		res = await fetch(url, {
+			headers: authHeaders(),
+		});
+	} catch (error) {
+		const err = new Error("Unable to reach the server. Check your connection and try again.");
+		err.cause = error;
+		throw err;
+	}
 	if (!res.ok) {
 		const text = await res.text();
 		let data;

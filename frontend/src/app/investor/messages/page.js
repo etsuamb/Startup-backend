@@ -68,6 +68,7 @@ function ChatLockedNotice({ startupName }) {
 function MessagesContent() {
   const searchParams = useSearchParams();
   const startupIdFromUrl = searchParams.get("startupId") || "";
+  const conversationIdFromUrl = searchParams.get("conversationId") || "";
   const fileInputRef = useRef(null);
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
@@ -126,7 +127,10 @@ function MessagesContent() {
         );
         setCurrentUserId(profileData.investor?.user_id || null);
         if (!startupIdFromUrl) {
-          const first = loadedThreads[0]?.startup_id || loadedStartups[0]?.startup_id || "";
+          const focusedThread = loadedThreads.find(
+            (thread) => String(thread.conversation_id) === String(conversationIdFromUrl),
+          );
+          const first = focusedThread?.startup_id || loadedThreads[0]?.startup_id || loadedStartups[0]?.startup_id || "";
           setActiveStartupId(first ? String(first) : "");
         }
       } catch (err) {
@@ -140,7 +144,7 @@ function MessagesContent() {
     return () => {
       ignore = true;
     };
-  }, [startupIdFromUrl]);
+  }, [conversationIdFromUrl, startupIdFromUrl]);
 
   const inbox = useMemo(() => {
     const threadMap = new Map(

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   fetchMaintenanceStatus,
   changeAdminPassword,
@@ -9,21 +10,22 @@ import {
   fetchPlatformSettings,
   updatePlatformSettings,
   fetchAuditLogs,
+  downloadAuditLogsExport,
 } from "@/lib/adminApi";
-import { getRefreshToken } from "@/lib/authStorage";
+import { getCurrentAccount, updateCurrentAccount } from "@/lib/authApi";
+import { clearSession, getRefreshToken, getToken, setSession } from "@/lib/authStorage";
+import AccountSecurityPanel from "@/components/auth/AccountSecurityPanel";
 
-const colorClasses = {
-  indigo: { bg: "bg-indigo-50 text-indigo-600", border: "border-indigo-100", text: "text-indigo-700" },
-  emerald: { bg: "bg-emerald-50 text-emerald-600", border: "border-emerald-100", text: "text-emerald-700" },
-  violet: { bg: "bg-violet-50 text-violet-600", border: "border-violet-100", text: "text-violet-700" },
-  amber: { bg: "bg-amber-50 text-amber-600", border: "border-amber-100", text: "text-amber-700" },
-  sky: { bg: "bg-sky-50 text-sky-600", border: "border-sky-100", text: "text-sky-700" },
-  rose: { bg: "bg-rose-50 text-rose-600", border: "border-rose-100", text: "text-rose-700" },
-  teal: { bg: "bg-teal-50 text-teal-600", border: "border-teal-100", text: "text-teal-700" },
-  orange: { bg: "bg-orange-50 text-orange-600", border: "border-orange-100", text: "text-orange-700" },
+const DEFAULT_PLATFORM_CONFIG = {
+  userRegistration: true,
+  strictVerification: false,
+  twoFactorRequired: false,
+  notifNewUsers: true,
+  notifVerification: true,
+  notifAlerts: true,
+  language: "English",
+  defaultSignupRole: "Startup",
 };
-
-const systemLogs = [];
 
 export default function AdminSettingsPage() {
   const [dbStatus, setDbStatus] = useState(null);
@@ -39,21 +41,15 @@ export default function AdminSettingsPage() {
     notifAlerts: false,
   });
 
-  const [profile, setProfile] = useState({
-    name: "Abebe Bikila",
-    description: "Primary administrator responsible for platform governance and user verification workflows.",
-    avatar: "https://i.pravatar.cc/150?img=11",
-    role: "ADMINISTRATOR"
-  });
-
-  const [savedPassword, setSavedPassword] = useState("admin123");
+  const [profile, setProfile] = useState({ firstName: "", lastName: "", email: "", phone_number: "", role: "Admin" });
+  const [accountLoading, setAccountLoading] = useState(true);
   const [langPreference, setLangPreference] = useState("English");
 
   // Modal active states
   const [activeModal, setActiveModal] = useState(null);
 
   // Form states
-  const [profileForm, setProfileForm] = useState({ name: "", description: "", avatar: "" });
+  const [profileForm, setProfileForm] = useState({ firstName: "", lastName: "", email: "", phone_number: "" });
   const [passwordForm, setPasswordForm] = useState({ current: "", newPassword: "", confirm: "" });
   const [showPasswords, setShowPasswords] = useState({ current: false, newPassword: false, confirm: false });
   const [roleForm, setRoleForm] = useState({ defaultRole: "Startup" });
@@ -89,7 +85,7 @@ export default function AdminSettingsPage() {
     }
   };
 
-  // Load from server + localStorage on client-side mount
+  // Load from server on mount
   useEffect(() => {
     fetchMaintenanceStatus()
       .then((d) => setDbStatus(d))
@@ -109,6 +105,8 @@ export default function AdminSettingsPage() {
             notifVerification: cfg.notifVerification !== false,
             notifAlerts: cfg.notifAlerts === true,
           });
+          if (cfg.language) setLangPreference(cfg.language);
+          if (cfg.defaultSignupRole) setRoleForm({ defaultRole: cfg.defaultSignupRole });
         }
       })
       .catch(() => {});
@@ -117,26 +115,19 @@ export default function AdminSettingsPage() {
       .then((data) => setLiveLogs(data.logs || []))
       .catch(() => setLiveLogs([]));
 
-    const savedProf = localStorage.getItem("admin_settings_profile");
-    if (savedProf) {
-      try { setProfile(JSON.parse(savedProf)); } catch(e) {}
-    }
-
-    const savedPass = localStorage.getItem("admin_settings_password");
-    if (savedPass) {
-      setSavedPassword(savedPass);
-    }
-
-    const savedLang = localStorage.getItem("admin_settings_lang");
-    if (savedLang) {
-      setLangPreference(savedLang);
-    }
-
-    // Load default user roles setting if saved
-    const savedRole = localStorage.getItem("admin_default_role");
-    if (savedRole) {
-      setRoleForm({ defaultRole: savedRole });
-    }
+    getCurrentAccount()
+      .then((data) => {
+        const user = data?.user || {};
+        setProfile({
+          firstName: user.first_name || "",
+          lastName: user.last_name || "",
+          email: user.email || "",
+          phone_number: user.phone_number || "",
+          role: user.role || "Admin",
+        });
+      })
+      .catch(() => {})
+      .finally(() => setAccountLoading(false));
   }, []);
 
   const handleToggle = (key) => {
@@ -145,19 +136,42 @@ export default function AdminSettingsPage() {
 
   // Profile management
   const openEditProfile = () => {
-    setProfileForm({ name: profile.name, description: profile.description, avatar: profile.avatar });
+    setProfileForm({
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      email: profile.email,
+      phone_number: profile.phone_number || "",
+    });
     setActiveModal("editProfile");
   };
 
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
-    if (!profileForm.name.trim()) {
-      triggerToast("Display name cannot be empty.", "error");
+    if (!profileForm.firstName.trim() || !profileForm.lastName.trim()) {
+      triggerToast("First and last name are required.", "error");
       return;
     }
-    setProfile(prev => ({ ...prev, ...profileForm }));
-    triggerToast("Profile changes applied locally. Save settings to persist permanently.", "info");
-    setActiveModal(null);
+    try {
+      const data = await updateCurrentAccount({
+        first_name: profileForm.firstName.trim(),
+        last_name: profileForm.lastName.trim(),
+        email: profileForm.email.trim(),
+        phone_number: profileForm.phone_number.trim() || null,
+      });
+      const user = data?.user || {};
+      setProfile({
+        firstName: user.first_name || profileForm.firstName.trim(),
+        lastName: user.last_name || profileForm.lastName.trim(),
+        email: user.email || profileForm.email.trim(),
+        phone_number: user.phone_number || profileForm.phone_number.trim(),
+        role: user.role || profile.role,
+      });
+      setSession({ token: getToken(), userName: `${user.first_name || profileForm.firstName} ${user.last_name || profileForm.lastName}`.trim() });
+      triggerToast("Profile updated successfully.", "success");
+      setActiveModal(null);
+    } catch (err) {
+      triggerToast(err.message || "Failed to update profile.", "error");
+    }
   };
 
   // Password validation helper
@@ -218,7 +232,6 @@ export default function AdminSettingsPage() {
     try {
       const result = await changeAdminPassword(passwordForm.current, passwordForm.newPassword);
       if (result.message) {
-        setSavedPassword(passwordForm.newPassword);
         triggerToast("Password changed successfully! Verification email has been sent.", "success");
         setPasswordForm({ current: "", newPassword: "", confirm: "" });
         setShowPasswords({ current: false, newPassword: false, confirm: false });
@@ -241,55 +254,38 @@ export default function AdminSettingsPage() {
   };
 
   // Export configurations
-  const handleDownloadData = () => {
-    const content = JSON.stringify({
-      timestamp: new Date().toISOString(),
-      platform: "Admin Central Platform",
-      build: "2.4.0-STABLE",
-      settings: { toggles, profile, langPreference }
-    }, null, 2);
-    const blob = new Blob([content], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "platform_settings_export.json";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    triggerToast("Platform settings exported successfully!", "success");
+  const handleDownloadData = async () => {
+    try {
+      await downloadAuditLogsExport();
+      triggerToast("Audit logs exported successfully.", "success");
+    } catch (err) {
+      triggerToast(err.message || "Failed to export audit logs.", "error");
+    }
   };
 
-  // Reset Platform settings
-  const handleResetData = () => {
+  const handleResetData = async () => {
     if (resetInput !== "RESET") {
-      triggerToast("Please type RESET to confirm data deletion.", "error");
+      triggerToast("Please type RESET to confirm.", "error");
       return;
     }
-    localStorage.removeItem("admin_settings_toggles");
-    localStorage.removeItem("admin_settings_profile");
-    localStorage.removeItem("admin_settings_password");
-    localStorage.removeItem("admin_settings_lang");
-    
-    setToggles({
-      userRegistration: true,
-      strictVerification: false,
-      twoFactor: true,
-      notifNewUsers: true,
-      notifVerification: true,
-      notifAlerts: false,
-    });
-    setProfile({
-      name: "Abebe Bikila",
-      description: "Primary administrator responsible for platform governance and user verification workflows.",
-      avatar: "https://i.pravatar.cc/150?img=11",
-      role: "ADMINISTRATOR"
-    });
-    setSavedPassword("admin123");
-    setLangPreference("English");
-    setActiveModal(null);
-    setResetInput("");
-    triggerToast("Platform preferences reverted to default defaults.", "success");
+    try {
+      await updatePlatformSettings({ ...DEFAULT_PLATFORM_CONFIG });
+      setToggles({
+        userRegistration: DEFAULT_PLATFORM_CONFIG.userRegistration,
+        strictVerification: DEFAULT_PLATFORM_CONFIG.strictVerification,
+        twoFactor: DEFAULT_PLATFORM_CONFIG.twoFactorRequired,
+        notifNewUsers: DEFAULT_PLATFORM_CONFIG.notifNewUsers,
+        notifVerification: DEFAULT_PLATFORM_CONFIG.notifVerification,
+        notifAlerts: DEFAULT_PLATFORM_CONFIG.notifAlerts,
+      });
+      setLangPreference(DEFAULT_PLATFORM_CONFIG.language);
+      setRoleForm({ defaultRole: DEFAULT_PLATFORM_CONFIG.defaultSignupRole });
+      setActiveModal(null);
+      setResetInput("");
+      triggerToast("Platform settings reset to server defaults.", "success");
+    } catch (err) {
+      triggerToast(err.message || "Failed to reset platform settings.", "error");
+    }
   };
 
   // Save/Discard overall settings
@@ -305,10 +301,7 @@ export default function AdminSettingsPage() {
         defaultSignupRole: roleForm.defaultRole,
         language: langPreference,
       });
-      localStorage.setItem("admin_settings_profile", JSON.stringify(profile));
-      localStorage.setItem("admin_settings_lang", langPreference);
-      localStorage.setItem("admin_default_role", roleForm.defaultRole);
-      triggerToast("Platform settings saved and applied on the server.", "success");
+      triggerToast("Platform settings saved on the server.", "success");
     } catch (err) {
       triggerToast(err.message || "Failed to save platform settings.", "error");
     }
@@ -325,42 +318,33 @@ export default function AdminSettingsPage() {
           twoFactor: cfg.twoFactorRequired === true,
           notifNewUsers: cfg.notifNewUsers !== false,
           notifVerification: cfg.notifVerification !== false,
-          notifAlerts: cfg.notifAlerts === true,
+          notifAlerts: cfg.notifAlerts !== false,
         });
+        if (cfg.language) setLangPreference(cfg.language);
+        if (cfg.defaultSignupRole) setRoleForm({ defaultRole: cfg.defaultSignupRole });
       }
+      const account = await getCurrentAccount();
+      const user = account?.user || {};
+      setProfile({
+        firstName: user.first_name || "",
+        lastName: user.last_name || "",
+        email: user.email || "",
+        phone_number: user.phone_number || "",
+        role: user.role || "Admin",
+      });
+      triggerToast("Reloaded settings from the server.", "info");
     } catch {
-      /* ignore */
+      triggerToast("Failed to reload settings.", "error");
     }
-    const savedProf = localStorage.getItem("admin_settings_profile");
-    if (savedProf) {
-      try { setProfile(JSON.parse(savedProf)); } catch(e) {}
-    }
-    const savedPass = localStorage.getItem("admin_settings_password");
-    if (savedPass) {
-      setSavedPassword(savedPass);
-    }
-    const savedLang = localStorage.getItem("admin_settings_lang");
-    if (savedLang) {
-      setLangPreference(savedLang);
-    }
-    triggerToast("Unsaved changes discarded. Loaded persistent settings.", "info");
   };
 
   const handleLogoutEverywhere = async () => {
     try {
-      // Revoke all sessions dynamically
-      await revokeAllOtherSessions("");
-      
-      // Clear current auth session storage
-      localStorage.removeItem("sc_access_token");
-      localStorage.removeItem("sc_refresh_token");
-      localStorage.removeItem("sc_role");
-      
-      triggerToast("Terminated all sessions. Redirecting to login...", "success");
+      await revokeAllOtherSessions(getRefreshToken() || "");
+      clearSession();
+      triggerToast("All sessions terminated. Redirecting to login...", "success");
       setActiveModal(null);
-      setTimeout(() => {
-        window.location.href = "/login";
-      }, 2000);
+      setTimeout(() => { window.location.href = "/login"; }, 1500);
     } catch (err) {
       triggerToast(err.message || "Failed to terminate all sessions.", "error");
     }
@@ -424,8 +408,10 @@ export default function AdminSettingsPage() {
           {/* Profile Card */}
           <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm flex flex-col items-center text-center">
             <div className="relative mb-6">
-              <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-white shadow-lg bg-slate-100">
-                <img src={profile.avatar || "https://i.pravatar.cc/150?img=11"} alt={profile.name} className="w-full h-full object-cover" />
+              <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-white shadow-lg bg-[#006054] flex items-center justify-center">
+                <span className="text-3xl font-bold text-white">
+                  {accountLoading ? "…" : `${profile.firstName?.[0] || ""}${profile.lastName?.[0] || ""}`.toUpperCase() || "AD"}
+                </span>
               </div>
               <button 
                 onClick={openEditProfile}
@@ -437,13 +423,14 @@ export default function AdminSettingsPage() {
                 </svg>
               </button>
             </div>
-            <h2 className="text-2xl font-bold text-slate-800 mb-2">{profile.name}</h2>
+            <h2 className="text-2xl font-bold text-slate-800 mb-2">
+              {accountLoading ? "Loading…" : `${profile.firstName} ${profile.lastName}`.trim() || "Administrator"}
+            </h2>
             <div className="px-3 py-1 rounded-md bg-[#e6f0ee] text-[#006054] text-[10px] font-bold tracking-widest uppercase mb-4">
               {profile.role}
             </div>
-            <p className="text-sm text-slate-500 mb-8 leading-relaxed max-w-[280px]">
-              {profile.description}
-            </p>
+            <p className="text-sm text-slate-500 mb-2 leading-relaxed max-w-[280px] break-all">{profile.email || "—"}</p>
+            <p className="text-xs text-slate-400 mb-8">{profile.phone_number || "No phone on file"}</p>
             <button 
               onClick={openEditProfile}
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-[#006054] text-[#006054] font-bold text-sm hover:bg-[#f0fdf4] transition"
@@ -471,7 +458,7 @@ export default function AdminSettingsPage() {
                   <h3 className="font-bold text-sm text-slate-800">User Registration Control</h3>
                   <p className="text-xs text-slate-500 mt-1 leading-relaxed">Allow new users to sign up without direct invitation.</p>
                 </div>
-                <button 
+                <button
                   onClick={() => handleToggle('userRegistration')}
                   className={`w-12 h-6 rounded-full relative transition-colors duration-300 shrink-0 ${toggles.userRegistration ? 'bg-[#006054]' : 'bg-slate-200'}`}
                 >
@@ -492,8 +479,20 @@ export default function AdminSettingsPage() {
                 </button>
               </div>
 
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="font-bold text-sm text-slate-800">Require 2FA Platform-Wide</h3>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">Require two-factor authentication for all user logins.</p>
+                </div>
+                <button
+                  onClick={() => handleToggle('twoFactor')}
+                  className={`w-12 h-6 rounded-full relative transition-colors duration-300 shrink-0 ${toggles.twoFactor ? 'bg-[#006054]' : 'bg-slate-200'}`}
+                >
+                  <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-transform duration-300 ${toggles.twoFactor ? 'translate-x-6' : 'translate-x-0.5'}`}></div>
+                </button>
+              </div>
+
               <div className="pt-2">
-                <h3 className="font-bold text-sm text-slate-800 mb-3">Language Preference</h3>
                 <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-200">
                   <button 
                     onClick={() => { setLangPreference("English"); triggerToast("Language preference set to English. Save settings to persist.", "info"); }}
@@ -577,22 +576,17 @@ export default function AdminSettingsPage() {
                 </svg>
               </button>
 
-              <div className="w-full flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+              <div className="w-full flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-slate-200 transition">
                 <div className="flex items-center gap-4">
                   <svg className="w-5 h-5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
                   </svg>
                   <div className="text-left">
                     <h3 className="font-bold text-sm text-slate-800">Two-Factor Authentication</h3>
-                    <p className="text-xs text-[#006054] mt-0.5 font-medium">Currently enabled via SMS/Email</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Manage your personal 2FA</p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => handleToggle('twoFactor')}
-                  className={`w-12 h-6 rounded-full relative transition-colors duration-300 shrink-0 ${toggles.twoFactor ? 'bg-[#006054]' : 'bg-slate-200'}`}
-                >
-                  <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-transform duration-300 ${toggles.twoFactor ? 'translate-x-6' : 'translate-x-0.5'}`}></div>
-                </button>
+                <button type="button" onClick={() => setActiveModal("twoFactor")} className="text-xs font-bold text-[#006054] hover:underline">Manage</button>
               </div>
 
               <button 
@@ -663,7 +657,7 @@ export default function AdminSettingsPage() {
             
             <div className="grid grid-cols-2 gap-4">
               <button 
-                onClick={() => { setRoleForm({ defaultRole: "Startup" }); setActiveModal("userRoles"); }}
+                onClick={() => setActiveModal("userRoles")}
                 className="py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition"
               >
                 Default User Roles
@@ -689,8 +683,8 @@ export default function AdminSettingsPage() {
             <div className="space-y-6">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <h3 className="font-bold text-sm text-slate-800">Reset Platform Data</h3>
-                  <p className="text-xs text-slate-500 mt-1">Permanently delete all user and startup records.</p>
+                  <h3 className="font-bold text-sm text-slate-800">Reset Platform Settings</h3>
+                  <p className="text-xs text-slate-500 mt-1">Restore registration, verification, and notification defaults on the server.</p>
                 </div>
                 <button 
                   onClick={() => { setResetInput(""); setActiveModal("resetData"); }}
@@ -720,14 +714,11 @@ export default function AdminSettingsPage() {
 
       {/* Footer Details */}
       <div className="mt-12 pt-8 border-t border-slate-200 flex flex-col md:flex-row items-center justify-between text-[10px] font-bold text-slate-400 tracking-widest uppercase">
-        <p>Build 2.4.0-STABLE • © 2026 Admin Central Platform</p>
+        <p>StartupConnect Admin • © {new Date().getFullYear()}</p>
         <div className="flex items-center gap-6 mt-4 md:mt-0">
-          <span>
-            System Status:{" "}
-            {dbStatus?.database === "ok" ? "Database OK" : dbStatus ? "Check backend" : "…"}
-          </span>
-          <span>Privacy Policy</span>
-          <span>Terms of Service</span>
+          <span>System Status: {dbStatus?.database === "ok" ? "Database OK" : dbStatus ? "Check backend" : "…"}</span>
+          <Link href="/admin/activity" className="hover:text-slate-600 transition">Activity Logs</Link>
+          <Link href="/admin/maintenance" className="hover:text-slate-600 transition">Maintenance</Link>
         </div>
       </div>
 
@@ -744,41 +735,37 @@ export default function AdminSettingsPage() {
               </svg>
             </button>
 
+            {activeModal === "twoFactor" && (
+              <div className="space-y-4">
+                <h3 className="text-xl font-bold text-slate-800">Two-Factor Authentication</h3>
+                <AccountSecurityPanel showToast={triggerToast} />
+                <div className="flex justify-end pt-2">
+                  <button type="button" onClick={() => setActiveModal(null)} className="px-5 py-2 rounded-xl bg-slate-800 text-white font-bold text-sm">Close</button>
+                </div>
+              </div>
+            )}
+
             {/* Edit Profile Modal */}
             {activeModal === 'editProfile' && (
               <form onSubmit={handleSaveProfile} className="space-y-4">
                 <h3 className="text-xl font-bold text-slate-800">Edit Profile Details</h3>
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Display Name</label>
-                  <input 
-                    type="text"
-                    value={profileForm.name}
-                    onChange={(e) => setProfileForm(p => ({ ...p, name: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-[#006054] text-sm text-slate-800 font-medium"
-                    placeholder="Abebe Bikila"
-                    required
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase mb-2">First Name</label>
+                    <input type="text" value={profileForm.firstName} onChange={(e) => setProfileForm(p => ({ ...p, firstName: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-[#006054] text-sm" required />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Last Name</label>
+                    <input type="text" value={profileForm.lastName} onChange={(e) => setProfileForm(p => ({ ...p, lastName: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-[#006054] text-sm" required />
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Avatar Image URL</label>
-                  <input 
-                    type="text"
-                    value={profileForm.avatar}
-                    onChange={(e) => setProfileForm(p => ({ ...p, avatar: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-[#006054] text-sm text-slate-800 font-medium"
-                    placeholder="Image URL"
-                  />
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Email</label>
+                  <input type="email" value={profileForm.email} onChange={(e) => setProfileForm(p => ({ ...p, email: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-[#006054] text-sm" required />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Profile Description</label>
-                  <textarea 
-                    rows={3}
-                    value={profileForm.description}
-                    onChange={(e) => setProfileForm(p => ({ ...p, description: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-[#006054] text-sm text-slate-800 font-medium"
-                    placeholder="Provide a bio..."
-                    required
-                  />
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Phone Number</label>
+                  <input type="tel" value={profileForm.phone_number} onChange={(e) => setProfileForm(p => ({ ...p, phone_number: e.target.value }))} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-[#006054] text-sm" placeholder="+251..." />
                 </div>
                 <div className="flex justify-end gap-3 pt-4">
                   <button 
@@ -913,7 +900,7 @@ export default function AdminSettingsPage() {
               <div className="space-y-4">
                 <h3 className="text-xl font-bold text-slate-800">System Logs</h3>
                 <div className="bg-slate-900 rounded-2xl p-4 text-[11px] font-mono text-emerald-400 space-y-2.5 max-h-[300px] overflow-y-auto shadow-inner border border-slate-950">
-                  {(liveLogs.length ? liveLogs : systemLogs).map((log, i) => (
+                  {(liveLogs.length ? liveLogs : []).map((log, i) => (
                     <div key={log.audit_log_id || i} className="flex flex-col border-b border-slate-800/80 pb-1.5 last:border-0 last:pb-0">
                       <span className="text-slate-500 font-bold">
                         {log.created_at ? new Date(log.created_at).toLocaleString() : log.time} [{log.type || "AUDIT"}]

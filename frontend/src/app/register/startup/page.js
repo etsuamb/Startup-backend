@@ -13,10 +13,15 @@ export default function StartupRegistrationStep1() {
 
   useEffect(() => {
     const savedDraft = loadDraft(DRAFT_KEY);
-    if (savedDraft) {
-      setShowDraftNotice(true);
-      setTimeout(() => setShowDraftNotice(false), 4000);
-    }
+    if (!savedDraft) return;
+
+    const showNoticeTimer = setTimeout(() => setShowDraftNotice(true), 0);
+    const hideNoticeTimer = setTimeout(() => setShowDraftNotice(false), 4000);
+
+    return () => {
+      clearTimeout(showNoticeTimer);
+      clearTimeout(hideNoticeTimer);
+    };
   }, []);
 
   const handleSaveDraft = () => {
@@ -55,7 +60,7 @@ export default function StartupRegistrationStep1() {
             Empower the <br/> Next Generation <br/> of Ethiopian <br/> Founders
           </h1>
           <p className="text-[#10b981] text-sm leading-relaxed max-w-sm font-medium">
-            Join a prestigious network of industry leaders curating the future of Ethiopia's innovation ecosystem through high-impact mentorship.
+            Join a prestigious network of industry leaders curating the future of Ethiopia&apos;s innovation ecosystem through high-impact mentorship.
           </p>
         </div>
 

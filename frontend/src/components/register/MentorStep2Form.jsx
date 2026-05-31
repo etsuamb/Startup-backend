@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRegFlow } from "@/components/register/RegFlowProvider";
 import { IndustrySelectWithOther } from "@/components/register/IndustryFields";
 import RegistrationStepForm from "@/components/register/RegistrationStepForm";
+import ProfilePictureField from "@/components/register/ProfilePictureField";
 
 export default function MentorRegistrationStep2Form() {
   const { fields } = useRegFlow();
@@ -18,6 +19,7 @@ export default function MentorRegistrationStep2Form() {
 
   return (
     <RegistrationStepForm nextHref="/register/mentor/step3" className="space-y-6">
+      <ProfilePictureField />
       <div className="grid gap-6">
         <label className="block text-sm font-bold text-[#0f3d32]">
           Professional title
@@ -249,18 +251,6 @@ export default function MentorRegistrationStep2Form() {
       </div>
 
       <div className="grid gap-6">
-        <label className="block text-sm font-bold text-[#0f3d32]">
-          Certification credentials
-          <textarea
-            name="certification_credentials"
-            required
-            rows="3"
-            defaultValue={f.certification_credentials || ""}
-            placeholder="e.g. PMP, CFA, Executive MBA"
-            className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-[#136150] focus:ring-2 focus:ring-[#136150] resize-none"
-          />
-        </label>
-
         <label className="block text-sm font-bold text-[#0f3d32]">
           Mentoring style or approach
           <textarea

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { useRegFlow } from "@/components/register/RegFlowProvider";
 import RegistrationStepForm from "@/components/register/RegistrationStepForm";
+import ProfilePictureField from "@/components/register/ProfilePictureField";
 import { CustomIndustryInput, INDUSTRY_OPTIONS } from "@/components/register/IndustryFields";
 
 export default function InvestorRegistrationStep2() {
@@ -77,6 +78,7 @@ export default function InvestorRegistrationStep2() {
 
           <div className="bg-white rounded-3xl shadow-[0_16px_40px_rgba(15,61,50,0.08)] border border-gray-100 p-8 md:p-10">
             <RegistrationStepForm nextHref="/register/investor/step3" className="flex flex-col gap-10">
+              <ProfilePictureField />
               <section>
                 <div className="flex items-center justify-between mb-6">
                   <div>

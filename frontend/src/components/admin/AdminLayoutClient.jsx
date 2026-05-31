@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Sidebar from "@/components/admin/Sidebar";
 import AdminAuthGuard from "@/components/admin/AdminAuthGuard";
 import {
@@ -9,16 +11,44 @@ import {
 	markAllNotificationsRead,
 	fetchUnreadNotificationCount
 } from "@/lib/adminApi";
+import { resolveNotificationHref } from "@/lib/notificationNavigation";
+import { getCurrentAccount } from "@/lib/authApi";
+import { getUserName } from "@/lib/authStorage";
 
 export default function AdminLayoutClient({ children }) {
+	const router = useRouter();
 	const [notifications, setNotifications] = useState([]);
 	const [unreadCount, setUnreadCount] = useState(0);
 	const [isOpen, setIsOpen] = useState(false);
 	const [activeTab, setActiveTab] = useState("all");
+	const [notificationError, setNotificationError] = useState("");
+	const [adminName, setAdminName] = useState("System Admin");
+	const [adminInitial, setAdminInitial] = useState("A");
 	const dropdownRef = useRef(null);
+
+	useEffect(() => {
+		const timer = setTimeout(() => {
+			const storedName = getUserName();
+			if (storedName) {
+				setAdminName(storedName);
+				setAdminInitial(storedName.trim()[0]?.toUpperCase() || "A");
+			}
+		}, 0);
+		getCurrentAccount()
+			.then((data) => {
+				const user = data?.user;
+				if (!user) return;
+				const name = `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email || "System Admin";
+				setAdminName(name);
+				setAdminInitial((user.first_name?.[0] || user.email?.[0] || "A").toUpperCase());
+			})
+			.catch(() => {});
+		return () => clearTimeout(timer);
+	}, []);
 
 	const loadNotifications = async () => {
 		try {
+			setNotificationError("");
 			const data = await fetchNotifications();
 			if (data && data.notifications) {
 				setNotifications(data.notifications);
@@ -28,12 +58,12 @@ export default function AdminLayoutClient({ children }) {
 				setUnreadCount(countData.unread);
 			}
 		} catch (err) {
-			console.error("Failed to load notifications:", err.message);
+			setNotificationError(err.message || "Failed to load notifications.");
 		}
 	};
 
 	useEffect(() => {
-		loadNotifications();
+		queueMicrotask(loadNotifications);
 		// Poll every 15 seconds for real-time notifications
 		const interval = setInterval(loadNotifications, 15000);
 		return () => clearInterval(interval);
@@ -58,7 +88,7 @@ export default function AdminLayoutClient({ children }) {
 			);
 			setUnreadCount((prev) => Math.max(0, prev - 1));
 		} catch (err) {
-			console.error("Failed to mark notification as read:", err.message);
+			setNotificationError(err.message || "Failed to mark notification as read.");
 		}
 	};
 
@@ -68,8 +98,16 @@ export default function AdminLayoutClient({ children }) {
 			setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
 			setUnreadCount(0);
 		} catch (err) {
-			console.error("Failed to mark all as read:", err.message);
+			setNotificationError(err.message || "Failed to mark all notifications as read.");
 		}
+	};
+
+	const handleNotificationClick = (notification) => {
+		setIsOpen(false);
+		if (!notification.is_read) {
+			void handleMarkRead(notification.notification_id, false);
+		}
+		router.push(resolveNotificationHref(notification, "admin"));
 	};
 
 	const filteredNotifications = notifications.filter((n) => {
@@ -86,30 +124,7 @@ export default function AdminLayoutClient({ children }) {
 				<Sidebar />
 				<div className="flex-1 flex flex-col h-screen overflow-hidden">
 					<header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0 relative z-30">
-						<div className="flex items-center gap-4 flex-1">
-							<div className="relative w-full max-w-md hidden md:block">
-								<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-									<svg
-										className="h-4 w-4 text-slate-400"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
-									>
-										<path
-											strokeLinecap="round"
-											strokeLinejoin="round"
-											strokeWidth="2"
-											d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-										/>
-									</svg>
-								</div>
-								<input
-									type="text"
-									placeholder="Search dashboard..."
-									className="w-full pl-10 pr-4 py-2 border-none bg-slate-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-[#006054] focus:bg-white transition-all shadow-inner"
-								/>
-							</div>
-						</div>
+						<div className="flex-1" />
 
 						{/* Right Actions */}
 						<div className="flex items-center gap-4">
@@ -180,13 +195,19 @@ export default function AdminLayoutClient({ children }) {
 											))}
 										</div>
 
+										{notificationError ? (
+											<p role="alert" className="border-b border-red-100 bg-red-50 px-5 py-3 text-xs font-semibold text-red-700">
+												{notificationError}
+											</p>
+										) : null}
+
 										{/* List */}
 										<div className="max-h-[360px] overflow-y-auto divide-y divide-slate-50">
 											{filteredNotifications.length > 0 ? (
 												filteredNotifications.map((notif) => (
 													<div
 														key={notif.notification_id}
-														onClick={() => handleMarkRead(notif.notification_id, notif.is_read)}
+														onClick={() => handleNotificationClick(notif)}
 														className={`p-5 flex gap-4 transition cursor-pointer hover:bg-slate-50/80 ${
 															!notif.is_read ? "bg-[#eaf5f2]/40" : ""
 														}`}
@@ -249,15 +270,15 @@ export default function AdminLayoutClient({ children }) {
 							</div>
 
 							{/* Admin Profile Badge */}
-							<div className="flex items-center gap-3 border-l border-slate-100 pl-4">
+							<Link href="/admin/settings" className="flex items-center gap-3 rounded-xl border-l border-slate-100 pl-4 pr-2 py-1.5 transition hover:bg-slate-50">
 								<div className="w-9 h-9 bg-emerald-800 text-white rounded-full flex items-center justify-center font-bold text-sm">
-									A
+									{adminInitial}
 								</div>
 								<div className="hidden lg:block text-left">
-									<p className="text-xs font-bold text-slate-800 leading-tight">System Admin</p>
+									<p className="text-xs font-bold text-slate-800 leading-tight">{adminName}</p>
 									<p className="text-[10px] text-emerald-600 font-semibold uppercase tracking-wider mt-0.5">Administrator</p>
 								</div>
-							</div>
+							</Link>
 						</div>
 					</header>
 					<main className="flex-1 overflow-y-auto bg-[#f8fafc] p-8">{children}</main>

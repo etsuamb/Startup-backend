@@ -38,9 +38,6 @@ export default function SubmitRegisterButton({
 
 	return (
 		<div className="flex flex-col items-center gap-2">
-			{err ? (
-				<p className="text-sm text-red-200 max-w-md text-center">{err}</p>
-			) : null}
 			<button
 				type="button"
 				disabled={loading || disabled}
@@ -49,6 +46,11 @@ export default function SubmitRegisterButton({
 			>
 				{loading ? "Submitting…" : children}
 			</button>
+			{err ? (
+				<p role="alert" className="max-w-md rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-semibold text-red-700">
+					{err}
+				</p>
+			) : null}
 		</div>
 	);
 }

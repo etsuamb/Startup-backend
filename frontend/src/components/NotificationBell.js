@@ -1,11 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   getNotifications,
   markAllNotificationsRead,
   markNotificationAsRead,
 } from "@/lib/notificationApi";
+import { getRole } from "@/lib/authStorage";
+import { resolveNotificationHref } from "@/lib/notificationNavigation";
 
 const POLL_INTERVAL_MS = 10000;
 
@@ -22,6 +25,7 @@ function formatNotificationTime(value) {
 }
 
 export default function NotificationBell({ className = "" }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unread, setUnread] = useState(0);
@@ -100,6 +104,14 @@ export default function NotificationBell({ className = "" }) {
     }
   }
 
+  function handleNotificationClick(notification) {
+    setOpen(false);
+    if (!notification.is_read) {
+      void handleMarkRead(notification.notification_id);
+    }
+    router.push(resolveNotificationHref(notification, getRole()));
+  }
+
   return (
     <div ref={containerRef} className={`relative ${className}`}>
       <button
@@ -142,7 +154,7 @@ export default function NotificationBell({ className = "" }) {
                 <button
                   type="button"
                   key={notification.notification_id}
-                  onClick={() => !notification.is_read && handleMarkRead(notification.notification_id)}
+                  onClick={() => handleNotificationClick(notification)}
                   className={`block w-full border-b border-gray-50 p-4 text-left transition hover:bg-gray-50 ${
                     !notification.is_read ? "bg-emerald-50" : "bg-white"
                   }`}

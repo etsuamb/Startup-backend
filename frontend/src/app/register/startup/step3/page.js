@@ -99,13 +99,14 @@ export default function StartupRegistrationStep3() {
 								Founder or representative ID <span className="text-red-500">*</span>
 							</h3>
 							<p className="text-sm text-gray-500">
-								National ID, passport, or Kebele ID (PDF, JPG, PNG).
+								Upload a clear image of a national ID, passport, or Kebele ID (JPG or PNG).
 							</p>
 							<input
 								name="founder_id"
 								type="file"
 								required
-								accept=".pdf,.jpg,.jpeg,.png"
+								accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+								data-file-kind="image"
 								className="text-sm"
 							/>
 						</div>
@@ -114,12 +115,13 @@ export default function StartupRegistrationStep3() {
 							<h3 className="font-bold text-gray-900 text-[15px]">
 								Business registration proof <span className="text-red-500">*</span>
 							</h3>
-							<p className="text-sm text-gray-500">License or MoTI permit (PDF, JPG, PNG).</p>
+							<p className="text-sm text-gray-500">License or MoTI permit (PDF only).</p>
 							<input
 								name="business_registration_proof"
 								type="file"
 								required
-								accept=".pdf,.jpg,.jpeg,.png"
+								accept=".pdf,application/pdf"
+								data-file-kind="pdf"
 								className="text-sm"
 							/>
 						</div>
@@ -131,7 +133,8 @@ export default function StartupRegistrationStep3() {
 							<input
 								name="support_affiliation_letter"
 								type="file"
-								accept=".pdf,.jpg,.jpeg,.png"
+								accept=".pdf,application/pdf"
+								data-file-kind="pdf"
 								className="text-sm"
 							/>
 						</div>
@@ -141,7 +144,8 @@ export default function StartupRegistrationStep3() {
 							<input
 								name="tin_certificate"
 								type="file"
-								accept=".pdf,.jpg,.jpeg,.png"
+								accept=".pdf,application/pdf"
+								data-file-kind="pdf"
 								className="text-sm"
 							/>
 						</div>

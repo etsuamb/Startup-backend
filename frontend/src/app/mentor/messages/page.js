@@ -103,6 +103,7 @@ function normalizeConversation(row) {
 export default function MentorMessagesPage() {
 	const searchParams = useSearchParams();
 	const startupIdFromUrl = searchParams.get("startupId");
+	const conversationIdFromUrl = searchParams.get("conversationId");
 	const [conversations, setConversations] = useState([]);
 	const [selected, setSelected] = useState(null);
 	const [messages, setMessages] = useState([]);
@@ -121,7 +122,7 @@ export default function MentorMessagesPage() {
 	const fileInputRef = useRef(null);
 	const endRef = useRef(null);
 
-	const refreshConversations = useCallback(async (preferredStartupId = null) => {
+	const refreshConversations = useCallback(async (preferredStartupId = null, preferredConversationId = null) => {
 		const data = await fetchMentorConversations();
 		const rows = Array.isArray(data.conversations) ? data.conversations : [];
 		const list = await Promise.all(rows.map(async (row) => {
@@ -137,6 +138,9 @@ export default function MentorMessagesPage() {
 		}));
 		setConversations(list);
 		setSelected((current) => {
+			if (preferredConversationId) {
+				return list.find((item) => String(item.id) === String(preferredConversationId)) || current || list[0] || null;
+			}
 			if (preferredStartupId) {
 				return list.find((item) => String(item.startupId) === String(preferredStartupId)) || current || list[0] || null;
 			}
@@ -170,14 +174,14 @@ export default function MentorMessagesPage() {
 						setError(isChatAccessError(ex) ? chatAccessMessage(ex) : ex.message || "Failed to open conversation.");
 					}
 				}
-				await refreshConversations(startupIdFromUrl);
+				await refreshConversations(startupIdFromUrl, conversationIdFromUrl);
 			} catch (ex) {
 				setError(isChatAccessError(ex) ? chatAccessMessage(ex) : ex.message || "Failed to load conversations.");
 			} finally {
 				setLoading(false);
 			}
 		})();
-	}, [refreshConversations, startupIdFromUrl]);
+	}, [conversationIdFromUrl, refreshConversations, startupIdFromUrl]);
 
 	useEffect(() => {
 		if (!selected?.id) {

@@ -57,7 +57,10 @@ export function buildRegisterFormData(role, fields, files) {
 		fd.append("team_size", String(f.team_size));
 		fd.append("founder_role", f.founder_role);
 		if (f.website) fd.append("website", f.website);
-		if (fl.startup_logo) fd.append("startup_logo", fl.startup_logo);
+		if (!fl.startup_logo) {
+			throw new Error("Startup logo is required");
+		}
+		fd.append("startup_logo", fl.startup_logo);
 		if (fl.founder_id) fd.append("founder_id", fl.founder_id);
 		if (fl.business_registration_proof) {
 			fd.append("business_registration_proof", fl.business_registration_proof);
@@ -90,6 +93,10 @@ export function buildRegisterFormData(role, fields, files) {
 		fd.append("linked_in_or_website", f.linked_in_or_website);
 		fd.append("bio", f.bio);
 		fd.append("personal_verification", f.personal_verification);
+		if (!fl.profile_picture) {
+			throw new Error("Profile picture is required");
+		}
+		fd.append("profile_picture", fl.profile_picture);
 		if (fl.registration_doc) fd.append("registration_doc", fl.registration_doc);
 		if (fl.trade_license) fd.append("trade_license", fl.trade_license);
 		if (fl.tin_certificate) fd.append("tin_certificate", fl.tin_certificate);
@@ -111,7 +118,6 @@ export function buildRegisterFormData(role, fields, files) {
 		fd.append("expertise_area", f.expertise_area);
 		fd.append("professional_bio", f.professional_bio);
 		fd.append("linkedin_portfolio", f.linkedin_portfolio);
-		fd.append("certification_credentials", f.certification_credentials);
 		fd.append("availability_preference", f.availability_preference);
 		fd.append("session_pricing", String(f.session_pricing));
 		fd.append("current_organization", f.current_organization);
@@ -141,6 +147,10 @@ export function buildRegisterFormData(role, fields, files) {
 		fd.append("mentoring_style", f.mentoring_style);
 		fd.append("notable_startups_mentored", f.notable_startups_mentored);
 		fd.append("key_achievement", f.key_achievement);
+		if (!fl.profile_picture) {
+			throw new Error("Profile picture is required");
+		}
+		fd.append("profile_picture", fl.profile_picture);
 		if (fl.mentor_id) fd.append("mentor_id", fl.mentor_id);
 		if (fl.intro_video) fd.append("intro_video", fl.intro_video);
 		const certs = fl.certifications;

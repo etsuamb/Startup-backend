@@ -151,6 +151,13 @@ function NotificationRow({ icon, title, description, enabled, onToggle }) {
 function Toast({ message, type, onClose }) {
   if (!message) return null;
   const isSuccess = type === "success";
+  if (type === "error") {
+    return (
+      <p role="alert" className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+        {message}
+      </p>
+    );
+  }
   return (
     <div
       className={`fixed top-5 right-5 z-50 flex items-center gap-3 rounded-2xl px-5 py-3.5 shadow-xl text-sm font-semibold transition-all animate-bounce-once ${
@@ -354,7 +361,9 @@ export default function MentorSettingsPage() {
 
   const showToast = useCallback((message, type = "success") => {
     setToast({ message, type });
-    setTimeout(() => setToast({ message: null, type: null }), 3500);
+    if (type !== "error") {
+      setTimeout(() => setToast({ message: null, type: null }), 3500);
+    }
   }, []);
 
   // ── Load profile data ──

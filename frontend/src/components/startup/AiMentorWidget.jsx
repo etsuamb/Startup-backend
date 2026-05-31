@@ -35,7 +35,7 @@ export default function AiMentorWidget() {
     if (!open) return;
     getAiMentorSessions()
       .then((data) => setSessions(Array.isArray(data?.sessions) ? data.sessions : []))
-      .catch(() => {});
+      .catch((err) => setError(err?.message || "Unable to load AI mentor chat history."));
   }, [open]);
 
   useEffect(() => {
@@ -97,7 +97,7 @@ export default function AiMentorWidget() {
       ]);
       getAiMentorSessions()
         .then((sessionsData) => setSessions(Array.isArray(sessionsData?.sessions) ? sessionsData.sessions : []))
-        .catch(() => {});
+        .catch((err) => setError(err?.message || "Unable to refresh AI mentor chat history."));
     } catch (err) {
       setError(err?.message || "AI mentor could not respond.");
     } finally {

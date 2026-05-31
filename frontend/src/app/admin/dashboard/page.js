@@ -11,7 +11,93 @@ import {
 	fetchSystemAnalytics,
 } from "@/lib/adminApi";
 import AdminTabs from "@/components/admin/AdminTabs";
-import AdminUcCoverage from "@/components/admin/AdminUcCoverage";
+
+const STAT_CARDS = [
+	{ label: "Total users", valueKey: "total_users", accent: "border-l-[#006054]" },
+	{ label: "Verified startups", valueKey: "total_startups", accent: "border-l-[#0f766e]" },
+	{ label: "Investors", valueKey: "total_investors", accent: "border-l-[#134e4a]" },
+	{ label: "Mentors", valueKey: "total_mentors", accent: "border-l-[#115e59]" },
+];
+
+const METRIC_CARDS = [
+	{ label: "Verified users", valueKey: "total_verified_users", accent: "border-l-[#047857]" },
+	{
+		label: "Platform fee revenue",
+		valueKey: "revenue_from_platform_fees",
+		format: "currency",
+		accent: "border-l-[#065f46]",
+	},
+	{ label: "Mentorship payments", valueKey: "total_mentorship_transactions", accent: "border-l-[#0d9488]" },
+	{ label: "Investment payments", valueKey: "total_investment_transactions", accent: "border-l-[#14b8a6]" },
+];
+
+const ACTION_LINKS = [
+	{
+		href: "/admin/users",
+		title: "Review pending accounts",
+		description: "Approve new users and keep the verification queue moving.",
+	},
+	{
+		href: "/admin/startups",
+		title: "Manage startup listings",
+		description: "Validate and moderate startup profiles before publication.",
+	},
+	{
+		href: "/admin/projects",
+		title: "Review projects",
+		description: "Moderate startup fundraising posts and update status.",
+	},
+	{
+		href: "/admin/mentorship",
+		title: "Mentorship oversight",
+		description: "Sessions, reports, and mentorship payments.",
+	},
+	{
+		href: "/admin/reports",
+		title: "Open platform reports",
+		description: "KPI, financial, usage reports and CSV exports.",
+	},
+	{
+		href: "/admin/investments",
+		title: "Oversee investments",
+		description: "Approve or reject funding requests.",
+	},
+	{
+		href: "/admin/payments",
+		title: "Review payments",
+		description: "Monitor transactions and platform revenue.",
+	},
+	{
+		href: "/admin/moderation",
+		title: "Chat moderation",
+		description: "Review flagged messages and suspend offenders.",
+	},
+	{
+		href: "/admin/activity",
+		title: "System activity",
+		description: "Audit logs, login attempts, and security events.",
+	},
+	{
+		href: "/admin/maintenance",
+		title: "Check system maintenance",
+		description: "Review backend health and scheduled service status.",
+	},
+];
+
+const ACTION_PAGE_SIZE = 4;
+
+function formatCardValue(card, stats, loading) {
+	if (loading) return "—";
+	const raw = stats?.[card.valueKey];
+	if (card.format === "currency") {
+		return Number(raw || 0).toLocaleString(undefined, {
+			style: "currency",
+			currency: "ETB",
+			maximumFractionDigits: 0,
+		});
+	}
+	return raw ?? 0;
+}
 
 export default function AdminDashboard() {
 	const [stats, setStats] = useState(null);
@@ -23,6 +109,7 @@ export default function AdminDashboard() {
 	const [dbOk, setDbOk] = useState(true);
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(true);
+	const [actionPage, setActionPage] = useState(0);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -55,6 +142,11 @@ export default function AdminDashboard() {
 	}, []);
 
 	const s = stats || {};
+	const actionTotalPages = Math.max(1, Math.ceil(ACTION_LINKS.length / ACTION_PAGE_SIZE));
+	const visibleActionLinks = ACTION_LINKS.slice(
+		actionPage * ACTION_PAGE_SIZE,
+		actionPage * ACTION_PAGE_SIZE + ACTION_PAGE_SIZE,
+	);
 
 	return (
 		<div className="max-w-7xl mx-auto pb-12">
@@ -96,8 +188,6 @@ export default function AdminDashboard() {
 					</div>
 				</div>
 			</section>
-
-			<AdminUcCoverage />
 
 			<div className="mb-6">
 				<AdminTabs
@@ -143,92 +233,25 @@ export default function AdminDashboard() {
 			</div>
 
 			<div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4 mb-8">
-				{[
-					{
-						label: "Total users",
-						value: s.total_users,
-						icon: "👥",
-						color: "from-sky-500 to-blue-500",
-					},
-					{
-						label: "Verified startups",
-						value: s.total_startups,
-						icon: "🚀",
-						color: "from-emerald-500 to-teal-500",
-					},
-					{
-						label: "Investors",
-						value: s.total_investors,
-						icon: "💼",
-						color: "from-fuchsia-500 to-violet-500",
-					},
-					{
-						label: "Mentors",
-						value: s.total_mentors,
-						icon: "🎓",
-						color: "from-amber-500 to-orange-500",
-					},
-				].map((card) => (
-					<div key={card.label} className="rounded-[28px] overflow-hidden bg-white shadow-sm border border-slate-200">
-						<div className={`bg-gradient-to-r ${card.color} px-6 py-5 text-white`}>
-							<div className="flex items-center justify-between gap-4">
-								<div>
-									<p className="text-xs uppercase tracking-[0.28em] opacity-80">{card.label}</p>
-									<p className="mt-3 text-3xl font-semibold">{loading ? "—" : card.value ?? 0}</p>
-								</div>
-								<div className="text-4xl">{card.icon}</div>
-							</div>
-						</div>
-						<div className="p-5 text-sm text-slate-600">
-							<p>Key platform metric for admin review.</p>
-						</div>
+				{STAT_CARDS.map((card) => (
+					<div
+						key={card.label}
+						className={`rounded-2xl border border-slate-200 border-l-4 ${card.accent} bg-white shadow-sm p-6`}
+					>
+						<p className="text-xs uppercase tracking-[0.2em] text-slate-500 font-semibold">{card.label}</p>
+						<p className="mt-3 text-3xl font-bold text-slate-900">{formatCardValue(card, s, loading)}</p>
 					</div>
 				))}
 			</div>
 
 			<div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4 mb-8">
-				{[
-					{
-						label: "Verified users",
-						value: s.total_verified_users,
-						icon: "✓",
-						color: "from-teal-500 to-cyan-500",
-					},
-					{
-						label: "Platform fee revenue",
-						value: loading
-							? "—"
-							: Number(s.revenue_from_platform_fees || 0).toLocaleString(undefined, {
-									style: "currency",
-									currency: "ETB",
-									maximumFractionDigits: 0,
-								}),
-						icon: "💰",
-						color: "from-lime-500 to-green-600",
-					},
-					{
-						label: "Mentorship payments",
-						value: s.total_mentorship_transactions,
-						icon: "🎓",
-						color: "from-pink-500 to-rose-500",
-					},
-					{
-						label: "Investment payments",
-						value: s.total_investment_transactions,
-						icon: "📈",
-						color: "from-indigo-500 to-blue-600",
-					},
-				].map((card) => (
-					<div key={card.label} className="rounded-[28px] overflow-hidden bg-white shadow-sm border border-slate-200">
-						<div className={`bg-gradient-to-r ${card.color} px-6 py-5 text-white`}>
-							<div className="flex items-center justify-between gap-4">
-								<div>
-									<p className="text-xs uppercase tracking-[0.28em] opacity-80">{card.label}</p>
-									<p className="mt-3 text-2xl font-semibold">{loading ? "—" : card.value ?? 0}</p>
-								</div>
-								<div className="text-3xl">{card.icon}</div>
-							</div>
-						</div>
+				{METRIC_CARDS.map((card) => (
+					<div
+						key={card.label}
+						className={`rounded-2xl border border-slate-200 border-l-4 ${card.accent} bg-white shadow-sm p-6`}
+					>
+						<p className="text-xs uppercase tracking-[0.2em] text-slate-500 font-semibold">{card.label}</p>
+						<p className="mt-3 text-2xl font-bold text-slate-900">{formatCardValue(card, s, loading)}</p>
 					</div>
 				))}
 			</div>
@@ -276,76 +299,39 @@ export default function AdminDashboard() {
 						<span className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600">Priority</span>
 					</div>
 					<div className="space-y-4">
-						<Link
-							href="/admin/users"
-							className="block rounded-3xl border border-slate-200 px-5 py-4 hover:border-slate-300 hover:bg-slate-50 transition"
-						>
-							<p className="font-semibold text-slate-900">Review pending accounts</p>
-							<p className="text-sm text-slate-500 mt-1">Approve new users and keep the verification queue moving.</p>
-						</Link>
-						<Link
-							href="/admin/startups"
-							className="block rounded-3xl border border-slate-200 px-5 py-4 hover:border-slate-300 hover:bg-slate-50 transition"
-						>
-							<p className="font-semibold text-slate-900">Manage startup listings</p>
-							<p className="text-sm text-slate-500 mt-1">Validate and moderate startup profiles before publication.</p>
-						</Link>
-						<Link
-							href="/admin/projects"
-							className="block rounded-3xl border border-slate-200 px-5 py-4 hover:border-slate-300 hover:bg-slate-50 transition"
-						>
-							<p className="font-semibold text-slate-900">Review projects</p>
-							<p className="text-sm text-slate-500 mt-1">Moderate startup fundraising posts and update status.</p>
-						</Link>
-						<Link
-							href="/admin/mentorship"
-							className="block rounded-3xl border border-slate-200 px-5 py-4 hover:border-slate-300 hover:bg-slate-50 transition"
-						>
-							<p className="font-semibold text-slate-900">Mentorship oversight</p>
-							<p className="text-sm text-slate-500 mt-1">Sessions, reports, and mentorship payments.</p>
-						</Link>
-						<Link
-							href="/admin/reports"
-							className="block rounded-3xl border border-slate-200 px-5 py-4 hover:border-slate-300 hover:bg-slate-50 transition"
-						>
-							<p className="font-semibold text-slate-900">Open platform reports</p>
-							<p className="text-sm text-slate-500 mt-1">KPI, financial, usage reports and CSV exports.</p>
-						</Link>
-						<Link
-							href="/admin/investments"
-							className="block rounded-3xl border border-slate-200 px-5 py-4 hover:border-slate-300 hover:bg-slate-50 transition"
-						>
-							<p className="font-semibold text-slate-900">Oversee investments</p>
-							<p className="text-sm text-slate-500 mt-1">Approve or reject funding requests.</p>
-						</Link>
-						<Link
-							href="/admin/payments"
-							className="block rounded-3xl border border-slate-200 px-5 py-4 hover:border-slate-300 hover:bg-slate-50 transition"
-						>
-							<p className="font-semibold text-slate-900">Review payments</p>
-							<p className="text-sm text-slate-500 mt-1">Monitor transactions and platform revenue.</p>
-						</Link>
-						<Link
-							href="/admin/moderation"
-							className="block rounded-3xl border border-slate-200 px-5 py-4 hover:border-slate-300 hover:bg-slate-50 transition"
-						>
-							<p className="font-semibold text-slate-900">Chat moderation</p>
-							<p className="text-sm text-slate-500 mt-1">Review flagged messages and suspend offenders.</p>
-						</Link>
-						<Link
-							href="/admin/activity"
-							className="block rounded-3xl border border-slate-200 px-5 py-4 hover:border-slate-300 hover:bg-slate-50 transition"
-						>
-							<p className="font-semibold text-slate-900">System activity</p>
-							<p className="text-sm text-slate-500 mt-1">Audit logs, login attempts, and security events.</p>
-						</Link>
-						<Link
-							href="/admin/maintenance"
-							className="block rounded-3xl border border-slate-200 px-5 py-4 hover:border-slate-300 hover:bg-slate-50 transition"
-						>
-							<p className="font-semibold text-slate-900">Check system maintenance</p>
-							<p className="text-sm text-slate-500 mt-1">Review backend health and scheduled service status.</p>
-						</Link>
+						{visibleActionLinks.map((item) => (
+							<Link
+								key={item.href}
+								href={item.href}
+								className="block rounded-2xl border border-slate-200 px-5 py-4 hover:border-[#006054]/30 hover:bg-[#f0fdf4] transition"
+							>
+								<p className="font-semibold text-slate-900">{item.title}</p>
+								<p className="text-sm text-slate-500 mt-1">{item.description}</p>
+							</Link>
+						))}
+					</div>
+					<div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4">
+						<p className="text-xs text-slate-500">
+							Page {actionPage + 1} of {actionTotalPages}
+						</p>
+						<div className="flex items-center gap-2">
+							<button
+								type="button"
+								onClick={() => setActionPage((p) => Math.max(0, p - 1))}
+								disabled={actionPage === 0}
+								className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+							>
+								Previous
+							</button>
+							<button
+								type="button"
+								onClick={() => setActionPage((p) => Math.min(actionTotalPages - 1, p + 1))}
+								disabled={actionPage >= actionTotalPages - 1}
+								className="rounded-lg bg-[#006054] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#004d43] disabled:opacity-40 disabled:cursor-not-allowed"
+							>
+								Next
+							</button>
+						</div>
 					</div>
 				</div>
 			</div>

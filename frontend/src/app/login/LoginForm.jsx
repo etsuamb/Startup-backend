@@ -55,7 +55,6 @@ export default function LoginForm() {
 	return (
 		<div className="bg-white rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-gray-50 p-8 mb-8">
 			<form className="flex flex-col gap-5" onSubmit={onSubmit}>
-				{err ? <p className="text-sm text-red-600 font-medium">{err}</p> : null}
 				<div>
 					<label className="block text-xs font-bold text-gray-700 mb-2">Email</label>
 					<input
@@ -69,12 +68,7 @@ export default function LoginForm() {
 					/>
 				</div>
 				<div>
-					<div className="flex justify-between items-center mb-2">
-						<label className="block text-xs font-bold text-gray-700">Password</label>
-						<Link href="/login/forgot-password" className="text-xs font-bold text-[#115b4c] hover:underline">
-							Forgot password?
-						</Link>
-					</div>
+					<label className="block text-xs font-bold text-gray-700 mb-2">Password</label>
 					<input
 						type="password"
 						value={password}
@@ -93,6 +87,7 @@ export default function LoginForm() {
 				>
 					{loading ? "Signing in…" : "Log In"}
 				</button>
+				{err ? <p role="alert" className="text-sm font-medium text-red-600">{err}</p> : null}
 
 				<div className="relative my-2">
 					<div className="absolute inset-0 flex items-center">
@@ -115,6 +110,11 @@ export default function LoginForm() {
 					<p className="text-[12px] text-gray-400 mt-2">
 						<Link href="/verify-email/resend" className="hover:underline">
 							Resend verification email
+						</Link>
+					</p>
+					<p className="text-[12px] text-gray-400 mt-2">
+						<Link href="/login/forgot-password" className="font-bold text-[#115b4c] hover:underline">
+							Forgot password?
 						</Link>
 					</p>
 				</div>

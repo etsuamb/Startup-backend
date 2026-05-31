@@ -44,6 +44,7 @@ function statusStyles(status) {
 function MeetingsContent() {
   const searchParams = useSearchParams();
   const startupIdFromUrl = searchParams.get("startupId") || "";
+  const focusedMeetingId = searchParams.get("meetingId") || "";
   const [startups, setStartups] = useState([]);
   const [offers, setOffers] = useState([]);
   const [meetings, setMeetings] = useState([]);
@@ -278,7 +279,14 @@ function MeetingsContent() {
 
                 <div className="space-y-4">
                   {upcomingMeetings.length ? upcomingMeetings.map((meeting) => (
-                    <div key={meeting.investor_meeting_id} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                    <div
+                      key={meeting.investor_meeting_id}
+                      className={`rounded-xl border bg-gray-50 p-4 ${
+                        String(meeting.investor_meeting_id) === focusedMeetingId
+                          ? "border-emerald-500 ring-2 ring-emerald-200"
+                          : "border-gray-100"
+                      }`}
+                    >
                       <div className="mb-3 flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-bold text-gray-900">{meeting.startup_name}</p>

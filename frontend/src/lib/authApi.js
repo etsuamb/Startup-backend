@@ -1,4 +1,6 @@
 import { apiFetch, apiPostJson } from "./api";
+import { API_BASE } from "./config";
+import { getToken } from "./authStorage";
 
 export async function loginRequest(email, password) {
 	return apiPostJson("/auth/login", { email, password });
@@ -42,6 +44,19 @@ export async function resendVerification(email) {
 
 export async function getCurrentAccount() {
 	return apiFetch("/auth/me");
+}
+
+export async function fetchProfilePictureBlob() {
+	const token = getToken();
+	if (!token) throw new Error("Not authenticated");
+	const response = await fetch(`${API_BASE}/auth/profile-picture`, {
+		headers: {
+			Authorization: `Bearer ${token}`,
+			Accept: "image/*,*/*",
+		},
+	});
+	if (!response.ok) throw new Error("Profile picture not found");
+	return { blob: await response.blob() };
 }
 
 export async function updateCurrentAccount(payload) {

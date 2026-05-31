@@ -65,16 +65,17 @@ export default function MentorRegistrationDocuments() {
                           Government-issued ID (Mandatory)
                         </label>
                         <p className="text-xs text-gray-500 mb-4">
-                          Upload a clear copy of your ID (passport, national ID, or driver's license). This is required for verification.
+                          Upload a clear copy of your ID (passport, national ID, or driver&apos;s license). This is required for verification.
                         </p>
                         <input
                           type="file"
                           name="mentor_id"
-                          accept=".pdf,.jpg,.jpeg,.png"
+                          accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                          data-file-kind="image"
                           required
                           className="text-xs w-full px-3 py-2 border border-gray-300 rounded-lg cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#0f3d32] file:text-white hover:file:bg-[#0a2921]"
                         />
-                        <p className="text-[10px] text-gray-400 mt-2">Accepted formats: PDF, JPG, PNG (Max 10MB)</p>
+                        <p className="text-[10px] text-gray-400 mt-2">Accepted formats: JPG, PNG (Max 10MB)</p>
                       </div>
                     </div>
                   </div>
@@ -95,11 +96,12 @@ export default function MentorRegistrationDocuments() {
                         <input
                           type="file"
                           name="certifications"
-                          accept=".pdf,.jpg,.jpeg,.png"
+                          accept=".pdf,application/pdf"
+                          data-file-kind="pdf"
                           multiple
                           className="text-xs w-full px-3 py-2 border border-gray-300 rounded-lg cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#167b66] file:text-white hover:file:bg-[#115b4c]"
                         />
-                        <p className="text-[10px] text-gray-400 mt-2">You can upload multiple files. Max 10MB each.</p>
+                        <p className="text-[10px] text-gray-400 mt-2">PDF documents only. You can upload multiple files. Max 10MB each.</p>
                       </div>
                     </div>
                   </div>
@@ -121,6 +123,7 @@ export default function MentorRegistrationDocuments() {
                           type="file"
                           name="intro_video"
                           accept="video/mp4,video/quicktime,video/webm"
+                          data-file-kind="video"
                           className="text-xs w-full px-3 py-2 border border-gray-300 rounded-lg cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#167b66] file:text-white hover:file:bg-[#115b4c]"
                         />
                         <p className="text-[10px] text-gray-400 mt-2">Accepted formats: MP4, MOV, WebM (Max 50MB, 1 min recommended)</p>

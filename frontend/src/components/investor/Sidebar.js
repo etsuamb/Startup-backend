@@ -5,12 +5,14 @@ import { useEffect, useState } from "react";
 import { getRole, getUserName } from "@/lib/authStorage";
 import { getInvestorProfile } from "@/lib/investorApi";
 import NotificationBell from "@/components/NotificationBell";
+import ProfilePictureAvatar from "@/components/auth/ProfilePictureAvatar";
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [profileName, setProfileName] = useState("");
   const [profileRole, setProfileRole] = useState("Investor");
+  const [profileError, setProfileError] = useState("");
 
   useEffect(() => {
     let ignore = false;
@@ -36,8 +38,11 @@ export default function Sidebar() {
         const role = investor.investor_type || investor.role || investor.title;
         if (name) setProfileName(name);
         if (role) setProfileRole(String(role).replace(/_/g, " ").toUpperCase());
+        setProfileError("");
       })
-      .catch(() => {});
+      .catch((error) => {
+        if (!ignore) setProfileError(error.message || "Unable to load investor profile.");
+      });
 
     return () => {
       ignore = true;
@@ -119,18 +124,7 @@ export default function Sidebar() {
   return (
     <>
       <div className="fixed top-0 left-0 right-0 md:left-[260px] z-50 flex h-16 items-center justify-between gap-4 border-b border-gray-200 bg-white px-4 md:px-6">
-        <div className="relative w-full max-w-[440px]">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-          <input
-            type="search"
-            placeholder="Search..."
-            className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#0a4d3c]/30 focus:ring-2 focus:ring-[#0a4d3c]/10"
-          />
-        </div>
+        <div />
 
         <div className="relative flex items-center gap-3 shrink-0">
           <NotificationBell />
@@ -141,9 +135,10 @@ export default function Sidebar() {
             className="flex min-w-0 items-center gap-3 rounded-xl px-2 py-1.5 text-left transition hover:bg-gray-50"
             aria-expanded={isProfileMenuOpen}
           >
-            <div className="w-9 h-9 rounded-full bg-[#115b4c] text-white flex items-center justify-center font-bold text-xs shrink-0">
-              {profileInitials}
-            </div>
+            <ProfilePictureAvatar
+              initials={profileInitials}
+              className="w-9 h-9 rounded-full shrink-0"
+            />
             <div className="hidden sm:flex w-[150px] flex-col overflow-hidden">
               <span className="truncate text-sm font-bold leading-tight text-gray-900">{profileName || "Loading..."}</span>
               <span className="truncate text-[10px] font-semibold uppercase leading-tight tracking-wide text-gray-500">{profileRole}</span>
@@ -183,6 +178,11 @@ export default function Sidebar() {
             })}
           </div>
         )}
+        {profileError ? (
+          <p role="alert" className="absolute right-4 top-16 max-w-sm rounded-b-lg border border-t-0 border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-700 md:right-6">
+            {profileError}
+          </p>
+        ) : null}
       </div>
 
       <aside className="hidden md:flex flex-col w-[260px] bg-[#061e16] border-r border-[#0f3d32] shrink-0 sticky top-0 h-screen overflow-y-auto relative">

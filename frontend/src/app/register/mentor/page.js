@@ -27,7 +27,7 @@ export default function MentorRegistration() {
             <span className="font-bold text-lg text-white tracking-tight">StartupConnect</span>
           </Link>
           <h1 className="text-4xl lg:text-5xl font-light text-white mb-6 leading-tight">
-            Mentor startups shaping Ethiopia's next chapter.
+            Mentor startups shaping Ethiopia&apos;s next chapter.
           </h1>
           <p className="text-[#10b981] text-sm leading-relaxed max-w-sm font-medium">
             Create a profile, highlight your experience, and help founders build stronger businesses.

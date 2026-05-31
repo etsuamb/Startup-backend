@@ -14,6 +14,7 @@ import {
 import AdminTabs from "@/components/admin/AdminTabs";
 
 export default function AdminModerationPage() {
+	const [focusedLogId, setFocusedLogId] = useState("");
 	const [tab, setTab] = useState("logs");
 	const [logs, setLogs] = useState([]);
 	const [violations, setViolations] = useState([]);
@@ -22,6 +23,12 @@ export default function AdminModerationPage() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [msg, setMsg] = useState("");
+
+	useEffect(() => {
+		queueMicrotask(() => {
+			setFocusedLogId(new URLSearchParams(window.location.search).get("logId") || "");
+		});
+	}, []);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -45,7 +52,7 @@ export default function AdminModerationPage() {
 	}, []);
 
 	useEffect(() => {
-		load();
+		queueMicrotask(load);
 	}, [load]);
 
 	async function handleSuspend(userId) {
@@ -155,7 +162,14 @@ export default function AdminModerationPage() {
 						<p className="p-6 text-sm text-slate-500">No flagged messages in this period.</p>
 					) : (
 						logs.map((log, i) => (
-							<div key={`${log.channel}-${log.log_id}-${i}`} className="p-4">
+							<div
+								key={`${log.channel}-${log.log_id}-${i}`}
+								className={`p-4 ${
+									String(log.log_id) === focusedLogId
+										? "bg-amber-50 ring-2 ring-inset ring-amber-300"
+										: ""
+								}`}
+							>
 								<div className="flex justify-between gap-2 text-xs text-slate-500 mb-2">
 									<span>
 										{log.channel || "chat"} · {log.first_name} {log.last_name} · {log.flagged_reason}
