@@ -90,6 +90,14 @@ app.use("/api/ratings", ratingRoutes);
 async function startServer() {
   try {
     await initDatabase();
+    const { getMailProviderStatus } = require("./utils/mail");
+    const mailStatus = getMailProviderStatus();
+    console.log(
+      `Email delivery: ${mailStatus.activeProvider}` +
+        (mailStatus.render && !mailStatus.resendConfigured
+          ? " — add RESEND_API_KEY on Render for production email"
+          : ""),
+    );
     server.listen(PORT, () => {
       console.log(`Server running on port ${PORT} (Legacy Monolith)`);
     });

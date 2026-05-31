@@ -193,6 +193,12 @@ function buildEmailHtml(title, bodyHtml, ctaHref, ctaLabel) {
     </div>`;
 }
 
+function assertMailDelivered(result) {
+  if (!result?.delivered) {
+    throw new Error(result?.error || "Email could not be delivered");
+  }
+}
+
 async function sendVerificationEmail(user) {
   const { raw } = await createEmailToken(user.user_id, "email_verify", EMAIL_VERIFY_HOURS);
   const link = `${FRONTEND_URL}/verify-email?token=${encodeURIComponent(raw)}`;
@@ -202,12 +208,13 @@ async function sendVerificationEmail(user) {
     link,
     "Verify email",
   );
-  await mail.sendMail(
+  const result = await mail.sendMail(
     user.email,
     "Verify your StartupConnect email",
     `Verify your email: ${link}`,
     html,
   );
+  assertMailDelivered(result);
   return link;
 }
 
@@ -220,12 +227,13 @@ async function sendPasswordResetEmail(user) {
     link,
     "Reset password",
   );
-  await mail.sendMail(
+  const result = await mail.sendMail(
     user.email,
     "Reset your StartupConnect password",
     `Reset your password: ${link}`,
     html,
   );
+  assertMailDelivered(result);
 }
 
 async function sendLoginOtpEmail(user, code) {
@@ -235,12 +243,13 @@ async function sendLoginOtpEmail(user, code) {
     null,
     null,
   );
-  await mail.sendMail(
+  const result = await mail.sendMail(
     user.email,
     "Your StartupConnect login code",
     `Your login code is ${code}`,
     html,
   );
+  assertMailDelivered(result);
 }
 
 

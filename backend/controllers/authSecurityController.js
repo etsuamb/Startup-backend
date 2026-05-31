@@ -171,6 +171,14 @@ exports.resendVerification = async (req, res) => {
 		await authSecurity.sendVerificationEmail(user);
 		return res.json({ message: "If that account exists, a verification email has been sent." });
 	} catch (err) {
+		console.error("resendVerification", err);
+		if (/could not be delivered|resend|smtp|email provider/i.test(String(err.message || ""))) {
+			return res.status(503).json({
+				message:
+					"We could not send the verification email right now. Please try again in a few minutes.",
+				code: "EMAIL_DELIVERY_FAILED",
+			});
+		}
 		return res.status(500).json({ error: err.message });
 	}
 };
@@ -307,6 +315,13 @@ exports.forgotPassword = async (req, res) => {
 		return res.json({ message: genericMessage });
 	} catch (err) {
 		console.error("forgotPassword", err);
+		if (/could not be delivered|resend|smtp|email provider/i.test(String(err.message || ""))) {
+			return res.status(503).json({
+				message:
+					"We could not send the reset email right now. Please try again in a few minutes or contact support.",
+				code: "EMAIL_DELIVERY_FAILED",
+			});
+		}
 		return res.status(500).json({ error: err.message });
 	}
 };

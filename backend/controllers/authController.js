@@ -906,27 +906,34 @@ exports.register = async (req, res) => {
 
 			await client.query("COMMIT");
 
+			let emailVerificationSent = false;
 			try {
 				if (!isGoogleProfileCompletion) {
 					const fullUser = await pool.query(`SELECT * FROM users WHERE user_id = $1`, [user.user_id]);
 					if (fullUser.rowCount) {
 						await authSecurity.sendVerificationEmail(fullUser.rows[0]);
+						emailVerificationSent = true;
 					}
 				}
 			} catch (mailErr) {
 				console.error("Verification email failed:", mailErr.message);
 			}
 
-			const regMessage =
-				normalizedRole === "Investor"
+			const regMessage = emailVerificationSent
+				? normalizedRole === "Investor"
 					? "Investor user registered successfully. Check your email to verify your address. Account pending admin approval."
 					: normalizedRole === "Mentor"
 						? "Mentor user registered successfully. Check your email to verify your address. Account pending admin approval."
-						: "Startup user registered successfully. Check your email to verify your address. Account pending admin approval.";
+						: "Startup user registered successfully. Check your email to verify your address. Account pending admin approval."
+				: normalizedRole === "Investor"
+					? "Investor user registered successfully, but the verification email could not be sent. Use resend verification on the login page. Account pending admin approval."
+					: normalizedRole === "Mentor"
+						? "Mentor user registered successfully, but the verification email could not be sent. Use resend verification on the login page. Account pending admin approval."
+						: "Startup user registered successfully, but the verification email could not be sent. Use resend verification on the login page. Account pending admin approval.";
 			return res.status(201).json({
 				message: regMessage,
 				user,
-				emailVerificationSent: !isGoogleProfileCompletion,
+				emailVerificationSent,
 				startup: startupProfile,
 				investor: investorProfile,
 				mentor: mentorProfile,
