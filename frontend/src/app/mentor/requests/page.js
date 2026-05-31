@@ -83,13 +83,14 @@ function proposalDetails(request) {
 }
 
 function exportCsv(rows) {
-	const header = ["Startup", "Founder", "Industry", "Stage", "Support", "Status"];
+	const header = ["Startup", "Founder", "Industry", "Stage", "Support", "Direction", "Status"];
 	const body = rows.map((row) => [
 		row.startup_name || "",
 		founderName(row),
 		row.industry || "",
 		row.business_stage || row.stage || "",
 		requestFocus(row),
+		row.initiated_by === "mentor" ? "Sent by mentor" : "Sent by startup",
 		row.status || "",
 	]);
 	const csv = [header, ...body]
@@ -137,7 +138,8 @@ export default function MentorRequestsPage() {
 		setError("");
 		try {
 			const rows = await fetchIncomingRequests();
-			const list = Array.isArray(rows) ? rows : rows?.requests || [];
+			const allRequests = Array.isArray(rows) ? rows : rows?.requests || [];
+			const list = allRequests;
 			setRequests(list);
 			setSelectedId((current) => current || list[0]?.mentorship_request_id || null);
 		} catch (ex) {
@@ -190,10 +192,13 @@ export default function MentorRequestsPage() {
 
 	const selected = filtered.find((request) => request.mentorship_request_id === selectedId) || filtered[0] || null;
 	const selectedDetails = selected ? proposalDetails(selected) : null;
+	const selectedIsOutbound = selected?.initiated_by === "mentor";
 
 	const stats = useMemo(() => {
-		const proposalsSent = requests.filter((request) => normalizeStatus(request.status) === "accepted").length;
-		const awaiting = requests.filter((request) => ["pending", "new"].includes(normalizeStatus(request.status))).length;
+		const proposalsSent = requests.filter((request) => request.initiated_by === "mentor").length;
+		const awaiting = requests.filter(
+			(request) => request.initiated_by === "mentor" && ["pending", "new"].includes(normalizeStatus(request.status)),
+		).length;
 		return {
 			total: requests.length,
 			proposalsSent,
@@ -253,9 +258,9 @@ export default function MentorRequestsPage() {
 			<main className="mx-auto grid w-full max-w-[1120px] grid-cols-1 gap-5 px-5 py-8 lg:grid-cols-[minmax(0,1fr)_280px] lg:px-8">
 				<section className="min-w-0">
 					<div className="mb-6">
-						<h1 className="text-[28px] font-black tracking-tight text-[#052b23]">Mentorship Requests</h1>
+						<h1 className="text-[28px] font-black tracking-tight text-[#052b23]">Mentorship Requests & Proposals</h1>
 						<p className="mt-2 text-sm text-gray-500">
-							Review, accept, and manage startup mentorship opportunities from across Ethiopia.
+							Review incoming startup requests and track the proposals you sent to startups.
 						</p>
 					</div>
 
@@ -361,7 +366,7 @@ export default function MentorRequestsPage() {
 											<p className="truncate font-black text-gray-950">{requestFocus(request)}</p>
 											<p className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-gray-500">
 												<span className={`h-1.5 w-1.5 rounded-full ${priority.color}`} />
-												{priority.label}
+												{request.initiated_by === "mentor" ? "Your proposal" : priority.label}
 											</p>
 										</div>
 										<div>
@@ -466,7 +471,7 @@ export default function MentorRequestsPage() {
 											disabled
 											className="flex h-10 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-xs font-black text-gray-400"
 										>
-											Proposal Pending
+											{selectedIsOutbound ? "Awaiting Startup Response" : "Request Pending"}
 										</button>
 									) : selected.startup_id ? (
 										<Link
@@ -484,7 +489,7 @@ export default function MentorRequestsPage() {
 											Send Proposal
 										</button>
 									)}
-									{normalizeStatus(selected.status) === "pending" || normalizeStatus(selected.status) === "new" ? (
+									{!selectedIsOutbound && (normalizeStatus(selected.status) === "pending" || normalizeStatus(selected.status) === "new") ? (
 										<div className="grid grid-cols-2 gap-2">
 											<button
 												type="button"

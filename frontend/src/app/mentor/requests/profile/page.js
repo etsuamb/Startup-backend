@@ -164,7 +164,8 @@ function ProfileContent() {
 	const description = startup?.description || startup?.startup_tagline || "No startup description has been provided yet.";
 	const founderName = startup?.founder_full_name || request?.founder_name || "Founder not provided";
 	const founderRole = startup?.founder_role || "Founder";
-	const canRespond = requestId && ["pending", "new"].includes(String(request?.status || "pending").toLowerCase());
+	const requestWasSentByStartup = (request?.initiated_by || "startup") === "startup";
+	const canRespond = requestId && requestWasSentByStartup && ["pending", "new"].includes(String(request?.status || "pending").toLowerCase());
 	const requestStatus = String(request?.status || "").toLowerCase();
 	const isAccepted = requestStatus === "accepted";
 
@@ -371,7 +372,7 @@ function ProfileContent() {
 							</Link>
 						) : ["pending", "new"].includes(requestStatus) ? (
 							<button type="button" disabled className="flex h-11 w-full items-center justify-center rounded-xl bg-gray-200 text-xs font-black uppercase text-gray-500">
-								Proposal Pending
+								{requestWasSentByStartup ? "Request Pending" : "Awaiting Startup Response"}
 							</button>
 						) : (
 							<Link href={`/mentor/requests/proposal?startupId=${sid}`} className="flex h-11 w-full items-center justify-center rounded-xl bg-[#0a4d3c] text-xs font-black uppercase text-white transition hover:bg-[#07382b]">

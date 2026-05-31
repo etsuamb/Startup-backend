@@ -563,6 +563,7 @@ export default function MentorMessagesPage() {
 								partnerName={selected.startupName}
 								currentUserId={uid}
 								api={callApi}
+								channel="mentor"
 								autoStartMode={callMode}
 								onError={(message) => setError(message || "")}
 							/>

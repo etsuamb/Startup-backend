@@ -1133,8 +1133,8 @@ exports.createMentorshipRequest = async (req, res) => {
 		}
 
 		const result = await pool.query(
-			`INSERT INTO mentorship_requests (startup_id, mentor_id, subject, message)
-			 VALUES ($1, $2, $3, $4) RETURNING *`,
+			`INSERT INTO mentorship_requests (startup_id, mentor_id, subject, message, initiated_by)
+			 VALUES ($1, $2, $3, $4, 'startup') RETURNING *`,
 			[startup_id, mentor_id, subject, message]
 		);
 

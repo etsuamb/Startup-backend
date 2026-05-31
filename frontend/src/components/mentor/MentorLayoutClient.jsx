@@ -97,8 +97,8 @@ function MentorTopbar() {
   }
 
   return (
-    <div className="sticky top-0 z-30 shrink-0 bg-white shadow-sm">
-      <header className="flex h-[72px] items-center justify-between border-b border-gray-100 px-5 sm:px-8">
+    <div className="sticky top-0 z-30 shrink-0 bg-white/95 backdrop-blur">
+      <header className="flex h-[72px] items-center justify-between border-b border-slate-200/80 px-5 sm:px-8">
         {pathname !== "/mentor/dashboard" ? (
           <form
             onSubmit={onSearchSubmit}
@@ -194,10 +194,10 @@ export default function MentorLayoutClient({ children }) {
       <MentorLocaleProvider>
         <div
           data-mentor-locale-root
-          className="flex h-screen bg-[#f8f9fa] font-sans text-gray-900 overflow-hidden"
+          className="flex h-screen bg-[#f6f8f7] font-sans text-gray-900 overflow-hidden"
         >
           <Sidebar />
-          <div className="flex-grow flex flex-col overflow-hidden bg-[#fbfcfc]">
+          <div className="flex-grow flex flex-col overflow-hidden bg-[#f6f8f7]">
             <MentorTopbar />
             <main className="mentor-content flex-grow overflow-y-auto">
               {children}

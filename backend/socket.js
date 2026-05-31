@@ -17,6 +17,12 @@ function parseConversationPayload(data) {
 	return { channel, conversationId };
 }
 
+function validWebRtcSignal(signal) {
+	if (!signal || typeof signal !== "object") return false;
+	if (!["ready", "offer", "answer", "candidate", "hangup"].includes(signal.type)) return false;
+	return JSON.stringify(signal).length <= 50000;
+}
+
 module.exports = function initializeSocket(httpServer) {
 	const corsOrigin = process.env.CORS_ORIGIN || process.env.FRONTEND_URL || "*";
 
@@ -96,6 +102,38 @@ module.exports = function initializeSocket(httpServer) {
 		socket.on("leave_room", (data) => {
 			const { channel, conversationId } = parseConversationPayload(data);
 			if (conversationId) socket.leave(roomKey(channel, conversationId));
+		});
+
+		socket.on("webrtc_signal", async (data, callback) => {
+			try {
+				const { channel, conversationId } = parseConversationPayload(data);
+				if (!Number.isInteger(conversationId) || conversationId <= 0 || !validWebRtcSignal(data?.signal)) {
+					if (callback) callback({ error: "Invalid WebRTC signal" });
+					return;
+				}
+
+				const access = await chatAccessService.assertChatAccess(userId, {
+					channel,
+					conversationId,
+				});
+				if (!access.allowed) {
+					if (callback) callback({ error: access.message, code: access.code });
+					return;
+				}
+
+				const room = roomKey(channel, conversationId);
+				socket.join(room);
+				socket.to(room).emit("webrtc_signal", {
+					channel,
+					conversationId,
+					senderUserId: userId,
+					signal: data.signal,
+				});
+				if (callback) callback({ success: true });
+			} catch (err) {
+				console.error("webrtc_signal error:", err);
+				if (callback) callback({ error: "Server error" });
+			}
 		});
 
 		socket.on("typing", (data) => {
