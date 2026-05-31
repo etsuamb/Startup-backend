@@ -2,6 +2,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const pool = require("../config/db");
 const authSecurity = require("../services/authSecurityService");
+const { ensureAuthSecuritySchema } = require("../services/ensureAuthSecuritySchema");
 const securityMonitoringService = require("../services/securityMonitoringService");
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_secret_key";
@@ -288,26 +289,24 @@ exports.updateCurrentAccount = async (req, res) => {
 
 // POST /auth/forgot-password { email }
 exports.forgotPassword = async (req, res) => {
+	const genericMessage =
+		"If an account exists for that email, password reset instructions have been sent.";
 	try {
-		const { email } = req.body;
+		const email = String(req.body?.email || "").trim().toLowerCase();
 		if (!email) return res.status(400).json({ message: "Email is required" });
-		const r = await pool.query(`SELECT * FROM users WHERE email = $1`, [email.trim().toLowerCase()]);
+		await ensureAuthSecuritySchema();
+		const r = await pool.query(`SELECT * FROM users WHERE email = $1`, [email]);
 		if (!r.rowCount) {
-			return res.json({
-				message: "If an account exists for that email, password reset instructions have been sent.",
-			});
+			return res.json({ message: genericMessage });
 		}
 		const user = r.rows[0];
-		if (!user.password_hash) {
-			return res.json({
-				message: "If an account exists for that email, password reset instructions have been sent.",
-			});
+		if (!user.password_hash || user.provider_type === "google") {
+			return res.json({ message: genericMessage });
 		}
 		await authSecurity.sendPasswordResetEmail(user);
-		return res.json({
-			message: "If an account exists for that email, password reset instructions have been sent.",
-		});
+		return res.json({ message: genericMessage });
 	} catch (err) {
+		console.error("forgotPassword", err);
 		return res.status(500).json({ error: err.message });
 	}
 };

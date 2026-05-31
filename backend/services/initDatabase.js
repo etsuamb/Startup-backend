@@ -2,6 +2,8 @@ const fs = require("fs").promises;
 const path = require("path");
 const pool = require("../config/db");
 const { seedAdmin } = require("../seeds/seedAdmin");
+const { ensureAuthSecuritySchema } = require("./ensureAuthSecuritySchema");
+const { ensurePaymentSchema } = require("./ensurePaymentSchema");
 
 const MIGRATION_FILES = [
 	"001_init.sql",
@@ -68,6 +70,8 @@ async function initDatabase() {
 	console.log("Initializing database...");
 	await ensureUploads();
 	await runMigrations();
+	await ensureAuthSecuritySchema();
+	await ensurePaymentSchema();
 	await seedAdmin();
 	console.log("Database initialization complete");
 }
