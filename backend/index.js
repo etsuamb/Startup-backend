@@ -94,8 +94,8 @@ async function startServer() {
     const mailStatus = getMailProviderStatus();
     console.log(
       `Email delivery: ${mailStatus.activeProvider}` +
-        (mailStatus.render && !mailStatus.resendConfigured
-          ? " — add RESEND_API_KEY on Render for production email"
+        (mailStatus.render && !mailStatus.brevoApiConfigured
+          ? " — set BREVO_HTTP_API_KEY (xkeysib) on Render"
           : ""),
     );
     server.listen(PORT, () => {

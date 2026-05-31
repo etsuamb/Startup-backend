@@ -2,14 +2,26 @@ const nodemailer = require("nodemailer");
 
 const IS_RENDER = Boolean(process.env.RENDER);
 const RESEND_API_KEY = String(process.env.RESEND_API_KEY || "").trim();
-const BREVO_API_KEY_RAW = String(process.env.BREVO_API_KEY || "").trim();
-const BREVO_SMTP_KEY = String(process.env.BREVO_SMTP_KEY || "").trim();
 
-const BREVO_HTTP_API_KEY = BREVO_API_KEY_RAW.startsWith("xkeysib-") ? BREVO_API_KEY_RAW : "";
-const BREVO_SMTP_PASSWORD =
-	BREVO_SMTP_KEY ||
-	(BREVO_API_KEY_RAW.startsWith("xsmtpsib-") ? BREVO_API_KEY_RAW : "") ||
-	"";
+function readEnv(name) {
+	return String(process.env[name] || "").trim();
+}
+
+function resolveBrevoHttpApiKey() {
+	const dedicated = readEnv("BREVO_HTTP_API_KEY");
+	if (dedicated.startsWith("xkeysib-")) return dedicated;
+	const legacy = readEnv("BREVO_API_KEY");
+	if (legacy.startsWith("xkeysib-")) return legacy;
+	return "";
+}
+
+function resolveBrevoSmtpPassword() {
+	const dedicated = readEnv("BREVO_SMTP_KEY");
+	if (dedicated.startsWith("xsmtpsib-")) return dedicated.replace(/\s+/g, "");
+	const legacy = readEnv("BREVO_API_KEY");
+	if (legacy.startsWith("xsmtpsib-")) return legacy.replace(/\s+/g, "");
+	return "";
+}
 
 class MailDeliveryError extends Error {
 	constructor(message, code, details = null) {
@@ -21,11 +33,11 @@ class MailDeliveryError extends Error {
 }
 
 function readGenericSmtpConfig() {
-	const host = String(process.env.SMTP_HOST || "").trim();
+	const host = readEnv("SMTP_HOST");
 	const port = Number(process.env.SMTP_PORT);
-	const user = String(process.env.SMTP_USER || "").trim();
-	const pass = String(process.env.SMTP_PASS || "").replace(/\s+/g, "");
-	const from = String(process.env.FROM_EMAIL || user || "no-reply@connectstartup.local").trim();
+	const user = readEnv("SMTP_USER");
+	const pass = readEnv("SMTP_PASS").replace(/\s+/g, "");
+	const from = readEnv("FROM_EMAIL") || user || "no-reply@connectstartup.local";
 
 	if (!host || !port || !user || !pass) {
 		return null;
@@ -35,18 +47,16 @@ function readGenericSmtpConfig() {
 }
 
 function readBrevoSmtpConfig() {
-	const user = String(process.env.BREVO_SMTP_USER || "").trim();
-	const pass = BREVO_SMTP_PASSWORD.replace(/\s+/g, "");
-	const from = String(
-		process.env.BREVO_FROM_EMAIL || process.env.FROM_EMAIL || "",
-	).trim();
+	const user = readEnv("BREVO_SMTP_USER");
+	const pass = resolveBrevoSmtpPassword();
+	const from = readEnv("BREVO_FROM_EMAIL") || readEnv("FROM_EMAIL");
 
 	if (!user || !pass) {
 		return null;
 	}
 
 	return {
-		host: String(process.env.BREVO_SMTP_HOST || "smtp-relay.brevo.com").trim(),
+		host: readEnv("BREVO_SMTP_HOST") || "smtp-relay.brevo.com",
 		port: Number(process.env.BREVO_SMTP_PORT || 587),
 		user,
 		pass,
@@ -55,18 +65,14 @@ function readBrevoSmtpConfig() {
 }
 
 function formatResendFrom() {
-	const raw = String(
-		process.env.RESEND_FROM_EMAIL || process.env.FROM_EMAIL || "onboarding@resend.dev",
-	).trim();
+	const raw = readEnv("RESEND_FROM_EMAIL") || readEnv("FROM_EMAIL") || "onboarding@resend.dev";
 	if (raw.includes("<")) return raw;
 	return `StartupConnect <${raw}>`;
 }
 
 function readBrevoSender() {
-	const email = String(
-		process.env.BREVO_FROM_EMAIL || process.env.FROM_EMAIL || "",
-	).trim();
-	const name = String(process.env.BREVO_FROM_NAME || "StartupConnect").trim();
+	const email = readEnv("BREVO_FROM_EMAIL") || readEnv("FROM_EMAIL");
+	const name = readEnv("BREVO_FROM_NAME") || "StartupConnect";
 	if (!email || email.includes("@smtp-brevo.com")) {
 		return null;
 	}
@@ -90,13 +96,24 @@ function createTransporter(config) {
 	});
 }
 
-const brevoSmtpConfig = readBrevoSmtpConfig();
-const genericSmtpConfig = readGenericSmtpConfig();
-const brevoTransporter = brevoSmtpConfig ? createTransporter(brevoSmtpConfig) : null;
-const genericTransporter =
-	genericSmtpConfig && !/brevo\.com/i.test(genericSmtpConfig.host)
-		? createTransporter(genericSmtpConfig)
-		: null;
+function getRuntimeMailConfig() {
+	const brevoHttpApiKey = resolveBrevoHttpApiKey();
+	const brevoSmtpConfig = readBrevoSmtpConfig();
+	const genericSmtpConfig = readGenericSmtpConfig();
+	const allowGenericSmtp = !IS_RENDER || readEnv("RENDER_ALLOW_SMTP") === "true";
+
+	return {
+		brevoHttpApiKey,
+		brevoSmtpConfig,
+		brevoTransporter: brevoSmtpConfig ? createTransporter(brevoSmtpConfig) : null,
+		genericSmtpConfig,
+		genericTransporter:
+			genericSmtpConfig && allowGenericSmtp && !/brevo\.com/i.test(genericSmtpConfig.host)
+				? createTransporter(genericSmtpConfig)
+				: null,
+		allowGenericSmtp,
+	};
+}
 
 function logMailFallback(to, subject, text, html, reason) {
 	const body = text || (html ? html.replace(/<[^>]+>/g, " ") : "");
@@ -112,7 +129,7 @@ function parseResendError(message) {
 		const match = text.match(/email address \(([^)]+)\)/i);
 		return new MailDeliveryError(
 			match
-				? `Resend test mode only allows sending to ${match[1]}. Register with that email for testing, verify a domain at resend.com/domains, or use Brevo with a verified sender email.`
+				? `Resend test mode only allows sending to ${match[1]}. Verify a domain at resend.com/domains or use Brevo HTTP API.`
 				: "Resend test mode only allows sending to your Resend signup email until you verify a domain.",
 			"RESEND_SANDBOX_ONLY",
 			{ allowedEmail: match?.[1] || null },
@@ -121,27 +138,30 @@ function parseResendError(message) {
 	return new MailDeliveryError(text || "Resend delivery failed", "RESEND_FAILED");
 }
 
-function parseBrevoApiKeyMisconfig() {
-	if (BREVO_API_KEY_RAW.startsWith("xsmtpsib-") && !process.env.BREVO_SMTP_USER) {
+function parseBrevoMisconfig() {
+	const legacy = readEnv("BREVO_API_KEY");
+	if (legacy.startsWith("xsmtpsib-") && !readEnv("BREVO_SMTP_USER")) {
 		return new MailDeliveryError(
-			"You put a Brevo SMTP key in BREVO_API_KEY. Set BREVO_SMTP_USER=your_login@smtp-brevo.com and keep the xsmtpsib key in BREVO_API_KEY or BREVO_SMTP_KEY.",
+			"Set BREVO_SMTP_USER=your_login@smtp-brevo.com for the xsmtpsib SMTP key.",
 			"BREVO_MISCONFIGURED",
 		);
 	}
-	if (BREVO_API_KEY_RAW && !BREVO_HTTP_API_KEY && !BREVO_SMTP_PASSWORD) {
+	if (legacy.includes("xsmtpsib-") && legacy.includes("xkeysib-")) {
 		return new MailDeliveryError(
-			"BREVO_API_KEY must start with xkeysib- (HTTP API key). SMTP keys start with xsmtpsib- and belong in BREVO_SMTP_KEY.",
+			"BREVO_API_KEY contains two keys pasted together. Use BREVO_HTTP_API_KEY for xkeysib and BREVO_SMTP_KEY for xsmtpsib.",
+			"BREVO_MISCONFIGURED",
+		);
+	}
+	if (IS_RENDER && !resolveBrevoHttpApiKey() && !readBrevoSmtpConfig()) {
+		return new MailDeliveryError(
+			"On Render, set BREVO_HTTP_API_KEY (xkeysib-...) for reliable email delivery.",
 			"BREVO_MISCONFIGURED",
 		);
 	}
 	return null;
 }
 
-async function sendViaBrevoApi(to, subject, plainText, html) {
-	if (!BREVO_HTTP_API_KEY) {
-		return null;
-	}
-
+async function sendViaBrevoApi(to, subject, plainText, html, apiKey) {
 	const sender = readBrevoSender();
 	if (!sender) {
 		throw new MailDeliveryError(
@@ -153,7 +173,7 @@ async function sendViaBrevoApi(to, subject, plainText, html) {
 	const response = await fetch("https://api.brevo.com/v3/smtp/email", {
 		method: "POST",
 		headers: {
-			"api-key": BREVO_HTTP_API_KEY,
+			"api-key": apiKey,
 			"Content-Type": "application/json",
 		},
 		body: JSON.stringify({
@@ -168,15 +188,21 @@ async function sendViaBrevoApi(to, subject, plainText, html) {
 	const payload = await response.json().catch(() => ({}));
 	if (!response.ok) {
 		const message = payload?.message || payload?.error || `Brevo HTTP ${response.status}`;
+		if (/unrecognised ip address|unrecognized ip address|authorised_ips|authorized_ips/i.test(String(message))) {
+			throw new MailDeliveryError(
+				`${message} Disable IP blocking in Brevo -> Security -> Authorized IPs (or add your server IP). Render needs IP blocking turned OFF.`,
+				"BREVO_IP_BLOCKED",
+			);
+		}
 		if (/key not found|unauthorized|invalid api key/i.test(String(message))) {
 			throw new MailDeliveryError(
-				`${message}. Use an HTTP API key starting with xkeysib- from Brevo -> Settings -> SMTP & API -> API Keys. SMTP keys (xsmtpsib-) will not work here.`,
+				`${message}. Use BREVO_HTTP_API_KEY with a key starting xkeysib- from Brevo -> API Keys.`,
 				"BREVO_INVALID_API_KEY",
 			);
 		}
 		if (/sender.*not valid|sender.*not verified|invalid sender/i.test(String(message))) {
 			throw new MailDeliveryError(
-				`${message}. Verify ${sender.email} as a sender in Brevo -> Settings -> Senders.`,
+				`${message}. Verify ${sender.email} in Brevo -> Settings -> Senders.`,
 				"BREVO_SENDER_NOT_VERIFIED",
 				{ senderEmail: sender.email },
 			);
@@ -187,16 +213,12 @@ async function sendViaBrevoApi(to, subject, plainText, html) {
 	return { delivered: true, provider: "brevo-api", id: payload.messageId || null };
 }
 
-async function sendViaBrevoSmtp(to, subject, plainText, html) {
-	if (!brevoTransporter || !brevoSmtpConfig) {
-		return null;
-	}
-
-	const fromEmail = brevoSmtpConfig.from;
-	const fromName = String(process.env.BREVO_FROM_NAME || "StartupConnect").trim();
+async function sendViaBrevoSmtp(to, subject, plainText, html, config, transporter) {
+	const fromEmail = config.from;
+	const fromName = readEnv("BREVO_FROM_NAME") || "StartupConnect";
 	const from = fromName ? `${fromName} <${fromEmail}>` : fromEmail;
 
-	const info = await brevoTransporter.sendMail({
+	const info = await transporter.sendMail({
 		from,
 		to,
 		subject,
@@ -240,47 +262,42 @@ async function sendViaResend(to, subject, plainText, html) {
 	return { delivered: true, provider: "resend", id: payload.id };
 }
 
-async function sendViaGenericSmtp(to, subject, plainText, html) {
-	if (!genericTransporter || !genericSmtpConfig) {
-		return null;
-	}
-
-	const info = await genericTransporter.sendMail({
-		from: genericSmtpConfig.from,
+async function sendViaGenericSmtp(to, subject, plainText, html, config, transporter) {
+	const info = await transporter.sendMail({
+		from: config.from,
 		to,
 		subject,
 		text: plainText,
 		html,
 	});
-
 	return { delivered: true, provider: "smtp", messageId: info.messageId };
 }
 
-function describeMailSetup() {
-	if (BREVO_HTTP_API_KEY) return "Brevo HTTP API";
-	if (brevoSmtpConfig) return "Brevo SMTP";
+function describeMailSetup(config) {
+	if (config.brevoHttpApiKey) return "Brevo HTTP API";
+	if (config.brevoSmtpConfig) return "Brevo SMTP";
 	if (RESEND_API_KEY) return "Resend API";
-	if (genericSmtpConfig) {
-		return IS_RENDER
-			? "SMTP (Render often blocks Gmail SMTP; use Brevo SMTP or Brevo API key)"
-			: "SMTP";
-	}
-	return "none (configure Brevo SMTP or Brevo/Resend API keys)";
+	if (config.genericSmtpConfig && config.allowGenericSmtp) return "SMTP";
+	if (config.genericSmtpConfig) return "SMTP (disabled on Render)";
+	return "none";
 }
 
 async function sendMail(to, subject, text, html) {
 	const plainText = text || (html ? html.replace(/<[^>]+>/g, " ") : "");
-	const misconfig = parseBrevoApiKeyMisconfig();
+	const misconfig = parseBrevoMisconfig();
 	if (misconfig) {
 		throw misconfig;
 	}
 
+	const config = getRuntimeMailConfig();
 	const errors = [];
+	let brevoAttempted = false;
 
-	if (BREVO_HTTP_API_KEY) {
+	if (config.brevoHttpApiKey) {
 		try {
-			return await sendViaBrevoApi(to, subject, plainText, html);
+			return await sendViaBrevoApi(to, subject, plainText, html, config.brevoHttpApiKey);
 		} catch (err) {
+			brevoAttempted = true;
 			if (err instanceof MailDeliveryError) {
 				throw err;
 			}
@@ -289,12 +306,27 @@ async function sendMail(to, subject, text, html) {
 		}
 	}
 
-	if (brevoTransporter) {
+	if (config.brevoTransporter) {
+		brevoAttempted = true;
 		try {
-			return await sendViaBrevoSmtp(to, subject, plainText, html);
+			return await sendViaBrevoSmtp(
+				to,
+				subject,
+				plainText,
+				html,
+				config.brevoSmtpConfig,
+				config.brevoTransporter,
+			);
 		} catch (err) {
-			errors.push(`Brevo SMTP: ${err.message || err}`);
-			console.error("[mail-error] Brevo SMTP failed:", err.message || err);
+			const message = String(err.message || err);
+			if (/unauthorized ip address/i.test(message)) {
+				throw new MailDeliveryError(
+					"Brevo SMTP blocked this server IP. On Render, use BREVO_HTTP_API_KEY (xkeysib-...) instead of SMTP.",
+					"BREVO_SMTP_IP_BLOCKED",
+				);
+			}
+			errors.push(`Brevo SMTP: ${message}`);
+			console.error("[mail-error] Brevo SMTP failed:", message);
 		}
 	}
 
@@ -310,44 +342,43 @@ async function sendMail(to, subject, text, html) {
 		}
 	}
 
-	const skipGenericSmtpOnRender = IS_RENDER && !process.env.RENDER_ALLOW_SMTP;
-	if (!skipGenericSmtpOnRender) {
+	if (!brevoAttempted && config.genericTransporter) {
 		try {
-			const smtpResult = await sendViaGenericSmtp(to, subject, plainText, html);
-			if (smtpResult) {
-				return smtpResult;
-			}
-			errors.push("Generic SMTP not configured");
+			return await sendViaGenericSmtp(
+				to,
+				subject,
+				plainText,
+				html,
+				config.genericSmtpConfig,
+				config.genericTransporter,
+			);
 		} catch (err) {
 			errors.push(`SMTP: ${err.message || err}`);
 			console.error("[mail-error] SMTP failed:", err.message || err);
 		}
-	} else if (!brevoTransporter && !BREVO_HTTP_API_KEY && !RESEND_API_KEY) {
-		errors.push(
-			"Render blocks most SMTP. Configure Brevo SMTP (xsmtpsib key + BREVO_SMTP_USER) or a Brevo xkeysib API key.",
-		);
+	} else if (IS_RENDER && !config.brevoHttpApiKey && !config.brevoTransporter && !RESEND_API_KEY) {
+		errors.push("Configure BREVO_HTTP_API_KEY (xkeysib-...) on Render for email delivery.");
 	}
 
 	const reason = errors.join("; ") || "No email provider configured";
 	logMailFallback(to, subject, plainText, html, reason);
-	return { delivered: false, provider: null, error: reason };
+	throw new MailDeliveryError(reason, "EMAIL_DELIVERY_FAILED");
 }
 
 function getMailProviderStatus() {
+	const config = getRuntimeMailConfig();
 	return {
 		render: IS_RENDER,
-		brevoApiConfigured: Boolean(BREVO_HTTP_API_KEY),
-		brevoSmtpConfigured: Boolean(brevoSmtpConfig),
+		brevoApiConfigured: Boolean(config.brevoHttpApiKey),
+		brevoSmtpConfigured: Boolean(config.brevoSmtpConfig),
 		resendConfigured: Boolean(RESEND_API_KEY),
-		genericSmtpConfigured: Boolean(genericSmtpConfig),
-		activeProvider: describeMailSetup(),
-		brevoSender: readBrevoSender()?.email || brevoSmtpConfig?.from || null,
-		brevoSmtpUser: brevoSmtpConfig?.user || null,
+		genericSmtpConfigured: Boolean(config.genericSmtpConfig),
+		genericSmtpEnabled: Boolean(config.genericTransporter),
+		activeProvider: describeMailSetup(config),
+		brevoSender: readBrevoSender()?.email || config.brevoSmtpConfig?.from || null,
+		brevoSmtpUser: config.brevoSmtpConfig?.user || null,
 		resendFrom: formatResendFrom(),
-		hint:
-			BREVO_API_KEY_RAW.startsWith("xsmtpsib-") && !process.env.BREVO_SMTP_USER
-				? "Add BREVO_SMTP_USER=your_login@smtp-brevo.com"
-				: null,
+		recommendedOnRender: "Set BREVO_HTTP_API_KEY to your xkeysib- API key",
 	};
 }
 
