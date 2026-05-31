@@ -1,6 +1,7 @@
 const http = require("http");
 const express = require("express");
 const pool = require("./config/db");
+const { initDatabase } = require("./services/initDatabase");
 const initializeSocket = require("./socket");
 const authRoutes = require("./routes/authRoutes");
 const {
@@ -86,7 +87,16 @@ app.use("/api/startups/discover", discoverRoutes);
 const ratingRoutes = require("./routes/ratingRoutes");
 app.use("/api/ratings", ratingRoutes);
 
-// Start server LAST
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT} (Legacy Monolith)`);
-});
+async function startServer() {
+  try {
+    await initDatabase();
+    server.listen(PORT, () => {
+      console.log(`Server running on port ${PORT} (Legacy Monolith)`);
+    });
+  } catch (err) {
+    console.error("Server startup failed:", err.message || err);
+    process.exit(1);
+  }
+}
+
+startServer();

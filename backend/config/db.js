@@ -9,12 +9,17 @@ if (typeof dbPassword !== "string" || dbPassword.length === 0) {
   );
 }
 
+const useSsl =
+  process.env.DB_SSL === "true" ||
+  (process.env.DB_HOST && String(process.env.DB_HOST).includes("render.com"));
+
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
   database: process.env.DB_NAME,
   password: dbPassword,
   port: Number(process.env.DB_PORT) || 5432,
+  ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
 });
 
 module.exports = pool;
