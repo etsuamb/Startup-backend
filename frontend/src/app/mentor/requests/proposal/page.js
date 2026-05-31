@@ -4,22 +4,26 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import NotificationBell from "@/components/NotificationBell";
-import { fetchIncomingRequests, fetchStartupDetails, sendProposal } from "@/lib/mentorApi";
+import { fetchIncomingRequests, fetchProposalOptions, fetchStartupDetails, sendProposal } from "@/lib/mentorApi";
 import { saveDraft, loadDraft, clearDraft, getDraftSavedAt, formatSavedTime } from "@/lib/formDraft";
 
 const DRAFT_KEY_PREFIX = "mentor_proposal_";
 
-const focusAreas = [
+const fallbackOptions = {
+	focus_areas: [
 	"Market Entry Strategy",
 	"Scale-up Strategy",
 	"Revenue Operations",
 	"Regulatory Compliance",
 	"Product Strategy",
 	"Fundraising Readiness",
-];
-
-const durations = ["1 Month", "3 Months", "6 Months", "12 Months"];
-const frequencies = ["Weekly", "Bi-weekly", "Monthly"];
+	],
+	durations: ["1 Month", "3 Months", "6 Months", "12 Months"],
+	frequencies: ["Weekly", "Bi-weekly", "Monthly"],
+	formats: ["1:1 Session", "Group"],
+	modes: ["Remote", "In-person"],
+	default_hourly_rate: 0,
+};
 
 function initials(name) {
 	return String(name || "SC")
@@ -92,6 +96,7 @@ function ProposalForm() {
 	const [previewOpen, setPreviewOpen] = useState(false);
 	const [savedAt, setSavedAt] = useState("");
 	const [existingProposal, setExistingProposal] = useState(null);
+	const [proposalOptions, setProposalOptions] = useState(fallbackOptions);
 	const [showDraftNotice, setShowDraftNotice] = useState(false);
 	const [draftSavedAt, setDraftSavedAt] = useState(null);
 	const [form, setForm] = useState({
@@ -132,8 +137,12 @@ function ProposalForm() {
 		}
 
 		setLoadingStartup(true);
-		Promise.all([fetchStartupDetails(startupId), fetchIncomingRequests().catch(() => [])])
-			.then(([data, requestData]) => {
+		Promise.all([
+			fetchStartupDetails(startupId),
+			fetchIncomingRequests().catch(() => []),
+			fetchProposalOptions().catch(() => fallbackOptions),
+		])
+			.then(([data, requestData, options]) => {
 				if (!alive) return;
 				const loadedStartup = data.startup;
 				const requests = Array.isArray(requestData) ? requestData : requestData?.requests || [];
@@ -143,6 +152,7 @@ function ProposalForm() {
 				});
 				setStartup(loadedStartup);
 				setExistingProposal(existing || null);
+				setProposalOptions({ ...fallbackOptions, ...options });
 				
 				// Load draft if exists
 				const savedDraft = loadDraft(DRAFT_KEY);
@@ -154,6 +164,10 @@ function ProposalForm() {
 					setForm((current) => ({
 						...current,
 						subject: current.subject || "",
+						monthlyFee:
+							Number(current.monthlyFee || 0) > 0
+								? current.monthlyFee
+								: String(options.default_hourly_rate || "0.00"),
 					}));
 				}
 			})
@@ -409,8 +423,8 @@ function ProposalForm() {
 							</div>
 
 							<div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-								<SelectField label="Focus Area" value={form.focusArea} options={focusAreas} onChange={(value) => updateField("focusArea", value)} />
-								<SelectField label="Duration" value={form.duration} options={durations} onChange={(value) => updateField("duration", value)} />
+								<SelectField label="Focus Area" value={form.focusArea} options={proposalOptions.focus_areas} onChange={(value) => updateField("focusArea", value)} />
+								<SelectField label="Duration" value={form.duration} options={proposalOptions.durations} onChange={(value) => updateField("duration", value)} />
 								<div>
 									<label className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-gray-500">Sessions Count</label>
 									<input
@@ -421,12 +435,12 @@ function ProposalForm() {
 										className="h-12 w-full rounded-xl border border-transparent bg-gray-50 px-4 text-sm font-medium outline-none transition focus:border-[#0b4a3c]/20 focus:bg-white focus:ring-2 focus:ring-[#0b4a3c]/10"
 									/>
 								</div>
-								<SelectField label="Frequency" value={form.frequency} options={frequencies} onChange={(value) => updateField("frequency", value)} />
+								<SelectField label="Frequency" value={form.frequency} options={proposalOptions.frequencies} onChange={(value) => updateField("frequency", value)} />
 							</div>
 
 							<div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-								<Segmented label="Format" value={form.format} options={["1:1 Session", "Group"]} onChange={(value) => updateField("format", value)} />
-								<Segmented label="Mode" value={form.mode} options={["Remote", "In-person"]} onChange={(value) => updateField("mode", value)} />
+								<Segmented label="Format" value={form.format} options={proposalOptions.formats} onChange={(value) => updateField("format", value)} />
+								<Segmented label="Mode" value={form.mode} options={proposalOptions.modes} onChange={(value) => updateField("mode", value)} />
 							</div>
 
 							<div className="grid grid-cols-1 gap-5 sm:grid-cols-2">

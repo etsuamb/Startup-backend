@@ -123,6 +123,26 @@ export function downloadInvestorChatFile(conversationId, messageId) {
 	return apiFetchBlob(`/chat/conversations/${conversationId}/files/${messageId}`);
 }
 
+export function getInvestorVideoStatus(conversationId) {
+	return apiFetch(`/chat/conversations/${conversationId}/video/status`);
+}
+
+export function startInvestorVideoCall(conversationId) {
+	return apiPostJson(`/chat/conversations/${conversationId}/video/start`, {});
+}
+
+export function joinInvestorVideoCall(conversationId) {
+	return apiPostJson(`/chat/conversations/${conversationId}/video/join`, {});
+}
+
+export function endInvestorVideoCall(conversationId) {
+	return apiPostJson(`/chat/conversations/${conversationId}/video/end`, {});
+}
+
+export function setInvestorVideoScreenShare(conversationId, action) {
+	return apiPostJson(`/chat/conversations/${conversationId}/video/screen-share`, { action });
+}
+
 export function sendInvestorAiMentorMessage(payload) {
 	if (payload instanceof FormData) {
 		return apiPostForm("/ai-mentor/chat", payload);

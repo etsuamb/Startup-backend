@@ -909,6 +909,7 @@ export default function StartupChatView({
                 partnerName={selected.contactName}
                 currentUserId={currentUserId}
                 api={callApi}
+                channel={socketChannel}
                 autoStartMode={callAutoMode}
                 onError={(msg) => setError(msg || null)}
               />
