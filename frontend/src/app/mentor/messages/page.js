@@ -182,6 +182,12 @@ export default function MentorMessagesPage() {
     }
   }, []);
 
+	const appendMessage = useCallback((message) => {
+		const id = message?.mentor_chat_message_id || message?.chat_message_id;
+		if (!id) return;
+		setMessages((current) =>
+			current.some(
+				(item) =>
 					String(item.mentor_chat_message_id || item.chat_message_id) ===
 					String(id),
 			)
