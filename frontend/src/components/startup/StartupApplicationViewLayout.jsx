@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import StartupProfileMenu from "@/components/startup/StartupProfileMenu";
 import ViewableFileTrigger from "@/components/startup/ViewableFileTrigger";
 import OfferDocumentFolders from "@/components/startup/OfferDocumentFolders";
 import {
@@ -17,7 +18,6 @@ import {
   offerToContact,
   statusBadgeClass,
 } from "@/lib/applicationFormUtils";
-import { initials } from "@/lib/discoverProfileUtils";
 
 const labelClass = "block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2";
 const valueClass = "w-full bg-[#f8fafc] border border-gray-100 rounded-xl px-4 py-3 text-xs font-medium text-gray-900 whitespace-pre-wrap";
@@ -38,15 +38,7 @@ function PageHeader({ startup }) {
         <input type="text" placeholder="Search..." readOnly className="w-full pl-11 pr-4 py-2.5 bg-[#f8fafc] border-none rounded-xl text-sm outline-none" />
       </div>
       <div className="flex items-center gap-4 sm:gap-6 ml-auto">
-        <div className="flex items-center gap-3 border-l border-gray-200 pl-4 sm:pl-6">
-          <div className="hidden sm:flex flex-col items-end">
-            <span className="text-xs font-bold text-gray-900">{founder}</span>
-            <span className="text-[10px] text-gray-400 font-medium">Founder, {company}</span>
-          </div>
-          <div className="w-9 h-9 rounded-full bg-[#1e293b] text-white flex items-center justify-center font-bold text-xs shrink-0">
-            {initials(founder)}
-          </div>
-        </div>
+        <StartupProfileMenu profileName={company} profileSubtitle={`Founder, ${founder}`} />
       </div>
     </header>
   );

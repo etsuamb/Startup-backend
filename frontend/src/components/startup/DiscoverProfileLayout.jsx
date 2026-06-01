@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import StartupProfileMenu from "@/components/startup/StartupProfileMenu";
 import { getSentInvestorOffer, getSentMentorOffer } from "@/lib/offerUtils";
 import { initials } from "@/lib/discoverProfileUtils";
 import { isSensitiveVisible, privacyMessage } from "@/lib/profilePrivacy";
@@ -107,13 +108,10 @@ export default function DiscoverProfileLayout({
           />
         </div>
         <div className="flex items-center gap-4 ml-auto">
-          <div className="hidden sm:flex flex-col items-end">
-            <span className="text-xs font-bold text-gray-900">{startup?.startup_name || "My Startup"}</span>
-            <span className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">{founderName}</span>
-          </div>
-          <div className="w-9 h-9 rounded-full bg-[#1e293b] text-white flex items-center justify-center font-bold text-xs">
-            {initials(founderName)}
-          </div>
+          <StartupProfileMenu
+            profileName={startup?.startup_name || "My Startup"}
+            profileSubtitle={founderName}
+          />
         </div>
       </header>
 

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "@/components/startup/Sidebar";
 import ChatCallPanel from "@/components/startup/ChatCallPanel";
+import StartupProfileMenu from "@/components/startup/StartupProfileMenu";
 import { getStartupProfile } from "@/lib/startupApi";
 import { getToken } from "@/lib/authStorage";
 import {
@@ -658,17 +659,10 @@ export default function StartupChatView({
 						/>
 					</div>
 					<div className="flex items-center gap-4 ml-auto">
-						<div className="hidden sm:flex flex-col items-end">
-							<span className="text-xs font-bold text-gray-900">
-								{founderName}
-							</span>
-							<span className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">
-								Founder
-							</span>
-						</div>
-						<div className="w-9 h-9 rounded-full bg-[#1e293b] text-white flex items-center justify-center font-bold text-xs">
-							{founderInitials}
-						</div>
+						<StartupProfileMenu
+							profileName={profile?.startup_name || "My Startup"}
+							profileSubtitle={founderName}
+						/>
 					</div>
 				</header>
 
