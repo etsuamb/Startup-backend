@@ -11,6 +11,7 @@ const {
 	authenticate,
 	authorizeRoles,
 	requireApproval,
+	requireActiveAccount,
 } = require("../middleware/authMiddleware");
 
 // Register user
@@ -93,11 +94,17 @@ router.post(
 	authRateLimit({ scope: "verify-2fa", max: 15 }),
 	authSecurityController.verifyLogin2FA,
 );
-router.get("/2fa/status", authenticate, requireApproval, authSecurityController.get2FAStatus);
-router.get("/2fa/setup", authenticate, requireApproval, authSecurityController.setup2FA);
-router.post("/2fa/send-enable-otp", authenticate, requireApproval, authSecurityController.sendEnable2FAOtp);
-router.post("/2fa/enable", authenticate, requireApproval, authSecurityController.enable2FA);
-router.post("/2fa/disable", authenticate, requireApproval, authSecurityController.disable2FA);
+router.get("/2fa/status", authenticate, requireActiveAccount, authSecurityController.get2FAStatus);
+router.get("/2fa/setup", authenticate, requireActiveAccount, authSecurityController.setup2FA);
+router.post(
+	"/2fa/send-enable-otp",
+	authenticate,
+	requireActiveAccount,
+	authRateLimit({ scope: "2fa-send-enable-otp", max: 5 }),
+	authSecurityController.sendEnable2FAOtp,
+);
+router.post("/2fa/enable", authenticate, requireActiveAccount, authSecurityController.enable2FA);
+router.post("/2fa/disable", authenticate, requireActiveAccount, authSecurityController.disable2FA);
 
 // Refresh access token
 router.post("/refresh", authController.refresh);

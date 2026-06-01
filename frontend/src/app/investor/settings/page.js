@@ -338,7 +338,7 @@ export default function InvestorSettingsPage() {
     );
     if (activeTab === "security") return (
       <div className="space-y-6">
-        <SectionCard><SectionHeader title="Two-Factor Authentication" description="Protect your investor account with an additional verification step." /><AccountSecurityPanel /></SectionCard>
+        <SectionCard><SectionHeader title="Two-Factor Authentication" description="Optional extra security at login. Use an authenticator app or email verification codes." /><AccountSecurityPanel /></SectionCard>
         <form onSubmit={savePassword}><SectionCard><SectionHeader title="Change Password" description="Use a strong password with a capital letter, number, and special character." /><div className="grid gap-5 sm:grid-cols-2"><FormField label="Current password"><input type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} className={inputClass} /></FormField><FormField label="New password"><input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} className={inputClass} /></FormField></div><div className="mt-6 flex justify-end"><SaveButton saving={saving} label="Update Password" /></div></SectionCard></form>
       </div>
     );

@@ -106,7 +106,7 @@ export default function AccountSecurityPanel({ showToast }) {
 	return (
 		<div className="space-y-4">
 			<p className="text-xs text-gray-500">
-				Use an authenticator app or email codes at login.{" "}
+				Optional: use an authenticator app or email codes at login. You can enable or disable this anytime.{" "}
 				<Link href="/login/forgot-password" className="text-[#0f5c4a] font-bold hover:underline">
 					Forgot password?
 				</Link>

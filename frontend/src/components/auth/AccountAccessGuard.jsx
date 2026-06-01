@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { PortalPageSkeleton } from "@/components/loading/PageSkeletons";
 import { getCurrentAccount } from "@/lib/authApi";
 import { getRole, getToken } from "@/lib/authStorage";
 import {
@@ -53,13 +54,7 @@ export default function AccountAccessGuard({ children, requiredRole }) {
 		};
 	}, [pathname, requiredRole, router]);
 
-	if (!ready) {
-		return (
-			<div className="min-h-screen flex items-center justify-center bg-[#f8f9fa] text-slate-500 text-sm">
-				Loading…
-			</div>
-		);
-	}
+	if (!ready) return <PortalPageSkeleton includeShell />;
 
 	return children;
 }

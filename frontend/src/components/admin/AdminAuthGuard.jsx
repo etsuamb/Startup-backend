@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { PortalPageSkeleton } from "@/components/loading/PageSkeletons";
 import { clearSession, getRole, getToken, setSession } from "@/lib/authStorage";
 import { getCurrentAccount } from "@/lib/authApi";
 
@@ -62,13 +63,7 @@ export default function AdminAuthGuard({ children }) {
 		);
 	}
 
-	if (!ready) {
-		return (
-			<div className="min-h-screen flex items-center justify-center bg-[#f8fafc] text-slate-500 text-sm font-medium">
-				Loading admin workspace…
-			</div>
-		);
-	}
+	if (!ready) return <PortalPageSkeleton includeShell />;
 
 	return children;
 }

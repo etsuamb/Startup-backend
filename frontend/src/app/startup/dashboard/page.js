@@ -7,6 +7,7 @@ import Sidebar from "@/components/startup/Sidebar";
 import StartupActionNotice from "@/components/startup/StartupActionNotice";
 import StartupTopBar from "@/components/startup/StartupTopBar";
 import ViewableFileTrigger from "@/components/startup/ViewableFileTrigger";
+import { PortalContentSkeleton } from "@/components/loading/PageSkeletons";
 import { isAccountGateError } from "@/lib/accountGate";
 import {
   getDashboardActivities,
@@ -328,12 +329,7 @@ export default function StartupDashboard() {
           ) : null}
 
           {loading ? (
-             <SectionCard>
-              <div className="py-16 text-center">
-                <div className="w-10 h-10 rounded-full border-2 border-[#0f3d32] border-t-transparent animate-spin mx-auto mb-4" />
-                <p className="text-sm font-semibold text-gray-500">Loading your dashboard...</p>
-              </div>
-            </SectionCard>
+            <PortalContentSkeleton compact />
           ) : (
             <>
               {/* Summary stats */}

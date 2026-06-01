@@ -11,6 +11,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { routeAfterLogin, userFromLoginResponse } from "@/lib/accountGate";
+import { userFacingError } from "@/lib/userFacingErrors";
 
 export default function GoogleSignInButton({ onError, role, mode = "login" }) {
 	const router = useRouter();
@@ -113,10 +114,19 @@ export default function GoogleSignInButton({ onError, role, mode = "login" }) {
 					role: data.user?.role,
 					userName: `${data.user?.first_name || ""} ${data.user?.last_name || ""}`.trim(),
 				});
-				routeAfterLogin(router, userFromLoginResponse(data));
+				const user = userFromLoginResponse(data);
+				const twoFactorEnabled =
+					data.twoFactorEnabled === true || user?.two_factor_enabled === true;
+				if (!twoFactorEnabled && user?.role !== "Admin") {
+					sessionStorage.setItem("prompt_2fa_setup", "true");
+					router.push("/login/setup-2fa-optional");
+					return;
+				}
+
+				routeAfterLogin(router, user);
 			}
 		} catch (ex) {
-			onError?.(ex.message || "Google sign-in failed");
+			onError?.(userFacingError(ex, "Google sign-in failed. Please try again."));
 		}
 	}
 

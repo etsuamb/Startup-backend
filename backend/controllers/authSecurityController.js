@@ -22,14 +22,13 @@ const hasStrongPassword = (password) =>
 function respondEmailDeliveryFailure(res, err, fallbackMessage) {
 	if (err instanceof MailDeliveryError) {
 		return res.status(503).json({
-			message: err.message,
+			message: fallbackMessage,
 			code: err.code,
-			details: err.details || undefined,
 		});
 	}
 	if (/could not be delivered|resend|smtp|email provider|brevo/i.test(String(err.message || ""))) {
 		return res.status(503).json({
-			message: err.message || fallbackMessage,
+			message: fallbackMessage,
 			code: "EMAIL_DELIVERY_FAILED",
 		});
 	}
@@ -456,7 +455,7 @@ exports.verifyLogin2FA = async (req, res) => {
 		const { pendingToken, code, backupCode } = req.body;
 		if (!pendingToken) return res.status(400).json({ message: "pendingToken is required" });
 
-		const pending = await authSecurity.consumePendingLogin(pendingToken);
+		const pending = await authSecurity.getPendingLogin(pendingToken);
 		if (!pending) {
 			return res.status(401).json({ message: "Invalid or expired login session" });
 		}
@@ -501,9 +500,16 @@ exports.verifyLogin2FA = async (req, res) => {
 			return res.status(401).json({ message: "Invalid verification code" });
 		}
 
+		const consumedPending = await authSecurity.consumePendingLogin(pendingToken);
+		if (!consumedPending) {
+			return res.status(401).json({ message: "Invalid or expired login session" });
+		}
+
 		const ip = securityMonitoringService.readIpAddress(req);
 		const userAgent = req.headers["user-agent"] || "";
-		return finishLoginOr2FA(req, res, user, user.email, ip, userAgent);
+		return finishLoginOr2FA(req, res, user, user.email, ip, userAgent, {
+			twoFactorVerified: true,
+		});
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -869,11 +875,11 @@ exports.googleCompleteRole = async (req, res) => {
 	}
 };
 
-async function finishLoginOr2FA(req, res, user, email, ip, userAgent) {
+async function finishLoginOr2FA(req, res, user, email, ip, userAgent, options = {}) {
 	const fresh = (await loadUserById(user.user_id)) || user;
 	user = fresh;
 
-	if (user.two_factor_enabled) {
+	if (user.two_factor_enabled && !options.twoFactorVerified) {
 		const pendingToken = await authSecurity.createPendingLogin(user.user_id, req);
 		if (user.two_factor_method === "email") {
 			await authSecurity.sendEmailLoginOtp(user.user_id);
@@ -909,13 +915,27 @@ async function finishLoginOr2FA(req, res, user, email, ip, userAgent) {
 			? user.email_verified !== false
 			: !!user.email_verified;
 	const isApproved = user.role === "Admin" ? true : !!user.is_approved;
+	const accessStatus =
+		user.role === "Admin" || (emailVerified && isApproved)
+			? "full_access"
+			: !emailVerified
+				? "email_verification_required"
+				: "pending_admin_approval";
+	const loginMessage =
+		accessStatus === "pending_admin_approval"
+			? "Login successful. Your email is verified, but your account is waiting for admin approval. You can update your email from Settings."
+			: accessStatus === "email_verification_required"
+				? "Login successful. Verify your email address before using the platform. You can update your email from Settings."
+				: "Login successful";
 
 	return res.json({
-		message: "Login successful",
+		message: loginMessage,
 		...tokens,
 		user: publicUser(user),
 		emailVerified,
 		isApproved,
+		accessStatus,
+		twoFactorEnabled: !!user.two_factor_enabled,
 	});
 }
 

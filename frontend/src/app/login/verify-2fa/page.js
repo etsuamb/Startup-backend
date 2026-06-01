@@ -6,6 +6,7 @@ import Link from "next/link";
 import { verifyLogin2FA } from "@/lib/authApi";
 import { setSession } from "@/lib/authStorage";
 import { routeAfterLogin, userFromLoginResponse } from "@/lib/accountGate";
+import { userFacingError } from "@/lib/userFacingErrors";
 
 export default function Verify2FAPage() {
 	const router = useRouter();
@@ -25,8 +26,10 @@ export default function Verify2FAPage() {
 				return;
 			}
 			const parsed = JSON.parse(raw);
-			setPendingToken(parsed.pendingToken || "");
-			setMethod(parsed.twoFactorMethod || "totp");
+			queueMicrotask(() => {
+				setPendingToken(parsed.pendingToken || "");
+				setMethod(parsed.twoFactorMethod || "totp");
+			});
 		} catch {
 			router.replace("/login");
 		}
@@ -42,6 +45,26 @@ export default function Verify2FAPage() {
 				useBackup ? undefined : code,
 				useBackup ? backupCode : undefined,
 			);
+
+			if (data.requires2FA) {
+				sessionStorage.setItem(
+					"pending_2fa",
+					JSON.stringify({
+						pendingToken: data.pendingToken,
+						twoFactorMethod: data.twoFactorMethod,
+					}),
+				);
+				setPendingToken(data.pendingToken || "");
+				setMethod(data.twoFactorMethod || "email");
+				setCode("");
+				setErr("A new verification code was requested. Enter the latest code from your email.");
+				return;
+			}
+
+			if (!data.token || !data.user?.role) {
+				throw new Error("Sign-in could not be completed. Please request a new verification code and try again.");
+			}
+
 			sessionStorage.removeItem("pending_2fa");
 			setSession({
 				token: data.token,
@@ -49,9 +72,11 @@ export default function Verify2FAPage() {
 				role: data.user?.role,
 				userName: `${data.user?.first_name || ""} ${data.user?.last_name || ""}`.trim(),
 			});
-			routeAfterLogin(router, userFromLoginResponse(data));
+
+			const user = userFromLoginResponse(data);
+			routeAfterLogin(router, user);
 		} catch (ex) {
-			setErr(ex.message || "Verification failed");
+			setErr(userFacingError(ex, "Verification failed. Check the code and try again."));
 		} finally {
 			setLoading(false);
 		}
