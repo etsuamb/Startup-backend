@@ -50,6 +50,8 @@ export default function ChatCallPanel({
 	const screenStreamRef = useRef(null);
 	const peerConnectionRef = useRef(null);
 	const pendingCandidatesRef = useRef([]);
+	const ringtoneContextRef = useRef(null);
+	const ringtoneTimerRef = useRef(null);
 	const autoStartedRef = useRef(false);
 
 	const activeCall = ["ringing", "active"].includes(callState.status);
@@ -72,6 +74,54 @@ export default function ChatCallPanel({
 	function stopTracks(stream) {
 		stream?.getTracks?.().forEach((track) => track.stop());
 	}
+
+	const stopRingtone = useCallback(() => {
+		if (ringtoneTimerRef.current) {
+			clearInterval(ringtoneTimerRef.current);
+			ringtoneTimerRef.current = null;
+		}
+		if (ringtoneContextRef.current) {
+			ringtoneContextRef.current.close?.().catch?.(() => {});
+			ringtoneContextRef.current = null;
+		}
+	}, []);
+
+	const startRingtone = useCallback(async () => {
+		if (ringtoneTimerRef.current || !incomingCall) return;
+		try {
+			const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+			if (!AudioContextCtor) return;
+			const context = new AudioContextCtor();
+			ringtoneContextRef.current = context;
+
+			const playTone = () => {
+				if (!ringtoneContextRef.current || context.state === "closed") return;
+				const oscillator = context.createOscillator();
+				const gainNode = context.createGain();
+				oscillator.type = "sine";
+				oscillator.frequency.value = 880;
+				gainNode.gain.value = 0.0001;
+				oscillator.connect(gainNode);
+				gainNode.connect(context.destination);
+				oscillator.start();
+				gainNode.gain.exponentialRampToValueAtTime(
+					0.08,
+					context.currentTime + 0.02,
+				);
+				gainNode.gain.exponentialRampToValueAtTime(
+					0.0001,
+					context.currentTime + 0.55,
+				);
+				oscillator.stop(context.currentTime + 0.58);
+			};
+
+			await context.resume?.().catch(() => {});
+			playTone();
+			ringtoneTimerRef.current = window.setInterval(playTone, 1400);
+		} catch {
+			stopRingtone();
+		}
+	}, [incomingCall, stopRingtone]);
 
 	const closePeerConnection = useCallback(() => {
 		const pc = peerConnectionRef.current;
@@ -98,6 +148,7 @@ export default function ChatCallPanel({
 		localStreamRef.current = null;
 		screenStreamRef.current = null;
 		closePeerConnection();
+		stopRingtone();
 	}, [closePeerConnection]);
 
 	const sendSignal = useCallback(
@@ -235,12 +286,22 @@ export default function ChatCallPanel({
 			});
 			stopAllMedia();
 			autoStartedRef.current = false;
+			stopRingtone();
 			return;
 		}
 		fetchVideoStatus();
 		const id = window.setInterval(() => fetchVideoStatus(true), 5000);
 		return () => window.clearInterval(id);
 	}, [conversationId, fetchVideoStatus, stopAllMedia]);
+
+	useEffect(() => {
+		if (incomingCall) {
+			startRingtone();
+			return () => stopRingtone();
+		}
+		stopRingtone();
+		return undefined;
+	}, [incomingCall, startRingtone, stopRingtone]);
 
 	useEffect(() => {
 		autoStartedRef.current = false;

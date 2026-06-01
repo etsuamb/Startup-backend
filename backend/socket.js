@@ -17,6 +17,19 @@ function parseConversationPayload(data) {
 	return { channel, conversationId };
 }
 
+function validWebRtcSignal(signal) {
+	if (!signal || typeof signal !== "object") return false;
+	if (typeof signal.type !== "string") return false;
+	if (["hangup", "ready"].includes(signal.type)) return true;
+	if (["offer", "answer"].includes(signal.type)) {
+		return Boolean(signal.sdp && typeof signal.sdp === "object");
+	}
+	if (signal.type === "candidate") {
+		return Boolean(signal.candidate && typeof signal.candidate === "object");
+	}
+	return false;
+}
+
 async function resolvePeerUserId(channel, conversationId, senderUserId) {
 	if (channel === "mentor") {
 		const result = await pool.query(
@@ -139,7 +152,11 @@ module.exports = function initializeSocket(httpServer) {
 		socket.on("webrtc_signal", async (data, callback) => {
 			try {
 				const { channel, conversationId } = parseConversationPayload(data);
-				if (!Number.isInteger(conversationId) || conversationId <= 0 || !validWebRtcSignal(data?.signal)) {
+				if (
+					!Number.isInteger(conversationId) ||
+					conversationId <= 0 ||
+					!validWebRtcSignal(data?.signal)
+				) {
 					if (callback) callback({ error: "Invalid WebRTC signal" });
 					return;
 				}
