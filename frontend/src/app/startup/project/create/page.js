@@ -8,6 +8,7 @@ import { createProject, getProjectDetails, getStartupProfile, updateProject } fr
 import { PendingApprovalBlock } from "@/components/startup/PendingApprovalNotice";
 import { useStartupApproval } from "@/hooks/useStartupApproval";
 import { saveDraft, loadDraft, clearDraft, getDraftSavedAt, formatSavedTime } from "@/lib/formDraft";
+import { IndustrySelectWithOther } from "@/components/register/IndustryFields";
 
 const DRAFT_KEY = "startup_project_create";
 
@@ -280,40 +281,15 @@ export default function StartupProjectCreate() {
 
                   {/* Industry & Stage */}
                   <div className="grid sm:grid-cols-2 gap-5">
-                    <div>
-                      <label className="block text-xs font-bold text-gray-900 mb-2">Industry</label>
-                      <div className="relative">
-                        <select
-                          value={industry}
-                          onChange={(e) => setIndustry(e.target.value)}
-                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0f3d32]/20 focus:border-[#0f3d32] transition text-sm text-gray-800 appearance-none"
-                        >
-                          <option value="">Select Industry</option>
-                          <option value="Agriculture">Agriculture</option>
-                          <option value="Agro-processing">Agro-processing</option>
-                          <option value="Construction">Construction</option>
-                          <option value="Education">Education</option>
-                          <option value="Energy">Energy</option>
-                          <option value="Environment and Water">Environment and Water</option>
-                          <option value="Finance and Insurance">Finance and Insurance</option>
-                          <option value="Food and Beverage">Food and Beverage</option>
-                          <option value="Health and Wellness">Health and Wellness</option>
-                          <option value="ICT / Technology">ICT / Technology</option>
-                          <option value="Logistics and Transportation">Logistics and Transportation</option>
-                          <option value="Manufacturing">Manufacturing</option>
-                          <option value="Media and Entertainment">Media and Entertainment</option>
-                          <option value="Mining and Extractives">Mining and Extractives</option>
-                          <option value="Professional Services">Professional Services</option>
-                          <option value="Real Estate">Real Estate</option>
-                          <option value="Retail and Consumer Goods">Retail and Consumer Goods</option>
-                          <option value="Tourism and Hospitality">Tourism and Hospitality</option>
-                          <option value="Textiles and Apparel">Textiles and Apparel</option>
-                        </select>
-                        <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-gray-400">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </div>
-                      </div>
-                    </div>
+                    <IndustrySelectWithOther
+                      label="Industry"
+                      value={industry}
+                      onChange={setIndustry}
+                      placeholder="Select Industry"
+                      labelClassName="block text-xs font-bold text-gray-900"
+                      selectClassName="mt-2 w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0f3d32]/20 focus:border-[#0f3d32] transition text-sm text-gray-800 appearance-none"
+                      inputClassName="mt-3 w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0f3d32]/20 focus:border-[#0f3d32] transition text-sm text-gray-800"
+                    />
                     <div>
                       <label className="block text-xs font-bold text-gray-900 mb-2">Startup Stage</label>
                       <div className="relative">
