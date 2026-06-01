@@ -6,6 +6,7 @@ import StartupProfileMenu from "@/components/startup/StartupProfileMenu";
 import { getSentInvestorOffer, getSentMentorOffer } from "@/lib/offerUtils";
 import { initials } from "@/lib/discoverProfileUtils";
 import { isSensitiveVisible, privacyMessage } from "@/lib/profilePrivacy";
+import ActorAvatar from "@/components/auth/ActorAvatar";
 
 function CheckIcon({ matched }) {
   return (
@@ -132,11 +133,7 @@ export default function DiscoverProfileLayout({
             {/* Hero card */}
             <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8">
               <div className="flex flex-col sm:flex-row gap-6">
-                <div className="w-16 h-16 rounded-xl bg-[#0f3d32] text-white flex items-center justify-center shrink-0 shadow-sm">
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                  </svg>
-                </div>
+                <ActorAvatar role={kind} profileId={contactId} initials={initials(profile.displayName)} className="h-16 w-16 shrink-0 rounded-xl text-lg shadow-sm" alt={profile.displayName} />
                 <div className="flex-grow min-w-0">
                   <div className="flex flex-wrap items-center gap-3 mb-2">
                     <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{profile.displayName}</h1>

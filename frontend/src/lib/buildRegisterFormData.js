@@ -90,6 +90,7 @@ export function buildRegisterFormData(role, fields, files) {
 		fd.append("investor_type", f.investor_type);
 		fd.append("preferred_industry", f.preferred_industry);
 		fd.append("investment_stage", f.investment_stage);
+		fd.append("investment_range_min", String(f.investment_range_min));
 		fd.append("investment_range", String(f.investment_range));
 		fd.append("location_preference", f.location_preference);
 		fd.append("investment_history_summary", f.investment_history_summary);
@@ -122,6 +123,7 @@ export function buildRegisterFormData(role, fields, files) {
 		fd.append("professional_bio", f.professional_bio);
 		fd.append("linkedin_portfolio", f.linkedin_portfolio);
 		fd.append("availability_preference", f.availability_preference);
+		fd.append("session_pricing_min", String(f.session_pricing_min));
 		fd.append("session_pricing", String(f.session_pricing));
 		fd.append("current_organization", f.current_organization);
 		fd.append("current_title", f.current_title);

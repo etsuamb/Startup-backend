@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS investors (
     investor_type VARCHAR(50) NOT NULL,
     organization_name VARCHAR(255),
     investment_budget DECIMAL(14,2) CHECK (investment_budget >= 0),
+    investment_budget_min DECIMAL(14,2) CHECK (investment_budget_min IS NULL OR investment_budget_min >= 0),
     preferred_industry VARCHAR(120),
     investment_stage VARCHAR(50),
     location_preference VARCHAR(255),
@@ -74,6 +75,7 @@ ALTER TABLE investors ADD COLUMN IF NOT EXISTS linked_in_or_website VARCHAR(255)
 ALTER TABLE investors ADD COLUMN IF NOT EXISTS bio TEXT;
 ALTER TABLE investors ADD COLUMN IF NOT EXISTS personal_verification VARCHAR(255);
 ALTER TABLE investors ADD COLUMN IF NOT EXISTS uploaded_documents JSONB;
+ALTER TABLE investors ADD COLUMN IF NOT EXISTS investment_budget_min DECIMAL(14,2) CHECK (investment_budget_min IS NULL OR investment_budget_min >= 0);
 
 CREATE TABLE IF NOT EXISTS mentors (
     mentor_id SERIAL PRIMARY KEY,
@@ -94,6 +96,7 @@ ALTER TABLE mentors ADD COLUMN IF NOT EXISTS linkedin_or_portfolio VARCHAR(500);
 ALTER TABLE mentors ADD COLUMN IF NOT EXISTS certification_credentials TEXT;
 ALTER TABLE mentors ADD COLUMN IF NOT EXISTS availability_preference TEXT;
 ALTER TABLE mentors ADD COLUMN IF NOT EXISTS session_pricing DECIMAL(10,2) CHECK (session_pricing IS NULL OR session_pricing >= 0);
+ALTER TABLE mentors ADD COLUMN IF NOT EXISTS session_pricing_min DECIMAL(10,2) CHECK (session_pricing_min IS NULL OR session_pricing_min >= 0);
 ALTER TABLE mentors ADD COLUMN IF NOT EXISTS current_organization VARCHAR(255);
 ALTER TABLE mentors ADD COLUMN IF NOT EXISTS current_title VARCHAR(255);
 ALTER TABLE mentors ADD COLUMN IF NOT EXISTS primary_industry VARCHAR(120);

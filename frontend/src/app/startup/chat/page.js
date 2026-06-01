@@ -7,6 +7,7 @@ import Sidebar from "@/components/startup/Sidebar";
 import StartupChatView from "@/components/startup/StartupChatView";
 import StartupProfileMenu from "@/components/startup/StartupProfileMenu";
 import { useRealtimeChat } from "@/hooks/useRealtimeChat";
+import ActorAvatar from "@/components/auth/ActorAvatar";
 import {
 	downloadInvestorChatFile,
 	downloadMentorChatFile,
@@ -197,9 +198,7 @@ function StartupAllChats() {
 									href={`/startup/chat?kind=${conversation.kind}&conversationId=${conversation.id}`}
 									className="flex items-center gap-4 border-b border-gray-100 px-4 py-4 last:border-b-0 hover:bg-gray-50"
 								>
-									<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0f3d32] text-sm font-bold text-white">
-										{conversation.avatarLetter}
-									</div>
+									<ActorAvatar role={conversation.kind} profileId={conversation.partnerId} initials={conversation.avatarLetter} className="h-11 w-11 shrink-0 rounded-full text-sm" alt={conversation.contactName} />
 									<div className="min-w-0 flex-1">
 										<div className="flex items-center gap-2">
 											<p className="truncate text-sm font-bold">{conversation.contactName}</p>

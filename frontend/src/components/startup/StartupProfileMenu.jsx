@@ -1,12 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clearSession } from "@/lib/authStorage";
 import { getStartupProfile } from "@/lib/startupApi";
-import { resolveUploadedFileUrl } from "@/lib/viewUploadedFile";
+import ProfilePictureAvatar from "@/components/auth/ProfilePictureAvatar";
 
 function initials(value) {
 	return String(value || "Startup")
@@ -50,17 +49,6 @@ export default function StartupProfileMenu({
 		profileSubtitle !== "Startup account"
 			? profileSubtitle
 			: profile?.admin_status || profile?.status_label || profileSubtitle;
-	const imageSrc = useMemo(
-		() =>
-			resolveUploadedFileUrl(
-				profile?.logo_url ||
-					profile?.logo_path ||
-					profile?.profile_image_url ||
-					profile?.profile_picture_url ||
-					profile?.avatar_url,
-			),
-		[profile],
-	);
 
 	function handleLogout() {
 		clearSession();
@@ -82,20 +70,7 @@ export default function StartupProfileMenu({
 						<p className="max-w-40 truncate text-xs text-gray-500">{subtitle}</p>
 					</div>
 				) : null}
-				{imageSrc ? (
-					<Image
-						src={imageSrc}
-						alt={`${name} logo`}
-						width={40}
-						height={40}
-						unoptimized
-						className="h-10 w-10 shrink-0 rounded-full border border-gray-100 object-cover"
-					/>
-				) : (
-					<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0f3d32] text-sm font-bold text-white">
-						{initials(name)}
-					</div>
-				)}
+				<ProfilePictureAvatar initials={initials(name)} className="h-10 w-10 shrink-0 rounded-full border border-gray-100 text-sm" alt={`${name} logo`} />
 			</button>
 
 			{menuOpen ? (

@@ -5,6 +5,7 @@ import { getCurrentAccount, updateCurrentAccount } from "@/lib/authApi";
 import { clearSession } from "@/lib/authStorage";
 import { useRouter } from "next/navigation";
 import AccountAccessBanner from "@/components/auth/AccountAccessBanner";
+import ProfilePictureEditor from "@/components/auth/ProfilePictureEditor";
 import AccountSecurityPanel from "@/components/auth/AccountSecurityPanel";
 import { IndustrySelectWithOther } from "@/components/register/IndustryFields";
 
@@ -320,7 +321,8 @@ export default function MentorSettingsPage() {
   const [primaryIndustry,   setPrimaryIndustry]   = useState("");
   const [spokenLanguages,   setSpokenLanguages]   = useState([]);
   const [mentorshipFocus,   setMentorshipFocus]   = useState("");
-  const [sessionRate,       setSessionRate]       = useState("");
+  const [sessionRateMin,    setSessionRateMin]    = useState("");
+  const [sessionRateMax,    setSessionRateMax]    = useState("");
   const [maxStartups,       setMaxStartups]       = useState("");
 
   // ── Availability state ──
@@ -387,7 +389,8 @@ export default function MentorSettingsPage() {
         if (p.primary_industry) setPrimaryIndustry(p.primary_industry);
         if (Array.isArray(p.languages)) setSpokenLanguages(p.languages);
         if (p.mentorship_focus) setMentorshipFocus(p.mentorship_focus);
-        if (p.session_rate)     setSessionRate(fieldValue(p.session_rate));
+        if (p.session_pricing_min != null) setSessionRateMin(fieldValue(p.session_pricing_min));
+        if (p.session_pricing != null || p.hourly_rate != null) setSessionRateMax(fieldValue(p.session_pricing ?? p.hourly_rate));
         if (p.max_startups)     setMaxStartups(fieldValue(p.max_startups));
         if (p.timezone)         setTimezone(p.timezone);
         if (p.session_duration) setSessionDuration(fieldValue(p.session_duration));
@@ -469,7 +472,9 @@ export default function MentorSettingsPage() {
         primary_industry:  primaryIndustry,
         languages:         spokenLanguages,
         mentorship_focus:  mentorshipFocus.trim(),
-        session_rate:      sessionRate,
+        session_pricing_min: sessionRateMin,
+        session_pricing:   sessionRateMax,
+        hourly_rate:       sessionRateMax,
         max_startups:      maxStartups,
         // availability
         timezone,
@@ -534,16 +539,7 @@ export default function MentorSettingsPage() {
         {/* Avatar Card */}
         <SectionCard>
           <div className="flex items-center gap-6">
-            <div className="relative shrink-0">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#061e16] to-[#0f3d32] flex items-center justify-center text-2xl font-black text-white shadow-lg">
-                {[firstName, lastName].filter(Boolean).map((n) => n[0]).join("").toUpperCase() || "M"}
-              </div>
-              <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#10b981] flex items-center justify-center">
-                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
-                </svg>
-              </div>
-            </div>
+            <ProfilePictureEditor initials={[firstName, lastName].filter(Boolean).map((n) => n[0]).join("").toUpperCase() || "M"} />
             <div>
               <p className="text-base font-bold text-gray-900">
                 {[firstName, lastName].filter(Boolean).join(" ") || "Your Name"}
@@ -783,16 +779,11 @@ export default function MentorSettingsPage() {
                 placeholder="e.g., 5"
               />
             </FormField>
-            <FormField label="Session rate (ETB)" hint="Leave blank if you mentor for free.">
-              <input
-                id="mentor-session-rate"
-                type="number"
-                min="0"
-                value={sessionRate}
-                onChange={(e) => setSessionRate(e.target.value)}
-                className={inputClass}
-                placeholder="e.g., 500"
-              />
+            <FormField label="Session price range (ETB)" hint="Leave both blank if you mentor for free.">
+              <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+                <input id="mentor-session-rate-min" type="number" min="0" value={sessionRateMin} onChange={(e) => setSessionRateMin(e.target.value)} className={inputClass} placeholder="Minimum" />
+                <input id="mentor-session-rate-max" type="number" min={sessionRateMin || "0"} value={sessionRateMax} onChange={(e) => setSessionRateMax(e.target.value)} className={inputClass} placeholder="Maximum" />
+              </div>
             </FormField>
           </div>
         </SectionCard>

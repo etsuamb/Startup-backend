@@ -20,13 +20,15 @@ export function formatTicketRange(contact, kind) {
     if (contact.investment_range) return String(contact.investment_range);
     const budget = Number(contact.investment_budget);
     if (budget > 0) {
-      const low = Math.round(budget * 0.2);
+      const low = Number(contact.investment_budget_min ?? Math.round(budget * 0.2));
       const high = budget;
       return `${formatMoney(low) || "$0"} - ${formatMoney(high) || "$0"} per startup`;
     }
   }
   if (kind === "mentor" && contact.session_pricing) {
-    return `${formatMoney(contact.session_pricing) || `$${contact.session_pricing}`} per session`;
+    const high = formatMoney(contact.session_pricing) || `$${contact.session_pricing}`;
+    const low = formatMoney(contact.session_pricing_min);
+    return `${low ? `${low} - ` : ""}${high} per session`;
   }
   return null;
 }

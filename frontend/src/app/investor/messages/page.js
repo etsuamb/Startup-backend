@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation";
 import Sidebar from "@/components/investor/Sidebar";
 import ChatCallPanel from "@/components/startup/ChatCallPanel";
+import ActorAvatar from "@/components/auth/ActorAvatar";
 import {
   createInvestorConversation,
   downloadInvestorChatFile,
@@ -502,7 +503,7 @@ function MessagesContent() {
 
       <div className="flex-grow flex flex-col overflow-hidden bg-white pt-16">
         <div className="flex flex-grow overflow-hidden">
-          <div className="w-[340px] shrink-0 border-r border-gray-200 flex flex-col bg-white">
+          <div className={`${activeStartup ? "hidden md:flex" : "flex"} w-full md:w-[340px] shrink-0 border-r border-gray-200 flex-col bg-white`}>
             <div className="p-4 border-b border-gray-100">
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
@@ -531,9 +532,7 @@ function MessagesContent() {
                   }`}
                 >
                   {String(activeStartupId) === String(chat.startup_id) && <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#0a4d3c]" />}
-                  <div className="w-12 h-12 rounded-full bg-[#0a4d3c] text-white flex items-center justify-center text-[13px] font-bold shrink-0">
-                    {initials(chat.startup_name)}
-                  </div>
+                  <ActorAvatar role="startup" profileId={chat.startup_id} initials={initials(chat.startup_name)} className="h-12 w-12 shrink-0 rounded-full text-[13px]" alt={chat.startup_name} />
                   <div className="flex-grow min-w-0 pr-1">
                     <div className="flex justify-between items-baseline mb-1 gap-2">
                       <h4 className={`text-[15px] truncate ${String(activeStartupId) === String(chat.startup_id) ? "font-bold text-gray-900" : "font-semibold text-gray-800"}`}>
@@ -561,24 +560,25 @@ function MessagesContent() {
             </div>
           </div>
 
-          <div className="flex-grow flex flex-col bg-white overflow-hidden relative">
-            <div className="h-[76px] px-8 border-b border-gray-200 flex justify-between items-center shrink-0">
+          <div className={`${activeStartup ? "flex" : "hidden md:flex"} min-w-0 flex-grow flex-col bg-white overflow-hidden relative`}>
+            <div className="h-[76px] gap-2 border-b border-gray-200 px-3 sm:px-8 flex justify-between items-center shrink-0">
               {activeStartup ? (
                 <>
-                  <div className="flex items-center gap-4">
-                    <div className="w-11 h-11 rounded-full bg-[#0a4d3c] text-white flex items-center justify-center text-[13px] font-bold">
-                      {initials(activeStartup.startup_name)}
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-bold text-gray-900 leading-tight">{activeStartup.startup_name}</h2>
+                  <div className="flex min-w-0 items-center gap-2 sm:gap-4">
+                    <button type="button" onClick={() => setActiveStartupId("")} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-gray-500 hover:bg-gray-100 md:hidden" aria-label="Back to conversations">
+                      <span aria-hidden="true">&larr;</span>
+                    </button>
+                    <ActorAvatar role="startup" profileId={activeStartup.startup_id} initials={initials(activeStartup.startup_name)} className="h-11 w-11 shrink-0 rounded-full text-[13px]" alt={activeStartup.startup_name} />
+                    <div className="min-w-0">
+                      <h2 className="truncate text-lg font-bold text-gray-900 leading-tight">{activeStartup.startup_name}</h2>
                       <div className="text-[11px] font-bold text-[#0a4d3c]">{activeStartup.industry || "Startup"}</div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Link href={`/investor/offers?startupId=${activeStartup.startup_id}`} className="px-5 py-2 bg-white border border-gray-300 rounded-lg text-[13px] font-bold text-gray-700 hover:bg-gray-50 transition shadow-sm">
+                  <div className="flex max-w-[52%] shrink-0 items-center gap-2 overflow-x-auto sm:max-w-none sm:gap-3">
+                    <Link href={`/investor/offers?startupId=${activeStartup.startup_id}`} className="whitespace-nowrap px-3 sm:px-5 py-2 bg-white border border-gray-300 rounded-lg text-[13px] font-bold text-gray-700 hover:bg-gray-50 transition shadow-sm">
                       Send Offer
                     </Link>
-                    <Link href={`/investor/meetings?startupId=${activeStartup.startup_id}`} className="px-5 py-2 bg-white border border-gray-300 rounded-lg text-[13px] font-bold text-gray-700 hover:bg-gray-50 transition shadow-sm">
+                    <Link href={`/investor/meetings?startupId=${activeStartup.startup_id}`} className="whitespace-nowrap px-3 sm:px-5 py-2 bg-white border border-gray-300 rounded-lg text-[13px] font-bold text-gray-700 hover:bg-gray-50 transition shadow-sm">
                       Schedule Meeting
                     </Link>
                     {activeConversationId && activeCanMessage ? (
@@ -668,7 +668,7 @@ function MessagesContent() {
               )}
             </div>
 
-            <form onSubmit={handleSend} className="p-6 bg-white border-t border-gray-200 shrink-0 flex items-center gap-3">
+            <form onSubmit={handleSend} className="p-3 sm:p-6 bg-white border-t border-gray-200 shrink-0 flex min-w-0 items-center gap-2 sm:gap-3">
               <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelected} />
               <button
                 type="button"
@@ -691,7 +691,7 @@ function MessagesContent() {
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18.5a6 6 0 006-6m-12 0a6 6 0 006 6m0 0v3m-4 0h8M12 15a3 3 0 003-3V5a3 3 0 10-6 0v7a3 3 0 003 3z" /></svg>
               </button>
 
-              <div className="flex-grow">
+              <div className="min-w-0 flex-grow">
                 {pendingAttachment ? (
                   <div className="mb-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
                     <div className="flex items-start justify-between gap-3">
@@ -732,9 +732,9 @@ function MessagesContent() {
               <button
                 type="submit"
                 disabled={(!draft.trim() && !pendingAttachment) || !activeStartupId || !activeCanMessage || sending || uploading}
-                className="px-6 py-3.5 bg-[#0a3a2e] text-white font-bold text-[14px] rounded-xl hover:bg-[#072a21] shadow-md flex items-center justify-center gap-2 transition shrink-0 disabled:bg-gray-300 disabled:shadow-none disabled:cursor-not-allowed"
+                className="px-3 sm:px-6 py-3.5 bg-[#0a3a2e] text-white font-bold text-[14px] rounded-xl hover:bg-[#072a21] shadow-md flex items-center justify-center gap-2 transition shrink-0 disabled:bg-gray-300 disabled:shadow-none disabled:cursor-not-allowed"
               >
-                {sending ? "Sending..." : uploading ? "Uploading..." : pendingAttachment ? "Send File" : "Send"}
+                <span className="hidden sm:inline">{sending ? "Sending..." : uploading ? "Uploading..." : pendingAttachment ? "Send File" : "Send"}</span>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
               </button>
             </form>

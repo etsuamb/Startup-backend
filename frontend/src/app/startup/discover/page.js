@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/startup/Sidebar";
 import StartupTopBar from "@/components/startup/StartupTopBar";
+import ActorAvatar from "@/components/auth/ActorAvatar";
 import { getStartupProfile, searchInvestors, searchMentors } from "@/lib/startupApi";
 
 function initials(value) {
@@ -37,9 +38,7 @@ function DiscoverCard({ profile, type }) {
 	return (
 		<article className="flex h-full flex-col rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition hover:shadow-md">
 			<div className="flex items-center gap-3">
-				<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#0f3d32] text-sm font-black text-white">
-					{initials(name)}
-				</div>
+				<ActorAvatar role={isInvestor ? "investor" : "mentor"} profileId={id} initials={initials(name)} className="h-12 w-12 shrink-0 rounded-full text-sm font-black" alt={name} />
 				<div className="min-w-0">
 					<h2 className="truncate text-lg font-black text-gray-900">{name}</h2>
 					<p className="truncate text-xs font-medium text-gray-500">{location}</p>

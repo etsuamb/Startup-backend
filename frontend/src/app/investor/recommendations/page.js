@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/investor/Sidebar";
+import ActorAvatar from "@/components/auth/ActorAvatar";
 import { getInvestorRecommendations } from "@/lib/investorApi";
 
 function formatMoney(value) {
@@ -13,6 +14,13 @@ function formatMoney(value) {
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(amount);
+}
+
+function formatBudgetRange(preferences) {
+  const maximum = formatMoney(preferences?.investment_budget);
+  if (maximum === "Not set") return maximum;
+  const minimum = formatMoney(preferences?.investment_budget_min);
+  return `${minimum === "Not set" ? "$0" : minimum} - ${maximum}`;
 }
 
 function RecommendationSkeleton() {
@@ -109,7 +117,7 @@ export default function AIRecommendations() {
             <div className="flex flex-wrap gap-2 text-xs font-semibold text-gray-600">
               {preferences?.preferred_industry ? <span className="rounded-full bg-white px-3 py-2">Industry: {preferences.preferred_industry}</span> : null}
               {preferences?.investment_stage ? <span className="rounded-full bg-white px-3 py-2">Stage: {preferences.investment_stage}</span> : null}
-              {preferences?.investment_budget ? <span className="rounded-full bg-white px-3 py-2">Budget: {formatMoney(preferences.investment_budget)}</span> : null}
+              {preferences?.investment_budget ? <span className="rounded-full bg-white px-3 py-2">Budget: {formatBudgetRange(preferences)}</span> : null}
             </div>
           </div>
 
@@ -149,7 +157,10 @@ export default function AIRecommendations() {
                       </span>
                     </div>
 
-                    <h2 className="text-xl font-bold text-gray-900">{startup.startup_name || "Startup"}</h2>
+                    <div className="flex items-center gap-3">
+                      <ActorAvatar role="startup" profileId={startup.startup_id} initials={(startup.startup_name || "S").slice(0, 2).toUpperCase()} className="h-11 w-11 shrink-0 rounded-xl" alt={startup.startup_name || "Startup"} />
+                      <h2 className="text-xl font-bold text-gray-900">{startup.startup_name || "Startup"}</h2>
+                    </div>
                     <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
                       {project.lifecycle_stage || startup.business_stage || "Stage not set"}
                     </p>

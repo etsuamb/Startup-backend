@@ -117,6 +117,7 @@ exports.register = async (req, res) => {
 		investment_stage,
 		startup_stage,
 		investment_range,
+		investment_range_min,
 		preferred_industry,
 		location_preference,
 		linked_in_or_website,
@@ -132,6 +133,7 @@ exports.register = async (req, res) => {
 		linkedin_portfolio,
 		availability_preference,
 		session_pricing,
+		session_pricing_min,
 		current_organization,
 		current_title,
 		primary_industry,
@@ -345,6 +347,7 @@ exports.register = async (req, res) => {
 			const mentorAvailPref =
 				str(availability_preference) || str(req.body.availabilityPreference) || "";
 			const mentorSessionPrice = session_pricing ?? req.body.sessionPricing;
+			const mentorSessionPriceMin = session_pricing_min ?? req.body.sessionPricingMin ?? 0;
 			const mentorOrg = str(current_organization) || str(req.body.currentOrganization) || "";
 			const mentorJobTitle = str(current_title) || str(req.body.currentTitle) || "";
 			const mentorPrimaryInd = str(primary_industry) || str(req.body.primaryIndustry) || "";
@@ -402,9 +405,19 @@ exports.register = async (req, res) => {
 			}
 
 			const parsedSessionPricing = Number(mentorSessionPrice);
+			const parsedSessionPricingMin = Number(mentorSessionPriceMin);
 			if (Number.isNaN(parsedSessionPricing) || parsedSessionPricing < 0) {
 				return res.status(400).json({
 					message: "session_pricing must be a valid non-negative number",
+				});
+			}
+			if (
+				Number.isNaN(parsedSessionPricingMin) ||
+				parsedSessionPricingMin < 0 ||
+				parsedSessionPricingMin > parsedSessionPricing
+			) {
+				return res.status(400).json({
+					message: "session_pricing_min must be a valid number no greater than session_pricing",
 				});
 			}
 
@@ -451,6 +464,7 @@ exports.register = async (req, res) => {
 				certificationCredentials: "",
 				availabilityPreference: mentorAvailPref,
 				sessionPricing: parsedSessionPricing,
+				sessionPricingMin: parsedSessionPricingMin,
 				currentOrganization: mentorOrg,
 				currentTitle: mentorJobTitle,
 				primaryIndustry: mentorPrimaryInd,
@@ -732,10 +746,21 @@ exports.register = async (req, res) => {
 			}
 
 			if (normalizedRole === "Investor") {
+				await client.query(
+					"ALTER TABLE investors ADD COLUMN IF NOT EXISTS investment_budget_min DECIMAL(14,2) CHECK (investment_budget_min IS NULL OR investment_budget_min >= 0)",
+				);
 				const chosenInvestmentStage = investment_stage || startup_stage;
 				const parsedInvestmentRange = Number(investment_range);
+				const parsedInvestmentRangeMin = Number(investment_range_min || 0);
 				if (Number.isNaN(parsedInvestmentRange) || parsedInvestmentRange < 0) {
 					throw new Error("investment_range must be a valid non-negative number");
+				}
+				if (
+					Number.isNaN(parsedInvestmentRangeMin) ||
+					parsedInvestmentRangeMin < 0 ||
+					parsedInvestmentRangeMin > parsedInvestmentRange
+				) {
+					throw new Error("investment_range_min must be no greater than investment_range");
 				}
 
 				const uploadedDocs = [];
@@ -746,12 +771,13 @@ exports.register = async (req, res) => {
             preferred_industry,
             investment_stage,
             investment_budget,
+            investment_budget_min,
             location_preference,
             linked_in_or_website,
             bio,
             personal_verification,
             uploaded_documents
-          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
           RETURNING *`,
 				[
 					user.user_id,
@@ -759,6 +785,7 @@ exports.register = async (req, res) => {
 					preferredIndustryResolved,
 					chosenInvestmentStage,
 					parsedInvestmentRange,
+					parsedInvestmentRangeMin,
 					location_preference,
 					linked_in_or_website,
 					bio,
@@ -785,6 +812,9 @@ exports.register = async (req, res) => {
 			}
 
 			if (normalizedRole === "Mentor" && mentorResolved) {
+				await client.query(
+					"ALTER TABLE mentors ADD COLUMN IF NOT EXISTS session_pricing_min DECIMAL(10,2) CHECK (session_pricing_min IS NULL OR session_pricing_min >= 0)",
+				);
 				const m = mentorResolved;
 				const mentorInsertResult = await client.query(
 					`INSERT INTO mentors (
@@ -802,6 +832,7 @@ exports.register = async (req, res) => {
             certification_credentials,
             availability_preference,
             session_pricing,
+            session_pricing_min,
             current_organization,
             current_title,
             primary_industry,
@@ -815,7 +846,7 @@ exports.register = async (req, res) => {
             key_achievement,
             uploaded_documents
           ) VALUES (
-            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27
           )
           RETURNING *`,
 					[
@@ -833,6 +864,7 @@ exports.register = async (req, res) => {
 						m.certificationCredentials,
 						m.availabilityPreference,
 						m.sessionPricing,
+						m.sessionPricingMin,
 						m.currentOrganization,
 						m.currentTitle,
 						m.primaryIndustry,
@@ -1272,46 +1304,109 @@ exports.revokeAllOtherSessions = async (req, res) => {
 	}
 };
 
+const PROFILE_PICTURE_OWNERS = {
+	Startup: { table: "startups", id: "startup_id", description: "Company logo" },
+	Investor: { table: "investors", id: "investor_id", description: "Profile picture" },
+	Mentor: { table: "mentors", id: "mentor_id", description: "Profile picture" },
+};
+
+function profilePictureDescriptionClause(role) {
+	return role === "Startup"
+		? `(LOWER(COALESCE(d.description, '')) LIKE '%company logo%'
+		    OR (LOWER(COALESCE(d.description, '')) LIKE '%logo%'
+		        AND LOWER(COALESCE(d.description, '')) NOT LIKE '%profile%'))`
+		: `(LOWER(COALESCE(d.description, '')) LIKE '%profile picture%'
+		    OR LOWER(COALESCE(d.description, '')) LIKE '%profile photo%'
+		    OR LOWER(COALESCE(d.description, '')) LIKE '%avatar%')`;
+}
+
+async function sendProfilePicture(res, owner, ownerValue, ownerColumn, role, cacheControl) {
+	const result = await pool.query(
+		`SELECT d.file_name, d.file_type, d.file_data
+		 FROM documents d
+		 JOIN ${owner.table} p ON p.${owner.id} = d.${owner.id}
+		 WHERE p.${ownerColumn} = $1
+		   AND ${profilePictureDescriptionClause(role)}
+		 ORDER BY d.created_at DESC
+		 LIMIT 1`,
+		[ownerValue],
+	);
+	const picture = result.rows[0];
+	if (!picture?.file_data) {
+		return res.status(404).json({ message: "Profile picture not found" });
+	}
+	const safeName = String(picture.file_name || "profile-picture").replace(/[^\w.\- ()]/g, "_");
+	res.setHeader("Content-Type", picture.file_type || "application/octet-stream");
+	res.setHeader("Content-Disposition", `inline; filename="${safeName}"`);
+	res.setHeader("Cache-Control", cacheControl);
+	return res.send(picture.file_data);
+}
+
 // GET /api/auth/profile-picture (Authenticated)
 exports.getProfilePicture = async (req, res) => {
 	const { user_id: userId, role } = req.user;
-	const owners = {
-		Startup: { table: "startups", id: "startup_id" },
-		Investor: { table: "investors", id: "investor_id" },
-		Mentor: { table: "mentors", id: "mentor_id" },
-	};
-	const owner = owners[role];
+	const owner = PROFILE_PICTURE_OWNERS[role];
 	if (!owner) return res.status(404).json({ message: "Profile picture not found" });
 
-	const descriptionClause =
-		role === "Startup"
-			? `(LOWER(COALESCE(d.description, '')) LIKE '%company logo%'
-			    OR (LOWER(COALESCE(d.description, '')) LIKE '%logo%'
-			        AND LOWER(COALESCE(d.description, '')) NOT LIKE '%profile%'))`
-			: `(LOWER(COALESCE(d.description, '')) LIKE '%profile picture%'
-			    OR LOWER(COALESCE(d.description, '')) LIKE '%profile photo%'
-			    OR LOWER(COALESCE(d.description, '')) LIKE '%avatar%')`;
-
 	try {
-		const result = await pool.query(
-			`SELECT d.file_name, d.file_type, d.file_data
-			 FROM documents d
-			 JOIN ${owner.table} p ON p.${owner.id} = d.${owner.id}
-			 WHERE p.user_id = $1
-			   AND ${descriptionClause}
-			 ORDER BY d.created_at DESC
-			 LIMIT 1`,
+		return await sendProfilePicture(res, owner, userId, "user_id", role, "private, max-age=300");
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
+// GET /api/auth/profile-picture/:role/:profileId (Public)
+exports.getPublicProfilePicture = async (req, res) => {
+	const role = String(req.params.role || "").trim().toLowerCase();
+	const normalizedRole = role === "startup" ? "Startup" : role === "investor" ? "Investor" : role === "mentor" ? "Mentor" : "";
+	const profileId = Number.parseInt(req.params.profileId, 10);
+	const owner = PROFILE_PICTURE_OWNERS[normalizedRole];
+	if (!owner || !Number.isInteger(profileId) || profileId <= 0) {
+		return res.status(404).json({ message: "Profile picture not found" });
+	}
+	try {
+		return await sendProfilePicture(res, owner, profileId, owner.id, normalizedRole, "public, max-age=300");
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
+// PUT /api/auth/profile-picture (Authenticated)
+exports.updateProfilePicture = async (req, res) => {
+	const { user_id: userId, role } = req.user;
+	const owner = PROFILE_PICTURE_OWNERS[role];
+	const file = req.file;
+	if (!owner) return res.status(400).json({ message: "Profile pictures are not supported for this account" });
+	if (!file) return res.status(400).json({ message: "Choose a JPG or PNG image to upload" });
+	if (!["image/jpeg", "image/png"].includes(file.mimetype)) {
+		return res.status(400).json({ message: "Profile picture must be a JPG or PNG image" });
+	}
+	if (file.size > 5 * 1024 * 1024) {
+		return res.status(400).json({ message: "Profile picture must be 5 MB or smaller" });
+	}
+	try {
+		const profile = await pool.query(
+			`SELECT ${owner.id} AS profile_id FROM ${owner.table} WHERE user_id = $1`,
 			[userId],
 		);
-		const picture = result.rows[0];
-		if (!picture?.file_data) {
-			return res.status(404).json({ message: "Profile picture not found" });
-		}
-		const safeName = String(picture.file_name || "profile-picture").replace(/[^\w.\- ()]/g, "_");
-		res.setHeader("Content-Type", picture.file_type || "application/octet-stream");
-		res.setHeader("Content-Disposition", `inline; filename="${safeName}"`);
-		res.setHeader("Cache-Control", "private, max-age=300");
-		return res.send(picture.file_data);
+		if (!profile.rowCount) return res.status(404).json({ message: "Profile not found" });
+		const fileHash = crypto.createHash("sha256").update(file.buffer).digest("hex");
+		const storagePath = `db://documents/${role.toLowerCase()}/${profile.rows[0].profile_id}/${crypto.randomBytes(16).toString("hex")}`;
+		await pool.query(
+			`INSERT INTO documents (${owner.id}, file_name, file_path, file_type, file_size_bytes, file_hash, file_data, description, created_at)
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,CURRENT_TIMESTAMP)`,
+			[
+				profile.rows[0].profile_id,
+				file.originalname,
+				storagePath,
+				file.mimetype,
+				file.size,
+				fileHash,
+				file.buffer,
+				owner.description,
+			],
+		);
+		return res.json({ message: role === "Startup" ? "Company logo updated" : "Profile picture updated" });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}

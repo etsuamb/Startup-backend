@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import NotificationBell from "@/components/NotificationBell";
+import ActorAvatar from "@/components/auth/ActorAvatar";
 import { browseStartups, fetchIncomingRequests } from "@/lib/mentorApi";
 
 function initials(name) {
@@ -223,7 +224,6 @@ function StartupCard({ startup, tone, activeRequest }) {
 		"from-[#092b38] to-[#061b25]",
 		"from-gray-200 to-gray-500",
 	];
-	const accent = ["text-emerald-600", "text-blue-600", "text-red-500"][tone];
 	const tags = [startup.industry, startup.business_stage, startupLocation(startup)].filter(Boolean).slice(0, 3);
 	const description = startup.startup_tagline || startup.description || "Startup profile available for mentor review.";
 
@@ -231,9 +231,7 @@ function StartupCard({ startup, tone, activeRequest }) {
 		<article className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
 			<div className={`relative h-36 bg-gradient-to-br ${gradients[tone]}`}>
 				<div className="absolute inset-0 opacity-10" style={{ backgroundImage: "linear-gradient(30deg, currentColor 12%, transparent 12.5%, transparent 87%, currentColor 87.5%, currentColor), linear-gradient(150deg, currentColor 12%, transparent 12.5%, transparent 87%, currentColor 87.5%, currentColor)", backgroundSize: "48px 84px" }} />
-				<div className="absolute -bottom-6 left-6 flex h-12 w-12 items-center justify-center rounded-xl bg-white text-sm font-black shadow-sm">
-					<span className={accent}>{initials(startup.startup_name)}</span>
-				</div>
+				<ActorAvatar role="startup" profileId={startup.startup_id} initials={initials(startup.startup_name)} className="absolute -bottom-6 left-6 h-12 w-12 rounded-xl text-sm font-black shadow-sm" alt={startup.startup_name} />
 			</div>
 			<div className="p-6 pt-10">
 				<h2 className="text-xl font-black text-gray-950">{startup.startup_name}</h2>

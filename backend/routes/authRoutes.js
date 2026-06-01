@@ -35,6 +35,13 @@ router.post(
 );
 
 router.get("/profile-picture", authenticate, authController.getProfilePicture);
+router.put(
+	"/profile-picture",
+	authenticate,
+	upload.single("profile_picture"),
+	authController.updateProfilePicture,
+);
+router.get("/profile-picture/:role/:profileId", authController.getPublicProfilePicture);
 
 // Login user
 router.post("/login", authRateLimit({ scope: "login", max: 20 }), authController.login);

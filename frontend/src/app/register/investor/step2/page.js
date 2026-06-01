@@ -161,17 +161,9 @@ export default function InvestorRegistrationStep2() {
 
                     <div>
                       <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2.5">Investment range (USD)</label>
-                      <div className="relative">
-                        <select name="investment_range" required defaultValue={f.investment_range || ""} className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-sm text-gray-800 outline-none focus:border-[#136150] focus:ring-2 focus:ring-[#136150]">
-                          <option value="">Select range</option>
-                          <option value="250000">Under $250,000</option>
-                          <option value="1000000">$250,000 - $1,000,000</option>
-                          <option value="5000000">$1,000,000 - $5,000,000</option>
-                          <option value="5000001">More than $5,000,000</option>
-                        </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 9l-7 7-7-7"></path></svg>
-                        </div>
+                      <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+                        <input type="number" name="investment_range_min" min="0" required defaultValue={f.investment_range_min || ""} placeholder="Minimum" className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-sm text-gray-800 outline-none focus:border-[#136150] focus:ring-2 focus:ring-[#136150]" />
+                        <input type="number" name="investment_range" min={f.investment_range_min || "0"} required defaultValue={f.investment_range || ""} placeholder="Maximum" className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-sm text-gray-800 outline-none focus:border-[#136150] focus:ring-2 focus:ring-[#136150]" />
                       </div>
                     </div>
 

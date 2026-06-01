@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/investor/Sidebar";
 import AccountAccessBanner from "@/components/auth/AccountAccessBanner";
 import AccountSecurityPanel from "@/components/auth/AccountSecurityPanel";
+import ProfilePictureEditor from "@/components/auth/ProfilePictureEditor";
 import { IndustrySelectWithOther } from "@/components/register/IndustryFields";
 import { getCurrentAccount, updateCurrentAccount } from "@/lib/authApi";
 import {
@@ -170,7 +171,8 @@ export default function InvestorSettingsPage() {
   const [organizationName, setOrganizationName] = useState("");
   const [preferredIndustry, setPreferredIndustry] = useState("");
   const [investmentStage, setInvestmentStage] = useState("");
-  const [investmentBudget, setInvestmentBudget] = useState("");
+  const [investmentBudgetMin, setInvestmentBudgetMin] = useState("");
+  const [investmentBudgetMax, setInvestmentBudgetMax] = useState("");
   const [locationPreference, setLocationPreference] = useState("");
   const [linkedInOrWebsite, setLinkedInOrWebsite] = useState("");
   const [bio, setBio] = useState("");
@@ -189,7 +191,8 @@ export default function InvestorSettingsPage() {
     setOrganizationName(valueOf(settings.organization_name));
     setPreferredIndustry(valueOf(settings.preferred_industry));
     setInvestmentStage(valueOf(settings.investment_stage));
-    setInvestmentBudget(valueOf(settings.investment_budget));
+    setInvestmentBudgetMin(valueOf(settings.investment_budget_min));
+    setInvestmentBudgetMax(valueOf(settings.investment_budget));
     setLocationPreference(valueOf(settings.location_preference));
     setLinkedInOrWebsite(valueOf(settings.linked_in_or_website));
     setBio(valueOf(settings.bio));
@@ -228,10 +231,10 @@ export default function InvestorSettingsPage() {
     { label: "Investor Type", value: investorType },
     { label: "Industry", value: preferredIndustry },
     { label: "Stage", value: investmentStage },
-    { label: "Budget", value: investmentBudget },
+    { label: "Budget range", value: investmentBudgetMax ? `${investmentBudgetMin || "0"} - ${investmentBudgetMax}` : "" },
     { label: "Location", value: locationPreference },
     { label: "Bio", value: bio },
-  ], [bio, fullName, investmentBudget, investmentStage, investorType, locationPreference, phoneNumber, preferredIndustry]);
+  ], [bio, fullName, investmentBudgetMax, investmentBudgetMin, investmentStage, investorType, locationPreference, phoneNumber, preferredIndustry]);
 
   function showMessage(text) {
     setMessage(text);
@@ -246,7 +249,7 @@ export default function InvestorSettingsPage() {
     setSaving(true);
     try {
       const data = await updateCurrentAccount({ ...names, email: email.trim(), phone_number: phoneNumber.trim() });
-      applySettings({ ...data.user, investor_type: investorType, organization_name: organizationName, preferred_industry: preferredIndustry, investment_stage: investmentStage, investment_budget: investmentBudget, location_preference: locationPreference, linked_in_or_website: linkedInOrWebsite, bio });
+      applySettings({ ...data.user, investor_type: investorType, organization_name: organizationName, preferred_industry: preferredIndustry, investment_stage: investmentStage, investment_budget_min: investmentBudgetMin, investment_budget: investmentBudgetMax, location_preference: locationPreference, linked_in_or_website: linkedInOrWebsite, bio });
       showMessage(data.message || "Account details updated.");
     } catch (err) {
       setError(err.message || "Unable to update account details.");
@@ -265,7 +268,7 @@ export default function InvestorSettingsPage() {
       const data = await updateInvestorSettings({
         ...names, email: email.trim(), phone_number: phoneNumber.trim(), investor_type: investorType.trim(),
         organization_name: organizationName.trim(), preferred_industry: preferredIndustry.trim(),
-        investment_stage: investmentStage.trim(), investment_budget: investmentBudget.trim(),
+        investment_stage: investmentStage.trim(), investment_budget_min: investmentBudgetMin.trim(), investment_budget: investmentBudgetMax.trim(),
         location_preference: locationPreference.trim(), linked_in_or_website: linkedInOrWebsite.trim(), bio: bio.trim(),
       });
       applySettings(data.settings || data.investor);
@@ -298,6 +301,9 @@ export default function InvestorSettingsPage() {
       <form onSubmit={saveAccount} className="space-y-6">
         <SectionCard>
           <SectionHeader title="Account Information" description="Manage your personal contact and sign-in details." />
+          <div className="mb-6">
+            <ProfilePictureEditor initials={fullName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "I"} />
+          </div>
           <div className="grid gap-5 sm:grid-cols-2">
             <FormField label="Full name"><input value={fullName} onChange={(event) => setFullName(event.target.value)} className={inputClass} /></FormField>
             <FormField label="Phone number"><input value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} className={inputClass} /></FormField>
@@ -316,7 +322,12 @@ export default function InvestorSettingsPage() {
             <FormField label="Organization"><input value={organizationName} onChange={(event) => setOrganizationName(event.target.value)} className={inputClass} /></FormField>
             <IndustrySelectWithOther label="Preferred industry" value={preferredIndustry} onChange={setPreferredIndustry} labelClassName="block text-xs font-bold uppercase tracking-wider text-gray-500" selectClassName={`${inputClass} mt-2 appearance-none normal-case tracking-normal`} inputClassName={`${inputClass} mt-3 normal-case tracking-normal`} />
             <SelectField label="Preferred startup stage" value={investmentStage} onChange={(event) => setInvestmentStage(event.target.value)} options={STAGES} placeholder="Select startup stage" />
-            <FormField label="Investment budget"><input type="number" min="0" value={investmentBudget} onChange={(event) => setInvestmentBudget(event.target.value)} className={inputClass} /></FormField>
+            <FormField label="Investment range (USD)">
+              <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+                <input type="number" min="0" value={investmentBudgetMin} onChange={(event) => setInvestmentBudgetMin(event.target.value)} className={inputClass} placeholder="Minimum" />
+                <input type="number" min={investmentBudgetMin || "0"} value={investmentBudgetMax} onChange={(event) => setInvestmentBudgetMax(event.target.value)} className={inputClass} placeholder="Maximum" />
+              </div>
+            </FormField>
             <FormField label="Preferred location"><input value={locationPreference} onChange={(event) => setLocationPreference(event.target.value)} className={inputClass} /></FormField>
             <FormField label="LinkedIn or website"><input value={linkedInOrWebsite} onChange={(event) => setLinkedInOrWebsite(event.target.value)} className={inputClass} /></FormField>
             <div className="sm:col-span-2"><FormField label="Bio"><textarea rows={5} value={bio} onChange={(event) => setBio(event.target.value)} className={inputClass} /></FormField></div>

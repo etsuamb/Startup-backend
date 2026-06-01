@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/investor/Sidebar";
 import { INDUSTRY_OPTIONS } from "@/components/register/IndustryFields";
+import ActorAvatar from "@/components/auth/ActorAvatar";
 import {
 	getInvestorProfile,
 	getInvestorStartups,
@@ -58,9 +59,7 @@ function StartupCard({ startup, viewMode }) {
 		return (
 			<div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition flex flex-col lg:flex-row gap-5 lg:items-center">
 				<div className="w-full lg:w-20 h-20 bg-[#0d3328] rounded-xl flex items-center justify-center shrink-0">
-					<div className="w-12 h-12 rounded-xl bg-white text-[#0a4d3c] flex items-center justify-center text-sm font-black">
-						{initials(startup.startup_name)}
-					</div>
+					<ActorAvatar role="startup" profileId={startup.startup_id} initials={initials(startup.startup_name)} className="h-12 w-12 rounded-xl text-sm font-black" alt={startup.startup_name} />
 				</div>
 				<div className="flex-grow min-w-0">
 					<h3 className="text-lg font-bold text-gray-900 truncate">{startup.startup_name}</h3>

@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/startup/Sidebar";
 import StartupProfileMenu from "@/components/startup/StartupProfileMenu";
 import { getInvestorRecommendations, getMentorRecommendations } from "@/lib/startupApi";
+import { formatTicketRange } from "@/lib/discoverProfileUtils";
+import ActorAvatar from "@/components/auth/ActorAvatar";
 
 function formatMoney(value) {
   const amount = Number(value || 0);
@@ -163,7 +165,10 @@ export default function StartupRecommendationsPage() {
                             </span>
                           </div>
 
-                          <h3 className="text-xl font-bold text-gray-900">{name}</h3>
+                          <div className="flex items-center gap-3">
+                            <ActorAvatar role="investor" profileId={investor.investor_id} initials={name.slice(0, 2).toUpperCase()} className="h-11 w-11 shrink-0 rounded-xl" alt={name} />
+                            <h3 className="text-xl font-bold text-gray-900">{name}</h3>
+                          </div>
                           <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
                             {investor.investment_stage || "Stage not set"}
                           </p>
@@ -174,7 +179,7 @@ export default function StartupRecommendationsPage() {
                           <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
                             <div className="rounded-lg bg-gray-50 p-3">
                               <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Budget</p>
-                              <p className="mt-1 font-bold text-gray-900">{formatMoney(investor.investment_budget)}</p>
+                              <p className="mt-1 font-bold text-gray-900">{formatTicketRange(investor, "investor")}</p>
                             </div>
                             <div className="rounded-lg bg-gray-50 p-3">
                               <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Location</p>

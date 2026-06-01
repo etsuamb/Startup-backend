@@ -875,6 +875,7 @@ exports.getInvestorRecommendations = async (req, res) => {
 						investor_type: investor.investor_type,
 						organization_name: investor.organization_name,
 						investment_budget: investor.investment_budget,
+						investment_budget_min: investor.investment_budget_min,
 						preferred_industry: investor.preferred_industry,
 						investment_stage: investor.investment_stage,
 						location_preference: investor.location_preference,

@@ -71,6 +71,21 @@ export async function fetchProfilePictureBlob() {
 	return { blob: await response.blob() };
 }
 
+export async function updateProfilePicture(file) {
+	const token = getToken();
+	if (!token) throw new Error("Not authenticated");
+	const formData = new FormData();
+	formData.append("profile_picture", file);
+	const response = await fetch(`${API_BASE}/auth/profile-picture`, {
+		method: "PUT",
+		headers: { Authorization: `Bearer ${token}` },
+		body: formData,
+	});
+	const payload = await response.json().catch(() => ({}));
+	if (!response.ok) throw new Error(payload.message || payload.error || "Unable to update profile picture");
+	return payload;
+}
+
 export async function updateCurrentAccount(payload) {
 	return apiFetch("/auth/me", {
 		method: "PUT",

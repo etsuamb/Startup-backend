@@ -10,7 +10,6 @@ import { useStartupApproval } from "@/hooks/useStartupApproval";
 import {
   buildMentorMatchChecks,
   findMentorRecommendation,
-  formatMoney,
   formatTicketRange,
   parseMentoredList,
   parseTagList,
@@ -73,7 +72,7 @@ function buildMentorProfile(mentor) {
     detailPills: [
       { label: "Years Experience", value: mentor.years_experience ? `${mentor.years_experience} years` : null },
       { label: "Mentoring Style", value: mentor.mentoring_style || "—" },
-      { label: "Session Pricing", value: formatMoney(mentor.session_pricing) || "—" },
+      { label: "Session Pricing", value: formatTicketRange(mentor, "mentor") || "—" },
       { label: "Availability", value: mentor.availability_preference || mentor.session_frequency || "—" },
     ].filter((p) => p.value && p.value !== "—"),
     industryTags: parseTagList(mentor.expertise || mentor.primary_industry),

@@ -7,6 +7,7 @@ import { getCurrentAccount, updateCurrentAccount } from "@/lib/authApi";
 import { canPreviewDocument, openUploadedFileForView } from "@/lib/viewUploadedFile";
 import ViewableFileTrigger from "@/components/startup/ViewableFileTrigger";
 import AccountAccessBanner from "@/components/auth/AccountAccessBanner";
+import ProfilePictureEditor from "@/components/auth/ProfilePictureEditor";
 import AccountSecurityPanel from "@/components/auth/AccountSecurityPanel";
 import { IndustrySelectWithOther } from "@/components/register/IndustryFields";
 
@@ -638,6 +639,13 @@ export default function StartupSettingsPage() {
       <form onSubmit={handleSaveAccountInfo} className="space-y-6">
         <SectionCard>
           <SectionHeader title="Personal Information" description="Your login credentials and contact information." />
+          <div className="mb-6">
+            <ProfilePictureEditor
+              initials={`${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase() || "S"}
+              label="Startup logo"
+              description="Your registration logo is used by default. Replace it here to update the image shown with your startup."
+            />
+          </div>
 
           {/* Status badge */}
           <div className="mb-6 flex items-center gap-3 rounded-xl bg-gray-50 border border-gray-100 px-4 py-3">
