@@ -6,6 +6,7 @@ import { useRegFlow } from "./RegFlowProvider";
 import { buildRegisterFormData } from "@/lib/buildRegisterFormData";
 import { clearRegistrationAccountInfo } from "@/lib/registerAccountStorage";
 import { registerMultipart } from "@/lib/api";
+import { userFacingError } from "@/lib/userFacingErrors";
 
 export default function SubmitRegisterButton({
 	nextPath,
@@ -30,7 +31,7 @@ export default function SubmitRegisterButton({
 			reset();
 			router.push(nextPath);
 		} catch (e) {
-			setErr(e.message || "Registration failed");
+			setErr(userFacingError(e, "Registration could not be submitted. Please review your details and try again."));
 		} finally {
 			setLoading(false);
 		}

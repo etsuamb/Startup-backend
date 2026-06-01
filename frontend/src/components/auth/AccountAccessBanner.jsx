@@ -63,7 +63,7 @@ export default function AccountAccessBanner() {
 			<p className="mt-1 text-[13px] opacity-90">
 				{needsEmail
 					? "Use a real email you control below. Until it is verified, only account settings are available."
-					: "Your email is verified. An administrator must approve your account before you can use the rest of the site."}
+					: "You signed in successfully and your email is verified. An administrator must approve your account before you can use the rest of the site. You can still update your email from this Settings page."}
 			</p>
 			{needsEmail ? (
 				<div className="mt-3 flex flex-wrap items-center gap-3">

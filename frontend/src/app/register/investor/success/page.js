@@ -28,7 +28,7 @@ export default function InvestorRegistrationSuccess() {
             Empower the <br/> Next Generation <br/> of Ethiopian <br/> Founders
           </h1>
           <p className="text-[#10b981] text-sm leading-relaxed max-w-sm font-medium">
-            Join a prestigious network of industry leaders curating the future of Ethiopia's innovation ecosystem through high-impact mentorship.
+            Join a prestigious network of industry leaders curating the future of Ethiopia&apos;s innovation ecosystem through high-impact mentorship.
           </p>
         </div>
 
@@ -69,7 +69,7 @@ export default function InvestorRegistrationSuccess() {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             </div>
             <p className="text-sm text-gray-500 font-medium leading-relaxed">
-              Standard review time is <span className="text-gray-900 font-bold">24-48 business hours</span>. You will receive an automated notification via your registered email once your account has been approved and activated.
+              Your email is verified. Standard review time is <span className="text-gray-900 font-bold">24-48 business hours</span>. You will receive an automated notification via your registered email once your account has been approved and activated.
             </p>
           </div>
 

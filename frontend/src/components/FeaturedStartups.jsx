@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { CardGridSkeleton } from "@/components/loading/PageSkeletons";
 
 const IMAGE_MAP = {
   agritech: "/agritech-startup.png",
@@ -61,9 +62,7 @@ export default function FeaturedStartups() {
       </h2>
 
       {loading ? (
-        <p className="text-center text-gray-600">
-          Loading featured startups...
-        </p>
+        <CardGridSkeleton />
       ) : error ? (
         <p className="text-center text-red-500">{error}</p>
       ) : startups.length === 0 ? (

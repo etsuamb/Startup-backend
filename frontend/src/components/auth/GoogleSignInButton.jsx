@@ -11,6 +11,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { routeAfterLogin, userFromLoginResponse } from "@/lib/accountGate";
+import { userFacingError } from "@/lib/userFacingErrors";
 
 export default function GoogleSignInButton({ onError, role, mode = "login" }) {
 	const router = useRouter();
@@ -116,7 +117,7 @@ export default function GoogleSignInButton({ onError, role, mode = "login" }) {
 				routeAfterLogin(router, userFromLoginResponse(data));
 			}
 		} catch (ex) {
-			onError?.(ex.message || "Google sign-in failed");
+			onError?.(userFacingError(ex, "Google sign-in failed. Please try again."));
 		}
 	}
 

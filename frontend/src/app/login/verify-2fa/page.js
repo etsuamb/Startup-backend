@@ -6,6 +6,7 @@ import Link from "next/link";
 import { verifyLogin2FA } from "@/lib/authApi";
 import { setSession } from "@/lib/authStorage";
 import { routeAfterLogin, userFromLoginResponse } from "@/lib/accountGate";
+import { userFacingError } from "@/lib/userFacingErrors";
 
 export default function Verify2FAPage() {
 	const router = useRouter();
@@ -25,8 +26,10 @@ export default function Verify2FAPage() {
 				return;
 			}
 			const parsed = JSON.parse(raw);
-			setPendingToken(parsed.pendingToken || "");
-			setMethod(parsed.twoFactorMethod || "totp");
+			queueMicrotask(() => {
+				setPendingToken(parsed.pendingToken || "");
+				setMethod(parsed.twoFactorMethod || "totp");
+			});
 		} catch {
 			router.replace("/login");
 		}
@@ -51,7 +54,7 @@ export default function Verify2FAPage() {
 			});
 			routeAfterLogin(router, userFromLoginResponse(data));
 		} catch (ex) {
-			setErr(ex.message || "Verification failed");
+			setErr(userFacingError(ex, "Verification failed. Check the code and try again."));
 		} finally {
 			setLoading(false);
 		}

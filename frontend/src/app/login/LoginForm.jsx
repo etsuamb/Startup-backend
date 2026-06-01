@@ -7,6 +7,7 @@ import { loginRequest } from "@/lib/authApi";
 import { setSession } from "@/lib/authStorage";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 import { routeAfterLogin, userFromLoginResponse } from "@/lib/accountGate";
+import { userFacingError } from "@/lib/userFacingErrors";
 
 export default function LoginForm() {
 	const router = useRouter();
@@ -45,7 +46,7 @@ export default function LoginForm() {
 			if (ex.data?.code === "USE_GOOGLE_LOGIN") {
 				setErr("This account uses Google Sign-In. Use the Google button below.");
 			} else {
-				setErr(ex.message || "Login failed");
+				setErr(userFacingError(ex, "Login failed. Check your details and try again."));
 			}
 		} finally {
 			setLoading(false);
@@ -92,7 +93,11 @@ export default function LoginForm() {
 				>
 					{loading ? "Signing in..." : "Sign in"}
 				</button>
-				{err ? <p role="alert" className="text-sm font-medium text-red-600">{err}</p> : null}
+				{err ? (
+					<p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+						{err}
+					</p>
+				) : null}
 
 				<div className="relative my-2">
 					<div className="absolute inset-0 flex items-center">
