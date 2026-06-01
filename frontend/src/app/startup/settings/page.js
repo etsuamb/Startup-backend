@@ -7,6 +7,7 @@ import { getCurrentAccount, updateCurrentAccount } from "@/lib/authApi";
 import { canPreviewDocument, openUploadedFileForView } from "@/lib/viewUploadedFile";
 import ViewableFileTrigger from "@/components/startup/ViewableFileTrigger";
 import AccountAccessBanner from "@/components/auth/AccountAccessBanner";
+import AccountSecurityPanel from "@/components/auth/AccountSecurityPanel";
 import { IndustrySelectWithOther } from "@/components/register/IndustryFields";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -367,12 +368,6 @@ export default function StartupSettingsPage() {
   const [showDocInputs, setShowDocInputs] = useState({});
   const [toast, setToast] = useState({ message: null, type: null });
 
-  // 2FA state
-  const [twoFAEnabled, setTwoFAEnabled] = useState(false);
-  const [twoFAStep, setTwoFAStep] = useState("idle"); // idle | setup | verify
-  const [twoFACode, setTwoFACode] = useState("");
-  const [twoFAError, setTwoFAError] = useState(null);
-
   // Password change state
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -616,32 +611,6 @@ export default function StartupSettingsPage() {
   const toggleNotification = (key) => {
     setNotificationSettings((prev) => ({ ...prev, [key]: !prev[key] }));
   };
-
-  function handleEnable2FA() {
-    setTwoFAStep("setup");
-    setTwoFACode("");
-    setTwoFAError(null);
-  }
-
-  function handleVerify2FA(e) {
-    e.preventDefault();
-    if (twoFACode.length !== 6 || !/^\d{6}$/.test(twoFACode)) {
-      setTwoFAError("Please enter a valid 6-digit code.");
-      return;
-    }
-    // In a real implementation this would call an API endpoint
-    setTwoFAEnabled(true);
-    setTwoFAStep("idle");
-    setTwoFACode("");
-    setTwoFAError(null);
-    showToast("Two-factor authentication enabled successfully.");
-  }
-
-  function handleDisable2FA() {
-    setTwoFAEnabled(false);
-    setTwoFAStep("idle");
-    showToast("Two-factor authentication disabled.");
-  }
 
   // ── Render Tabs ──
   function renderTabContent() {
@@ -1029,124 +998,13 @@ export default function StartupSettingsPage() {
           </div>
         </SectionCard>
 
-        {/* Two-Factor Authentication */}
+        {/* Two-Factor Authentication (optional: TOTP or email) */}
         <SectionCard>
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <SectionHeader
-                title="Two-Factor Authentication (2FA)"
-                description="Add an extra layer of security to your account. Once enabled, you'll need to enter a verification code from your authenticator app when logging in."
-              />
-            </div>
-            {twoFAEnabled && twoFAStep === "idle" && (
-              <span className="shrink-0 inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                Active
-              </span>
-            )}
-          </div>
-
-          {twoFAStep === "idle" && !twoFAEnabled && (
-            <div className="rounded-xl bg-gray-50 border border-gray-100 p-6 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center mx-auto mb-4">
-                <IconShield />
-              </div>
-              <p className="text-sm font-bold text-gray-900 mb-1">2FA is not enabled</p>
-              <p className="text-xs text-gray-500 mb-5 max-w-sm mx-auto">
-                Two-factor authentication adds an extra layer of security. You'll need an authenticator app like Google Authenticator or Authy.
-              </p>
-              <button
-                type="button"
-                onClick={handleEnable2FA}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#0f3d32] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#0b2f26] transition"
-              >
-                <IconShield />
-                Enable 2FA
-              </button>
-            </div>
-          )}
-
-          {twoFAStep === "setup" && (
-            <div className="space-y-5">
-              <div className="rounded-xl bg-blue-50 border border-blue-200 p-4">
-                <p className="text-sm font-bold text-blue-900 mb-1">Setup Instructions</p>
-                <ol className="text-xs text-blue-800 space-y-1 list-decimal list-inside">
-                  <li>Download an authenticator app (Google Authenticator, Authy, or similar)</li>
-                  <li>Scan the QR code below or enter the secret key manually</li>
-                  <li>Enter the 6-digit verification code from your app</li>
-                </ol>
-              </div>
-
-              {/* Simulated QR Code Placeholder */}
-              <div className="flex flex-col items-center gap-4 py-4">
-                <div className="w-44 h-44 rounded-2xl bg-white border-2 border-gray-200 flex items-center justify-center">
-                  <div className="grid grid-cols-8 grid-rows-8 gap-0.5 w-32 h-32">
-                    {Array.from({ length: 64 }, (_, i) => (
-                      <div key={i} className={`w-full aspect-square rounded-[1px] ${Math.random() > 0.5 ? "bg-gray-900" : "bg-white"}`} />
-                    ))}
-                  </div>
-                </div>
-                <div className="text-center">
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Secret Key</p>
-                  <code className="text-sm font-mono font-bold text-gray-900 bg-gray-50 px-4 py-2 rounded-lg border border-gray-200 select-all">
-                    JBSWY3DPEHPK3PXP
-                  </code>
-                </div>
-              </div>
-
-              <form onSubmit={handleVerify2FA} className="max-w-xs mx-auto space-y-4">
-                <FormField label="Verification code">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    value={twoFACode}
-                    onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, ""))}
-                    className={`${inputClass} text-center text-lg tracking-[0.5em] font-mono font-bold`}
-                    placeholder="000000"
-                    autoFocus
-                  />
-                </FormField>
-                {twoFAError && <p className="text-xs text-red-600 font-semibold text-center">{twoFAError}</p>}
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => { setTwoFAStep("idle"); setTwoFACode(""); setTwoFAError(null); }}
-                    className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-50 transition"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 rounded-xl bg-[#0f3d32] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#0b2f26] transition"
-                  >
-                    Verify & Enable
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {twoFAStep === "idle" && twoFAEnabled && (
-            <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-5 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-                  <IconShield />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-emerald-900">2FA is enabled</p>
-                  <p className="text-xs text-emerald-700 mt-0.5">Your account is protected with two-factor authentication.</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleDisable2FA}
-                className="shrink-0 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-bold text-red-700 hover:bg-red-100 transition"
-              >
-                Disable 2FA
-              </button>
-            </div>
-          )}
+          <SectionHeader
+            title="Two-Factor Authentication (2FA)"
+            description="Optional extra security at login. Choose an authenticator app or email verification codes."
+          />
+          <AccountSecurityPanel showToast={showToast} />
         </SectionCard>
 
         {/* Active Sessions */}
