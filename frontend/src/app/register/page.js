@@ -9,6 +9,7 @@ import {
   validateRegistrationEmail,
 } from "@/lib/authApi";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
+import { userFacingError } from "@/lib/userFacingErrors";
 
 export default function RegisterAccountInfo() {
   const router = useRouter();
@@ -169,7 +170,7 @@ export default function RegisterAccountInfo() {
       setEmailVerified(false);
       setError("");
     } catch (ex) {
-      setError(ex.message || "Could not send the verification email. Try again.");
+      setError(userFacingError(ex, "Could not send the verification email. Try again."));
     } finally {
       setValidatingEmail(false);
       setSendingVerification(false);
@@ -542,7 +543,11 @@ export default function RegisterAccountInfo() {
                 </p>
               </div>
 
-              {error ? <p className="text-sm text-red-500">{error}</p> : null}
+              {error ? (
+                <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                  {error}
+                </p>
+              ) : null}
 
               <button
                 type="submit"

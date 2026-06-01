@@ -23,6 +23,18 @@ function authHeaders() {
 }
 
 function friendlyApiMessage(data, status, fallback) {
+	if (
+		data?.code === "EMAIL_DELIVERY_FAILED" ||
+		String(data?.code || "").startsWith("BREVO_")
+	) {
+		return "We could not send the verification email right now. Please try again shortly.";
+	}
+	if (data?.code === "RATE_LIMITED") {
+		return "Too many attempts. Please wait a few minutes, then try again.";
+	}
+	if (data?.code === "REGISTRATION_EMAIL_NOT_VERIFIED") {
+		return "Your email verification is missing or expired. Return to the first registration step and verify your email again.";
+	}
 	if (data?.code === "EMAIL_NOT_VERIFIED") {
 		return "Please verify your email before using this feature. Check your inbox for the verification link, or use the resend verification option on the login page.";
 	}
@@ -31,6 +43,9 @@ function friendlyApiMessage(data, status, fallback) {
 	}
 
 	const raw = data && (data.message || data.error || data.raw);
+	if (status >= 500) {
+		return "The service could not complete your request right now. Please try again shortly.";
+	}
 	if (typeof raw === "string") {
 		if (/^access denied$/i.test(raw.trim())) {
 			return "Access denied. Sign in with an administrator account to use the admin dashboard.";

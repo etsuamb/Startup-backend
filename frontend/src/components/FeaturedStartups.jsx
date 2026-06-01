@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { CardGridSkeleton } from "@/components/loading/PageSkeletons";
 
 const IMAGE_MAP = {
   agritech: "/agritech-startup.png",

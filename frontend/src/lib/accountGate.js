@@ -70,7 +70,7 @@ export function accountGateMessage(error) {
 	if (code === "EMAIL_NOT_VERIFIED" || /verify your email|email must be verified/i.test(message)) {
 		return "Your email address must be verified before you can use this feature. Check your inbox for the verification link, then sign in again.";
 	}
-	return "Your account is registered, but the platform stays read-only until an administrator approves it. You can review account details in Settings.";
+	return "Your account is registered, but the platform stays read-only until an administrator approves it. You can change your email in Settings.";
 }
 
 export function settingsPathForRole(role) {
@@ -119,7 +119,8 @@ export function routeAfterLogin(router, userOrLoginData) {
 	}
 
 	if (!hasFullPlatformAccess(user)) {
-		router.push(settingsPathForRole(role));
+		const reason = user.email_verified ? "pending-admin-approval" : "email-verification-required";
+		router.push(`${settingsPathForRole(role)}?access=${reason}`);
 		return;
 	}
 

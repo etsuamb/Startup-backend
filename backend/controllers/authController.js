@@ -931,7 +931,6 @@ exports.register = async (req, res) => {
 			return res.status(201).json({
 				message: regMessage,
 				user,
-				emailVerificationSent,
 				startup: startupProfile,
 				investor: investorProfile,
 				mentor: mentorProfile,
