@@ -1,6 +1,20 @@
 import { API_BASE } from "./config";
 import { getToken } from "./authStorage";
 
+/**
+ * Thrown when the backend returns 502/503/504 — typically a Render cold start.
+ * Components can check `err instanceof BackendWakingError` to show a warm-up UI.
+ */
+export class BackendWakingError extends Error {
+	constructor() {
+		super(
+			"The server is waking up from sleep — this usually takes 30–60 seconds. Please wait…"
+		);
+		this.name = "BackendWakingError";
+		this.status = 502;
+	}
+}
+
 function authHeaders() {
 	const t = getToken();
 	const h = { Accept: "application/json" };
@@ -45,7 +59,16 @@ function friendlyApiMessage(data, status, fallback) {
 	return fallback || "Request failed";
 }
 
-export async function apiFetch(path, options = {}) {
+/** Wait `ms` milliseconds — used for retry back-off */
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Core fetch — single attempt, no retry.
+ * Throws BackendWakingError on 502/503/504 so callers can handle warm-up.
+ */
+async function apiFetchOnce(path, options = {}) {
 	const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
 	const headers = { ...authHeaders(), ...(options.headers || {}) };
 	let res;
@@ -56,6 +79,12 @@ export async function apiFetch(path, options = {}) {
 		err.cause = error;
 		throw err;
 	}
+
+	// 502 / 503 / 504 → Render cold-start — throw a special error
+	if (res.status === 502 || res.status === 503 || res.status === 504) {
+		throw new BackendWakingError();
+	}
+
 	const text = await res.text();
 	let data;
 	try {
@@ -79,6 +108,28 @@ export async function apiFetch(path, options = {}) {
 		throw err;
 	}
 	return data;
+}
+
+/**
+ * Public fetch helper — retries up to 3 times on BackendWakingError
+ * with exponential back-off (2 s → 4 s → 8 s).
+ * On the last retry failure it re-throws the BackendWakingError so the
+ * error boundary / component can display a "still waking up" UI.
+ */
+export async function apiFetch(path, options = {}) {
+	const MAX_RETRIES = 3;
+	const BASE_DELAY_MS = 2000;
+	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+		try {
+			return await apiFetchOnce(path, options);
+		} catch (err) {
+			if (err instanceof BackendWakingError && attempt < MAX_RETRIES) {
+				await sleep(BASE_DELAY_MS * Math.pow(2, attempt)); // 2 s, 4 s, 8 s
+				continue;
+			}
+			throw err;
+		}
+	}
 }
 
 export async function apiPostJson(path, body) {
