@@ -53,6 +53,8 @@ export default function ChatCallPanel({
 	const ringtoneContextRef = useRef(null);
 	const ringtoneTimerRef = useRef(null);
 	const autoStartedRef = useRef(false);
+	const callOperationRef = useRef(0);
+	const callBusyRef = useRef(false);
 
 	const activeCall = ["ringing", "active"].includes(callState.status);
 	const isInCall = Boolean(localStream);
@@ -129,6 +131,7 @@ export default function ChatCallPanel({
 		pendingCandidatesRef.current = [];
 		if (pc) {
 			pc.onicecandidate = null;
+			pc.oniceconnectionstatechange = null;
 			pc.ontrack = null;
 			pc.close();
 		}
@@ -149,19 +152,30 @@ export default function ChatCallPanel({
 		screenStreamRef.current = null;
 		closePeerConnection();
 		stopRingtone();
-	}, [closePeerConnection]);
+	}, [closePeerConnection, stopRingtone]);
 
 	const sendSignal = useCallback(
 		(signal) => {
 			const socket = getChatSocket();
-			if (!socket || !conversationId) return;
-			socket.emit("webrtc_signal", {
-				channel,
-				conversationId: Number(conversationId),
-				signal,
-			});
+			if (!socket || !conversationId) {
+				reportError(
+					"Live call signaling is not connected. Refresh the page and try again.",
+				);
+				return;
+			}
+			socket.emit(
+				"webrtc_signal",
+				{
+					channel,
+					conversationId: Number(conversationId),
+					signal,
+				},
+				(response) => {
+					if (response?.error) reportError(response.error);
+				},
+			);
 		},
-		[channel, conversationId],
+		[channel, conversationId, reportError],
 	);
 
 	const addPendingCandidates = useCallback(async (pc) => {
@@ -195,11 +209,18 @@ export default function ChatCallPanel({
 				return nextStream;
 			});
 		};
+		pc.oniceconnectionstatechange = () => {
+			if (pc.iceConnectionState === "failed") {
+				reportError(
+					"The live media connection failed. Try the call again. If this continues on different networks, configure a TURN server.",
+				);
+			}
+		};
 		for (const track of localStreamRef.current?.getTracks?.() || []) {
 			pc.addTrack(track, localStreamRef.current);
 		}
 		return pc;
-	}, [sendSignal]);
+	}, [reportError, sendSignal]);
 
 	const sendOffer = useCallback(async () => {
 		const pc = ensurePeerConnection();
@@ -213,7 +234,13 @@ export default function ChatCallPanel({
 		const socket = getChatSocket();
 		if (!socket) return undefined;
 		const roomPayload = { channel, conversationId: Number(conversationId) };
-		socket.emit("join_room", roomPayload);
+		const joinRoom = () => {
+			socket.emit("join_room", roomPayload, (response) => {
+				if (response?.error) reportError(response.error);
+			});
+		};
+		joinRoom();
+		socket.on("connect", joinRoom);
 
 		const onSignal = async (data) => {
 			if (
@@ -253,7 +280,10 @@ export default function ChatCallPanel({
 		};
 
 		socket.on("webrtc_signal", onSignal);
-		return () => socket.off("webrtc_signal", onSignal);
+		return () => {
+			socket.off("connect", joinRoom);
+			socket.off("webrtc_signal", onSignal);
+		};
 	}, [
 		addPendingCandidates,
 		channel,
@@ -269,8 +299,10 @@ export default function ChatCallPanel({
 	const fetchVideoStatus = useCallback(
 		async (quiet = false) => {
 			if (!conversationId) return;
+			const operation = callOperationRef.current;
 			try {
 				const data = await api.getStatus(conversationId);
+				if (operation !== callOperationRef.current || callBusyRef.current) return;
 				setCallState({
 					status: data?.status || "none",
 					video_call: data?.video_call || null,
@@ -302,7 +334,7 @@ export default function ChatCallPanel({
 		fetchVideoStatus();
 		const id = window.setInterval(() => fetchVideoStatus(true), 5000);
 		return () => window.clearInterval(id);
-	}, [conversationId, fetchVideoStatus, stopAllMedia]);
+	}, [conversationId, fetchVideoStatus, stopAllMedia, stopRingtone]);
 
 	useEffect(() => {
 		if (incomingCall) {
@@ -342,6 +374,20 @@ export default function ChatCallPanel({
 	}, [channel, conversationId, stopAllMedia]);
 
 	useEffect(() => {
+		if (localVideoRef.current && localStream && mediaMode === "video") {
+			localVideoRef.current.srcObject = localStream;
+			localVideoRef.current.play?.().catch(() => {});
+		}
+	}, [localStream, mediaMode]);
+
+	useEffect(() => {
+		if (screenVideoRef.current && screenStream) {
+			screenVideoRef.current.srcObject = screenStream;
+			screenVideoRef.current.play?.().catch(() => {});
+		}
+	}, [screenStream]);
+
+	useEffect(() => {
 		if (remoteVideoRef.current && remoteStream) {
 			remoteVideoRef.current.srcObject = remoteStream;
 			remoteVideoRef.current.play?.().catch(() => {});
@@ -362,6 +408,8 @@ export default function ChatCallPanel({
 
 	async function placeCall(mode) {
 		if (!conversationId) return;
+		callOperationRef.current += 1;
+		callBusyRef.current = true;
 		setCallBusy(true);
 		try {
 			reportError(null);
@@ -388,12 +436,15 @@ export default function ChatCallPanel({
 					"Unable to start call. Check microphone/camera permissions.",
 			);
 		} finally {
+			callBusyRef.current = false;
 			setCallBusy(false);
 		}
 	}
 
 	async function joinCall(mode) {
 		if (!conversationId) return;
+		callOperationRef.current += 1;
+		callBusyRef.current = true;
 		setCallBusy(true);
 		try {
 			reportError(null);
@@ -410,12 +461,15 @@ export default function ChatCallPanel({
 			stopAllMedia();
 			reportError(err.message || "Unable to join call.");
 		} finally {
+			callBusyRef.current = false;
 			setCallBusy(false);
 		}
 	}
 
 	async function endCall() {
 		if (!conversationId) return;
+		callOperationRef.current += 1;
+		callBusyRef.current = true;
 		setCallBusy(true);
 		try {
 			sendSignal({ type: "hangup" });
@@ -429,6 +483,7 @@ export default function ChatCallPanel({
 			reportError(err.message || "Unable to end call.");
 		} finally {
 			stopAllMedia();
+			callBusyRef.current = false;
 			setCallBusy(false);
 			await fetchVideoStatus(true);
 		}
