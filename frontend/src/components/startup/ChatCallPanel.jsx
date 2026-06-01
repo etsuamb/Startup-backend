@@ -4,16 +4,20 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getChatSocket } from "@/lib/socketClient";
 
 const RTC_CONFIGURATION = {
-  iceServers: [
-    { urls: process.env.NEXT_PUBLIC_STUN_URL || "stun:stun.l.google.com:19302" },
-    ...(process.env.NEXT_PUBLIC_TURN_URL
-      ? [{
-          urls: process.env.NEXT_PUBLIC_TURN_URL,
-          username: process.env.NEXT_PUBLIC_TURN_USERNAME || "",
-          credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL || "",
-        }]
-      : []),
-  ],
+	iceServers: [
+		{
+			urls: process.env.NEXT_PUBLIC_STUN_URL || "stun:stun.l.google.com:19302",
+		},
+		...(process.env.NEXT_PUBLIC_TURN_URL
+			? [
+					{
+						urls: process.env.NEXT_PUBLIC_TURN_URL,
+						username: process.env.NEXT_PUBLIC_TURN_USERNAME || "",
+						credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL || "",
+					},
+				]
+			: []),
+	],
 };
 
 /**
@@ -21,28 +25,32 @@ const RTC_CONFIGURATION = {
  * api: { getStatus, start, join, end, screenShare }
  */
 export default function ChatCallPanel({
-  conversationId,
-  partnerName,
-  currentUserId,
-  api,
-  onError,
-  autoStartMode = null,
-  channel = "investor",
+	conversationId,
+	partnerName,
+	currentUserId,
+	api,
+	onError,
+	autoStartMode = null,
+	channel = "investor",
 }) {
-  const [callState, setCallState] = useState({ status: "none", video_call: null, session_participants: [] });
-  const [mediaMode, setMediaMode] = useState(null);
-  const [localStream, setLocalStream] = useState(null);
-  const [screenStream, setScreenStream] = useState(null);
-  const [remoteStream, setRemoteStream] = useState(null);
-  const [callBusy, setCallBusy] = useState(false);
-  const localVideoRef = useRef(null);
-  const screenVideoRef = useRef(null);
-  const remoteVideoRef = useRef(null);
-  const localStreamRef = useRef(null);
-  const screenStreamRef = useRef(null);
-  const peerConnectionRef = useRef(null);
-  const pendingCandidatesRef = useRef([]);
-  const autoStartedRef = useRef(false);
+	const [callState, setCallState] = useState({
+		status: "none",
+		video_call: null,
+		session_participants: [],
+	});
+	const [mediaMode, setMediaMode] = useState(null);
+	const [localStream, setLocalStream] = useState(null);
+	const [screenStream, setScreenStream] = useState(null);
+	const [remoteStream, setRemoteStream] = useState(null);
+	const [callBusy, setCallBusy] = useState(false);
+	const localVideoRef = useRef(null);
+	const screenVideoRef = useRef(null);
+	const remoteVideoRef = useRef(null);
+	const localStreamRef = useRef(null);
+	const screenStreamRef = useRef(null);
+	const peerConnectionRef = useRef(null);
+	const pendingCandidatesRef = useRef([]);
+	const autoStartedRef = useRef(false);
 
 	const activeCall = ["ringing", "active"].includes(callState.status);
 	const isInCall = Boolean(localStream);
@@ -65,153 +73,157 @@ export default function ChatCallPanel({
 		stream?.getTracks?.().forEach((track) => track.stop());
 	}
 
-  const closePeerConnection = useCallback(() => {
-    const pc = peerConnectionRef.current;
-    peerConnectionRef.current = null;
-    pendingCandidatesRef.current = [];
-    if (pc) {
-      pc.onicecandidate = null;
-      pc.ontrack = null;
-      pc.close();
-    }
-    setRemoteStream(null);
-  }, []);
+	const closePeerConnection = useCallback(() => {
+		const pc = peerConnectionRef.current;
+		peerConnectionRef.current = null;
+		pendingCandidatesRef.current = [];
+		if (pc) {
+			pc.onicecandidate = null;
+			pc.ontrack = null;
+			pc.close();
+		}
+		setRemoteStream(null);
+	}, []);
 
-  const stopAllMedia = useCallback(() => {
-    setLocalStream((stream) => {
-      stopTracks(stream);
-      return null;
-    });
-    setScreenStream((stream) => {
-      stopTracks(stream);
-      return null;
-    });
-    setMediaMode(null);
-    localStreamRef.current = null;
-    screenStreamRef.current = null;
-    closePeerConnection();
-  }, [closePeerConnection]);
+	const stopAllMedia = useCallback(() => {
+		setLocalStream((stream) => {
+			stopTracks(stream);
+			return null;
+		});
+		setScreenStream((stream) => {
+			stopTracks(stream);
+			return null;
+		});
+		setMediaMode(null);
+		localStreamRef.current = null;
+		screenStreamRef.current = null;
+		closePeerConnection();
+	}, [closePeerConnection]);
 
-  const sendSignal = useCallback((signal) => {
-    const socket = getChatSocket();
-    if (!socket || !conversationId) return;
-    socket.emit("webrtc_signal", {
-      channel,
-      conversationId: Number(conversationId),
-      signal,
-    });
-  }, [channel, conversationId]);
+	const sendSignal = useCallback(
+		(signal) => {
+			const socket = getChatSocket();
+			if (!socket || !conversationId) return;
+			socket.emit("webrtc_signal", {
+				channel,
+				conversationId: Number(conversationId),
+				signal,
+			});
+		},
+		[channel, conversationId],
+	);
 
-  const addPendingCandidates = useCallback(async (pc) => {
-    const candidates = pendingCandidatesRef.current;
-    pendingCandidatesRef.current = [];
-    for (const candidate of candidates) {
-      await pc.addIceCandidate(candidate);
-    }
-  }, []);
+	const addPendingCandidates = useCallback(async (pc) => {
+		const candidates = pendingCandidatesRef.current;
+		pendingCandidatesRef.current = [];
+		for (const candidate of candidates) {
+			await pc.addIceCandidate(candidate);
+		}
+	}, []);
 
-  const ensurePeerConnection = useCallback(() => {
-    if (peerConnectionRef.current) return peerConnectionRef.current;
-    const pc = new RTCPeerConnection(RTC_CONFIGURATION);
-    peerConnectionRef.current = pc;
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        sendSignal({ type: "candidate", candidate: event.candidate.toJSON() });
-      }
-    };
-    pc.ontrack = (event) => {
-      const [incomingStream] = event.streams;
-      if (incomingStream) setRemoteStream(incomingStream);
-    };
-    for (const track of localStreamRef.current?.getTracks?.() || []) {
-      pc.addTrack(track, localStreamRef.current);
-    }
-    return pc;
-  }, [sendSignal]);
+	const ensurePeerConnection = useCallback(() => {
+		if (peerConnectionRef.current) return peerConnectionRef.current;
+		const pc = new RTCPeerConnection(RTC_CONFIGURATION);
+		peerConnectionRef.current = pc;
+		pc.onicecandidate = (event) => {
+			if (event.candidate) {
+				sendSignal({ type: "candidate", candidate: event.candidate.toJSON() });
+			}
+		};
+		pc.ontrack = (event) => {
+			const [incomingStream] = event.streams;
+			if (incomingStream) setRemoteStream(incomingStream);
+		};
+		for (const track of localStreamRef.current?.getTracks?.() || []) {
+			pc.addTrack(track, localStreamRef.current);
+		}
+		return pc;
+	}, [sendSignal]);
 
-  const sendOffer = useCallback(async () => {
-    const pc = ensurePeerConnection();
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    sendSignal({ type: "offer", sdp: pc.localDescription });
-  }, [ensurePeerConnection, sendSignal]);
+	const sendOffer = useCallback(async () => {
+		const pc = ensurePeerConnection();
+		const offer = await pc.createOffer();
+		await pc.setLocalDescription(offer);
+		sendSignal({ type: "offer", sdp: pc.localDescription });
+	}, [ensurePeerConnection, sendSignal]);
 
-  useEffect(() => {
-    if (!conversationId) return undefined;
-    const socket = getChatSocket();
-    if (!socket) return undefined;
-    const roomPayload = { channel, conversationId: Number(conversationId) };
-    socket.emit("join_room", roomPayload);
+	useEffect(() => {
+		if (!conversationId) return undefined;
+		const socket = getChatSocket();
+		if (!socket) return undefined;
+		const roomPayload = { channel, conversationId: Number(conversationId) };
+		socket.emit("join_room", roomPayload);
 
-    const onSignal = async (data) => {
-      if (
-        data?.channel !== channel ||
-        Number(data?.conversationId) !== Number(conversationId) ||
-        Number(data?.senderUserId) === Number(currentUserId)
-      ) return;
-      try {
-        const signal = data.signal || {};
-        if (signal.type === "hangup") {
-          stopAllMedia();
-          return;
-        }
-        if (signal.type === "ready") {
-          if (localStreamRef.current) await sendOffer();
-          return;
-        }
-        if (!localStreamRef.current) return;
-        const pc = ensurePeerConnection();
-        if (signal.type === "offer") {
-          await pc.setRemoteDescription(signal.sdp);
-          await addPendingCandidates(pc);
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          sendSignal({ type: "answer", sdp: pc.localDescription });
-        } else if (signal.type === "answer") {
-          await pc.setRemoteDescription(signal.sdp);
-          await addPendingCandidates(pc);
-        } else if (signal.type === "candidate" && signal.candidate) {
-          if (pc.remoteDescription) await pc.addIceCandidate(signal.candidate);
-          else pendingCandidatesRef.current.push(signal.candidate);
-        }
-      } catch (err) {
-        reportError(err.message || "Unable to connect live media.");
-      }
-    };
+		const onSignal = async (data) => {
+			if (
+				data?.channel !== channel ||
+				Number(data?.conversationId) !== Number(conversationId) ||
+				Number(data?.senderUserId) === Number(currentUserId)
+			)
+				return;
+			try {
+				const signal = data.signal || {};
+				if (signal.type === "hangup") {
+					stopAllMedia();
+					return;
+				}
+				if (signal.type === "ready") {
+					if (localStreamRef.current) await sendOffer();
+					return;
+				}
+				if (!localStreamRef.current) return;
+				const pc = ensurePeerConnection();
+				if (signal.type === "offer") {
+					await pc.setRemoteDescription(signal.sdp);
+					await addPendingCandidates(pc);
+					const answer = await pc.createAnswer();
+					await pc.setLocalDescription(answer);
+					sendSignal({ type: "answer", sdp: pc.localDescription });
+				} else if (signal.type === "answer") {
+					await pc.setRemoteDescription(signal.sdp);
+					await addPendingCandidates(pc);
+				} else if (signal.type === "candidate" && signal.candidate) {
+					if (pc.remoteDescription) await pc.addIceCandidate(signal.candidate);
+					else pendingCandidatesRef.current.push(signal.candidate);
+				}
+			} catch (err) {
+				reportError(err.message || "Unable to connect live media.");
+			}
+		};
 
-    socket.on("webrtc_signal", onSignal);
-    return () => socket.off("webrtc_signal", onSignal);
-  }, [
-    addPendingCandidates,
-    channel,
-    conversationId,
-    currentUserId,
-    ensurePeerConnection,
-    reportError,
-    sendOffer,
-    sendSignal,
-    stopAllMedia,
-  ]);
+		socket.on("webrtc_signal", onSignal);
+		return () => socket.off("webrtc_signal", onSignal);
+	}, [
+		addPendingCandidates,
+		channel,
+		conversationId,
+		currentUserId,
+		ensurePeerConnection,
+		reportError,
+		sendOffer,
+		sendSignal,
+		stopAllMedia,
+	]);
 
-  const fetchVideoStatus = useCallback(
-    async (quiet = false) => {
-      if (!conversationId) return;
-      try {
-        const data = await api.getStatus(conversationId);
-        setCallState({
-          status: data?.status || "none",
-          video_call: data?.video_call || null,
-          session_participants: data?.session_participants || [],
-        });
-        if (!["ringing", "active"].includes(data?.status)) {
-          stopAllMedia();
-        }
-      } catch (err) {
-        if (!quiet) reportError(err.message || "Unable to load call status.");
-      }
-    },
-    [api, conversationId, reportError, stopAllMedia],
-  );
+	const fetchVideoStatus = useCallback(
+		async (quiet = false) => {
+			if (!conversationId) return;
+			try {
+				const data = await api.getStatus(conversationId);
+				setCallState({
+					status: data?.status || "none",
+					video_call: data?.video_call || null,
+					session_participants: data?.session_participants || [],
+				});
+				if (!["ringing", "active"].includes(data?.status)) {
+					stopAllMedia();
+				}
+			} catch (err) {
+				if (!quiet) reportError(err.message || "Unable to load call status.");
+			}
+		},
+		[api, conversationId, reportError, stopAllMedia],
+	);
 
 	useEffect(() => {
 		if (!conversationId) {
@@ -240,7 +252,7 @@ export default function ChatCallPanel({
 
 		const onCallSignal = (payload) => {
 			if (!payload) return;
-			if (payload.channel !== chatChannel) return;
+			if (payload.channel !== channel) return;
 			if (Number(payload.conversationId) !== Number(conversationId)) return;
 			setCallState((prev) => ({
 				...prev,
@@ -256,102 +268,39 @@ export default function ChatCallPanel({
 		return () => {
 			socket.off("call_signal", onCallSignal);
 		};
-	}, [chatChannel, conversationId, stopAllMedia]);
+	}, [channel, conversationId, stopAllMedia]);
 
-  useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
-      remoteVideoRef.current.srcObject = remoteStream;
-    }
-  }, [remoteStream]);
+	useEffect(() => {
+		if (remoteVideoRef.current && remoteStream) {
+			remoteVideoRef.current.srcObject = remoteStream;
+		}
+	}, [remoteStream]);
 
-  async function openLocalMedia(mode) {
-    stopAllMedia();
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-      video: mode === "video",
-    });
-    localStreamRef.current = stream;
-    setLocalStream(stream);
-    setMediaMode(mode);
-    return stream;
-  }
-
-  async function placeCall(mode) {
-    if (!conversationId) return;
-    setCallBusy(true);
-    try {
-      reportError(null);
-      const current = await api.getStatus(conversationId);
-      if (
-        current?.status === "ringing" &&
-        Number(current.video_call?.started_by_user_id) !== Number(currentUserId)
-      ) {
-        await joinCall(mode);
-        return;
-      }
-      await openLocalMedia(mode);
-      const data = await api.start(conversationId);
-      setCallState({
-        status: data.video_call?.status || "ringing",
-        video_call: data.video_call,
-        session_participants: [],
-      });
-      await sendOffer();
-    } catch (err) {
-      stopAllMedia();
-      reportError(err.message || "Unable to start call. Check microphone/camera permissions.");
-    } finally {
-      setCallBusy(false);
-    }
-  }
-
-  async function joinCall(mode) {
-    if (!conversationId) return;
-    setCallBusy(true);
-    try {
-      reportError(null);
-      await openLocalMedia(mode);
-      const data = await api.join(conversationId);
-      setCallState((prev) => ({
-        ...prev,
-        status: data.video_call?.status || "active",
-        video_call: data.video_call,
-      }));
-      sendSignal({ type: "ready" });
-      await fetchVideoStatus(true);
-    } catch (err) {
-      stopAllMedia();
-      reportError(err.message || "Unable to join call.");
-    } finally {
-      setCallBusy(false);
-    }
-  }
-
-  async function endCall() {
-    if (!conversationId) return;
-    setCallBusy(true);
-    try {
-      sendSignal({ type: "hangup" });
-      const data = await api.end(conversationId);
-      setCallState({
-        status: data.video_call?.status || "ended",
-        video_call: data.video_call,
-        session_participants: [],
-      });
-    } catch (err) {
-      reportError(err.message || "Unable to end call.");
-    } finally {
-      stopAllMedia();
-      setCallBusy(false);
-      await fetchVideoStatus(true);
-    }
-  }
+	async function openLocalMedia(mode) {
+		stopAllMedia();
+		const stream = await navigator.mediaDevices.getUserMedia({
+			audio: true,
+			video: mode === "video",
+		});
+		localStreamRef.current = stream;
+		setLocalStream(stream);
+		setMediaMode(mode);
+		return stream;
+	}
 
 	async function placeCall(mode) {
 		if (!conversationId) return;
 		setCallBusy(true);
 		try {
 			reportError(null);
+			const current = await api.getStatus(conversationId);
+			if (
+				current?.status === "ringing" &&
+				Number(current.video_call?.started_by_user_id) !== Number(currentUserId)
+			) {
+				await joinCall(mode);
+				return;
+			}
 			await openLocalMedia(mode);
 			const data = await api.start(conversationId);
 			setCallState({
@@ -359,6 +308,7 @@ export default function ChatCallPanel({
 				video_call: data.video_call,
 				session_participants: [],
 			});
+			await sendOffer();
 		} catch (err) {
 			stopAllMedia();
 			reportError(
@@ -370,72 +320,47 @@ export default function ChatCallPanel({
 		}
 	}
 
-  async function toggleScreenShare() {
-    if (!conversationId || !api.screenShare) return;
-    if (isScreenSharing) {
-      try {
-        await api.screenShare(conversationId, "stop");
-        setScreenStream((stream) => {
-          stopTracks(stream);
-          return null;
-        });
-        screenStreamRef.current = null;
-        const sender = peerConnectionRef.current?.getSenders?.().find((item) => item.track?.kind === "video");
-        await sender?.replaceTrack(localStreamRef.current?.getVideoTracks?.()[0] || null);
-        await fetchVideoStatus(true);
-      } catch (err) {
-        reportError(err.message || "Unable to stop screen sharing.");
-      }
-      return;
-    }
+	async function joinCall(mode) {
+		if (!conversationId) return;
+		setCallBusy(true);
+		try {
+			reportError(null);
+			await openLocalMedia(mode);
+			const data = await api.join(conversationId);
+			setCallState((prev) => ({
+				...prev,
+				status: data.video_call?.status || "active",
+				video_call: data.video_call,
+			}));
+			sendSignal({ type: "ready" });
+			await fetchVideoStatus(true);
+		} catch (err) {
+			stopAllMedia();
+			reportError(err.message || "Unable to join call.");
+		} finally {
+			setCallBusy(false);
+		}
+	}
 
-    try {
-      reportError(null);
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
-      stream.getVideoTracks()[0]?.addEventListener("ended", async () => {
-        setScreenStream((s) => {
-          stopTracks(s);
-          return null;
-        });
-        screenStreamRef.current = null;
-        try {
-          const sender = peerConnectionRef.current?.getSenders?.().find((item) => item.track?.kind === "video");
-          await sender?.replaceTrack(localStreamRef.current?.getVideoTracks?.()[0] || null);
-          await api.screenShare(conversationId, "stop");
-          await fetchVideoStatus(true);
-        } catch {
-          /* user stopped share from browser UI */
-        }
-      });
-      screenStreamRef.current = stream;
-      setScreenStream(stream);
-      const pc = ensurePeerConnection();
-      const sender = pc.getSenders().find((item) => item.track?.kind === "video");
-      if (sender) await sender.replaceTrack(stream.getVideoTracks()[0]);
-      else {
-        pc.addTrack(stream.getVideoTracks()[0], stream);
-        await sendOffer();
-      }
-      await api.screenShare(conversationId, "start");
-      await fetchVideoStatus(true);
-    } catch (err) {
-      reportError(err.message || "Screen sharing was cancelled or is not supported.");
-    }
-  }
-
-	useEffect(() => {
-		if (
-			!autoStartMode ||
-			!conversationId ||
-			autoStartedRef.current ||
-			callBusy ||
-			isInCall
-		)
-			return;
-		autoStartedRef.current = true;
-		placeCall(autoStartMode);
-		// eslint-disable-next-line react-hooks/exhaustive-deps -- run once when modal opens with mode
-	}, [autoStartMode, conversationId]);
+	async function endCall() {
+		if (!conversationId) return;
+		setCallBusy(true);
+		try {
+			sendSignal({ type: "hangup" });
+			const data = await api.end(conversationId);
+			setCallState({
+				status: data.video_call?.status || "ended",
+				video_call: data.video_call,
+				session_participants: [],
+			});
+		} catch (err) {
+			reportError(err.message || "Unable to end call.");
+		} finally {
+			stopAllMedia();
+			setCallBusy(false);
+			await fetchVideoStatus(true);
+		}
+	}
 
 	async function toggleScreenShare() {
 		if (!conversationId || !api.screenShare) return;
@@ -446,6 +371,13 @@ export default function ChatCallPanel({
 					stopTracks(stream);
 					return null;
 				});
+				screenStreamRef.current = null;
+				const sender = peerConnectionRef.current
+					?.getSenders?.()
+					.find((item) => item.track?.kind === "video");
+				await sender?.replaceTrack(
+					localStreamRef.current?.getVideoTracks?.()[0] || null,
+				);
 				await fetchVideoStatus(true);
 			} catch (err) {
 				reportError(err.message || "Unable to stop screen sharing.");
@@ -464,14 +396,31 @@ export default function ChatCallPanel({
 					stopTracks(s);
 					return null;
 				});
+				screenStreamRef.current = null;
 				try {
+					const sender = peerConnectionRef.current
+						?.getSenders?.()
+						.find((item) => item.track?.kind === "video");
+					await sender?.replaceTrack(
+						localStreamRef.current?.getVideoTracks?.()[0] || null,
+					);
 					await api.screenShare(conversationId, "stop");
 					await fetchVideoStatus(true);
 				} catch {
 					/* user stopped share from browser UI */
 				}
 			});
+			screenStreamRef.current = stream;
 			setScreenStream(stream);
+			const pc = ensurePeerConnection();
+			const sender = pc
+				.getSenders()
+				.find((item) => item.track?.kind === "video");
+			if (sender) await sender.replaceTrack(stream.getVideoTracks()[0]);
+			else {
+				pc.addTrack(stream.getVideoTracks()[0], stream);
+				await sendOffer();
+			}
 			await api.screenShare(conversationId, "start");
 			await fetchVideoStatus(true);
 		} catch (err) {
@@ -480,6 +429,20 @@ export default function ChatCallPanel({
 			);
 		}
 	}
+
+	useEffect(() => {
+		if (
+			!autoStartMode ||
+			!conversationId ||
+			autoStartedRef.current ||
+			callBusy ||
+			isInCall
+		)
+			return;
+		autoStartedRef.current = true;
+		placeCall(autoStartMode);
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- run once when modal opens with mode
+	}, [autoStartMode, conversationId]);
 
 	if (!conversationId) {
 		return (

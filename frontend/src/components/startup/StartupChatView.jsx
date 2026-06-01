@@ -1220,7 +1220,7 @@ export default function StartupChatView({
 						<div className="p-4">
 							<ChatCallPanel
 								conversationId={selected.id}
-								chatChannel={socketChannel}
+								channel={socketChannel}
 								partnerName={selected.contactName}
 								currentUserId={currentUserId}
 								api={callApi}
