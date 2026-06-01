@@ -455,7 +455,7 @@ exports.verifyLogin2FA = async (req, res) => {
 		const { pendingToken, code, backupCode } = req.body;
 		if (!pendingToken) return res.status(400).json({ message: "pendingToken is required" });
 
-		const pending = await authSecurity.consumePendingLogin(pendingToken);
+		const pending = await authSecurity.getPendingLogin(pendingToken);
 		if (!pending) {
 			return res.status(401).json({ message: "Invalid or expired login session" });
 		}
@@ -500,9 +500,16 @@ exports.verifyLogin2FA = async (req, res) => {
 			return res.status(401).json({ message: "Invalid verification code" });
 		}
 
+		const consumedPending = await authSecurity.consumePendingLogin(pendingToken);
+		if (!consumedPending) {
+			return res.status(401).json({ message: "Invalid or expired login session" });
+		}
+
 		const ip = securityMonitoringService.readIpAddress(req);
 		const userAgent = req.headers["user-agent"] || "";
-		return finishLoginOr2FA(req, res, user, user.email, ip, userAgent);
+		return finishLoginOr2FA(req, res, user, user.email, ip, userAgent, {
+			twoFactorVerified: true,
+		});
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
 	}
@@ -868,11 +875,11 @@ exports.googleCompleteRole = async (req, res) => {
 	}
 };
 
-async function finishLoginOr2FA(req, res, user, email, ip, userAgent) {
+async function finishLoginOr2FA(req, res, user, email, ip, userAgent, options = {}) {
 	const fresh = (await loadUserById(user.user_id)) || user;
 	user = fresh;
 
-	if (user.two_factor_enabled) {
+	if (user.two_factor_enabled && !options.twoFactorVerified) {
 		const pendingToken = await authSecurity.createPendingLogin(user.user_id, req);
 		if (user.two_factor_method === "email") {
 			await authSecurity.sendEmailLoginOtp(user.user_id);
@@ -928,6 +935,7 @@ async function finishLoginOr2FA(req, res, user, email, ip, userAgent) {
 		emailVerified,
 		isApproved,
 		accessStatus,
+		twoFactorEnabled: !!user.two_factor_enabled,
 	});
 }
 

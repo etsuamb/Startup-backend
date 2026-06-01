@@ -405,6 +405,17 @@ async function consumePendingLogin(rawToken) {
   return r.rows[0] || null;
 }
 
+async function getPendingLogin(rawToken) {
+  const tokenHash = hashToken(rawToken);
+  const r = await pool.query(
+    `SELECT pending_id, user_id
+     FROM auth_pending_logins
+     WHERE token_hash = $1 AND consumed_at IS NULL AND expires_at > NOW()`,
+    [tokenHash],
+  );
+  return r.rows[0] || null;
+}
+
 async function sendEmailLoginOtp(userId) {
   const userR = await pool.query(
     `SELECT user_id, email, first_name FROM users WHERE user_id = $1`,
@@ -476,6 +487,7 @@ module.exports = {
   sendLoginOtpEmail,
   issueAuthTokens,
   createPendingLogin,
+  getPendingLogin,
   consumePendingLogin,
   sendEmailLoginOtp,
   generateBackupCodes,
