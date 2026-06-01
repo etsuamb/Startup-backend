@@ -30,28 +30,46 @@ export function IndustrySelectWithOther({
   name,
   label,
   defaultValue = "",
+  value: controlledValue,
+  onChange,
   required = false,
   placeholder = "Select industry",
   labelClassName = "block text-sm font-bold text-[#0f3d32]",
   selectClassName = "",
   inputClassName = "",
 }) {
+  const initialValue = controlledValue ?? defaultValue;
   const isKnownValue = useMemo(
-    () => !defaultValue || INDUSTRY_OPTIONS.includes(defaultValue),
-    [defaultValue],
+    () => !initialValue || INDUSTRY_OPTIONS.includes(initialValue),
+    [initialValue],
   );
-  const [choice, setChoice] = useState(isKnownValue ? defaultValue : OTHER_VALUE);
-  const [customValue, setCustomValue] = useState(isKnownValue ? "" : defaultValue);
+  const [uncontrolledChoice, setUncontrolledChoice] = useState(isKnownValue ? initialValue : OTHER_VALUE);
+  const [uncontrolledCustomValue, setUncontrolledCustomValue] = useState(isKnownValue ? "" : initialValue);
+  const [customMode, setCustomMode] = useState(!isKnownValue);
+  const isControlled = controlledValue !== undefined;
+  const choice = isControlled
+    ? (customMode || (controlledValue && !INDUSTRY_OPTIONS.includes(controlledValue)) ? OTHER_VALUE : controlledValue)
+    : uncontrolledChoice;
+  const customValue = isControlled
+    ? (choice === OTHER_VALUE ? controlledValue : "")
+    : uncontrolledCustomValue;
   const value = choice === OTHER_VALUE ? customValue.trim() : choice;
+
+  function updateValue(nextChoice, nextCustomValue = customValue) {
+    if (!isControlled) setUncontrolledChoice(nextChoice);
+    if (isControlled) setCustomMode(nextChoice === OTHER_VALUE);
+    const nextValue = nextChoice === OTHER_VALUE ? nextCustomValue.trim() : nextChoice;
+    onChange?.(nextValue);
+  }
 
   return (
     <label className={labelClassName}>
       {label}
-      <input type="hidden" name={name} value={value} />
+      {name ? <input type="hidden" name={name} value={value} /> : null}
       <select
         required={required}
         value={choice}
-        onChange={(event) => setChoice(event.target.value)}
+        onChange={(event) => updateValue(event.target.value)}
         className={selectClassName}
       >
         <option value="">{placeholder}</option>
@@ -67,7 +85,10 @@ export function IndustrySelectWithOther({
           type="text"
           required={required}
           value={customValue}
-          onChange={(event) => setCustomValue(event.target.value)}
+          onChange={(event) => {
+            if (!isControlled) setUncontrolledCustomValue(event.target.value);
+            onChange?.(event.target.value.trim());
+          }}
           placeholder="Enter your industry or sector"
           className={inputClassName || selectClassName}
         />

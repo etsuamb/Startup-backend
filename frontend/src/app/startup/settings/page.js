@@ -2,12 +2,11 @@
 import { useCallback, useEffect, useState, useMemo } from "react";
 import Sidebar from "@/components/startup/Sidebar";
 import { getStartupProfile, updateStartupProfile, getNotificationSettings, updateNotificationSettings } from "@/lib/startupApi";
-import { fetchPlatformCategories } from "@/lib/adminApi";
 import { getCurrentAccount, updateCurrentAccount } from "@/lib/authApi";
 import { canPreviewDocument, openUploadedFileForView } from "@/lib/viewUploadedFile";
 import ViewableFileTrigger from "@/components/startup/ViewableFileTrigger";
 import AccountAccessBanner from "@/components/auth/AccountAccessBanner";
-import { useStartupLocale } from "@/components/startup/StartupLocaleProvider";
+import { IndustrySelectWithOther } from "@/components/register/IndustryFields";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function fieldValue(value) {
@@ -341,11 +340,6 @@ function ProfileCompleteness({ fields }) {
 }
 
 // ─── Industry / Stage / Type options ──────────────────────────────────────────
-// Industries will be loaded from the platform categories API so admin-managed categories
-// appear consistently across the app. Fallback to empty array until loaded.
-// Use `fetchPlatformCategories('industry')` to populate this.
-
-
 const STAGES = [
   { value: "Idea Stage", label: "Idea Stage" },
   { value: "Pre-Seed", label: "Pre-Seed" },
@@ -364,7 +358,6 @@ const TEAM_SIZES = ["1-10", "11-50", "51-200", "201+"];
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function StartupSettingsPage() {
-  const { language, setLocale } = useStartupLocale();
   const [activeTab, setActiveTab] = useState("account");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -412,7 +405,6 @@ export default function StartupSettingsPage() {
   const [founderFullName, setFounderFullName] = useState("");
   const [startupName, setStartupName] = useState("");
   const [industry, setIndustry] = useState("");
-  const [industries, setIndustries] = useState([]);
   const [tagline, setTagline] = useState("");
   const [stage, setStage] = useState("");
   const [startupType, setStartupType] = useState("");
@@ -512,15 +504,6 @@ export default function StartupSettingsPage() {
   useEffect(() => {
     loadProfile();
     loadNotificationSettings();
-    (async () => {
-      try {
-        const cats = await fetchPlatformCategories("industry");
-        const list = (cats?.categories || []).filter(Boolean).map((c) => c.name || c);
-        setIndustries(list);
-      } catch (e) {
-        // ignore — keep empty list fallback
-      }
-    })();
   }, [loadProfile, loadNotificationSettings]);
 
   // ── Profile completeness ──
@@ -776,7 +759,14 @@ export default function StartupSettingsPage() {
             </FormField>
 
             <div className="grid gap-5 sm:grid-cols-2">
-              <SelectField label="Industry" value={industry} onChange={(e) => setIndustry(e.target.value)} options={industries} placeholder="Select industry" />
+              <IndustrySelectWithOther
+                label="Industry"
+                value={industry}
+                onChange={setIndustry}
+                labelClassName="block text-xs font-bold text-gray-700"
+                selectClassName={`${inputClass} mt-2 appearance-none`}
+                inputClassName={`${inputClass} mt-3`}
+              />
               <SelectField label="Business stage" value={stage} onChange={(e) => setStage(e.target.value)} options={STAGES} placeholder="Select stage" />
             </div>
 
@@ -1363,28 +1353,10 @@ export default function StartupSettingsPage() {
         <div className="w-full max-w-[1200px] mx-auto px-4 sm:px-8 py-8">
 
           {/* Page Header */}
-          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
+          <div className="mb-8">
             <p className="text-[10px] font-bold uppercase tracking-widest text-[#0f3d32]">Startup · Settings</p>
             <h1 className="mt-2 text-3xl font-black tracking-tight text-gray-900">Settings</h1>
-              <p className="mt-1.5 text-sm text-gray-500">Manage your account, startup profile, security, and notification preferences.</p>
-            </div>
-            <div className="flex self-start rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
-              <button
-                type="button"
-                onClick={() => setLocale("English")}
-                className={`rounded-lg px-3 py-2 text-xs font-bold transition ${language === "English" ? "bg-[#0f3d32] text-white" : "text-gray-500 hover:bg-gray-50"}`}
-              >
-                English
-              </button>
-              <button
-                type="button"
-                onClick={() => setLocale("Amharic")}
-                className={`rounded-lg px-3 py-2 text-xs font-bold transition ${language === "Amharic" ? "bg-[#0f3d32] text-white" : "text-gray-500 hover:bg-gray-50"}`}
-              >
-                አማርኛ
-              </button>
-            </div>
+            <p className="mt-1.5 text-sm text-gray-500">Manage your account, startup profile, security, and notification preferences.</p>
           </div>
 
           <AccountAccessBanner />

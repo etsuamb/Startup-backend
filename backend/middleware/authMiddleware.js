@@ -3,7 +3,7 @@ const jwt = require("jsonwebtoken");
 const JWT_SECRET = process.env.JWT_SECRET || "your_secret_key";
 const pool = require("../config/db");
 
-// 🔐 Authenticate user (check token)
+//Authenticate user 
 exports.authenticate = (req, res, next) => {
 	const authHeader =
 		req.headers["authorization"] ||
@@ -33,7 +33,7 @@ exports.authenticate = (req, res, next) => {
 	}
 };
 
-// 🔒 Authorize roles (THIS is the one you asked about)
+//Authorize roles 
 exports.authorizeRoles = (...roles) => {
 	return (req, res, next) => {
 		if (!roles.includes(req.user.role)) {
@@ -48,7 +48,7 @@ exports.authorizeRoles = (...roles) => {
 	};
 };
 
-// Verified email + admin approval required for platform features (Admin exempt).
+// Verified email + admin 
 exports.requireApproval = async (req, res, next) => {
 	try {
 		const userId = req.user.user_id;

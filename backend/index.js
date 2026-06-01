@@ -12,10 +12,26 @@ const app = express();
 const server = http.createServer(app);
 initializeSocket(server);
 const PORT = Number(process.env.PORT) || 5000;
+const HOST = process.env.HOST || "0.0.0.0";
+const STARTUP_RETRIES = Number(process.env.STARTUP_RETRIES) || 5;
 
 // Middleware
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
+
+// Lightweight liveness for Render/load balancers (no DB — must respond quickly)
+app.get("/health", (_req, res) => {
+  res.status(200).json({ ok: true, uptime: process.uptime() });
+});
+
+app.get("/health/ready", async (_req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    res.status(200).json({ ok: true, db: true });
+  } catch (err) {
+    res.status(503).json({ ok: false, db: false, error: err.message });
+  }
+});
 
 // ✅ Routes FIRST
 app.use("/api/auth", authRoutes);
@@ -87,24 +103,50 @@ app.use("/api/startups/discover", discoverRoutes);
 const ratingRoutes = require("./routes/ratingRoutes");
 app.use("/api/ratings", ratingRoutes);
 
-async function startServer() {
-  try {
-    await initDatabase();
-    const { getMailProviderStatus } = require("./utils/mail");
-    const mailStatus = getMailProviderStatus();
-    console.log(
-      `Email delivery: ${mailStatus.activeProvider}` +
-        (mailStatus.render && !mailStatus.brevoApiConfigured
-          ? " — set BREVO_HTTP_API_KEY (xkeysib) on Render"
-          : ""),
-    );
-    server.listen(PORT, () => {
-      console.log(`Server running on port ${PORT} (Legacy Monolith)`);
-    });
-  } catch (err) {
-    console.error("Server startup failed:", err.message || err);
-    process.exit(1);
-  }
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+async function startServer() {
+  let lastErr;
+  for (let attempt = 1; attempt <= STARTUP_RETRIES; attempt += 1) {
+    try {
+      await initDatabase();
+      const { getMailProviderStatus } = require("./utils/mail");
+      const mailStatus = getMailProviderStatus();
+      console.log(
+        `Email delivery: ${mailStatus.activeProvider}` +
+          (mailStatus.render && !mailStatus.brevoApiConfigured
+            ? " — set BREVO_HTTP_API_KEY (xkeysib) on Render"
+            : ""),
+      );
+      await new Promise((resolve, reject) => {
+        server.listen(PORT, HOST, () => resolve());
+        server.once("error", reject);
+      });
+      console.log(`Server running on http://${HOST}:${PORT}`);
+      return;
+    } catch (err) {
+      lastErr = err;
+      console.error(
+        `Server startup attempt ${attempt}/${STARTUP_RETRIES} failed:`,
+        err.message || err,
+      );
+      if (attempt < STARTUP_RETRIES) {
+        await sleep(Math.min(3000 * attempt, 15_000));
+      }
+    }
+  }
+  console.error("Server startup failed after retries:", lastErr?.message || lastErr);
+  process.exit(1);
+}
+
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled promise rejection:", reason);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught exception:", err);
+});
 
 startServer();

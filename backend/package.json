@@ -11,8 +11,10 @@
     "reset-db": "node scripts/reset_db.js",
     "seed-db": "node scripts/seed_db.js",
     "upload-demo": "node scripts/upload_demo_file.js",
+    "test-login": "node scripts/test_login_console.js",
     "test-mentorship-flow": "node scripts/test_mentorship_flow.js",
-    "test-mentorship-extras": "node scripts/test_mentorship_extras.js"
+    "test-mentorship-extras": "node scripts/test_mentorship_extras.js",
+    "test": "cross-env NODE_ENV=test jest --runInBand --detectOpenHandles"
   },
   "keywords": [],
   "author": "",
@@ -30,7 +32,17 @@
     "speakeasy": "^2.0.0"
   },
   "devDependencies": {
+    "cross-env": "^7.0.3",
+    "jest": "^29.7.0",
     "newman": "^5.3.2",
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.14",
+    "socket.io-client": "^4.8.3",
+    "supertest": "^6.3.4"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.spec.js"
+    ]
   }
 }
