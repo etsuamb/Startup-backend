@@ -41,13 +41,19 @@ export default function LoginForm() {
 				role: data.user?.role,
 				userName: `${data.user?.first_name || ""} ${data.user?.last_name || ""}`.trim(),
 			});
-			routeAfterLogin(router, userFromLoginResponse(data));
-		} catch (ex) {
-			if (ex.data?.code === "USE_GOOGLE_LOGIN") {
-				setErr("This account uses Google Sign-In. Use the Google button below.");
-			} else {
-				setErr(userFacingError(ex, "Login failed. Check your details and try again."));
+
+			const user = userFromLoginResponse(data);
+			const twoFactorEnabled =
+				data.twoFactorEnabled === true || user?.two_factor_enabled === true;
+			if (!twoFactorEnabled && user?.role !== "Admin") {
+				sessionStorage.setItem("prompt_2fa_setup", "true");
+				router.push("/login/setup-2fa-optional");
+				return;
 			}
+
+			routeAfterLogin(router, user);
+		} catch (ex) {
+			setErr(userFacingError(ex, "Sign-in failed. Check your email and password."));
 		} finally {
 			setLoading(false);
 		}

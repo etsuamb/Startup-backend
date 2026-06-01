@@ -48,6 +48,23 @@ exports.authorizeRoles = (...roles) => {
 	};
 };
 
+// Active account only (allows optional 2FA setup before admin approval)
+exports.requireActiveAccount = async (req, res, next) => {
+	try {
+		const userId = req.user.user_id;
+		const r = await pool.query("SELECT is_active FROM users WHERE user_id = $1", [userId]);
+		if (r.rows.length === 0) {
+			return res.status(404).json({ message: "User not found" });
+		}
+		if (!r.rows[0].is_active) {
+			return res.status(403).json({ message: "Account disabled" });
+		}
+		next();
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
 // Verified email + admin 
 exports.requireApproval = async (req, res, next) => {
 	try {
