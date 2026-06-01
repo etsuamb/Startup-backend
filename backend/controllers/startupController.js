@@ -695,29 +695,7 @@ const INVESTMENT_INCOMING_EXISTS = `
       AND n.title = 'New Funding Offer'
   )`;
 
-const MENTORSHIP_INCOMING_EXISTS = `
-  EXISTS (
-    SELECT 1
-    FROM notifications n
-    INNER JOIN startups s ON s.startup_id = mr.startup_id AND n.user_id = s.user_id
-    WHERE n.title = 'Mentorship Proposal'
-      AND (
-        n.reference_id = mr.mentorship_request_id
-        OR (
-          n.reference_type = 'mentorship_requests'
-          AND n.reference_id = mr.mentorship_request_id
-        )
-      )
-  )
-  OR NOT EXISTS (
-    SELECT 1
-    FROM notifications n
-    INNER JOIN mentors m ON m.mentor_id = mr.mentor_id
-    INNER JOIN users mu ON mu.user_id = m.user_id
-    WHERE n.user_id = mu.user_id
-      AND n.title = 'New Mentorship Request'
-      AND n.message = mr.subject
-  )`;
+const MENTORSHIP_INCOMING_EXISTS = `COALESCE(mr.initiated_by, 'startup') = 'mentor'`;
 
 const INVESTMENT_SOURCE_DIRECTION_SQL = `CASE WHEN ${INVESTMENT_INCOMING_EXISTS} THEN 'incoming' ELSE 'sent' END`;
 const MENTORSHIP_SOURCE_DIRECTION_SQL = `CASE WHEN ${MENTORSHIP_INCOMING_EXISTS} THEN 'incoming' ELSE 'sent' END`;

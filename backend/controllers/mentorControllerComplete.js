@@ -252,6 +252,10 @@ exports.acceptMentorshipRequest = async (req, res) => {
 			return res.status(404).json({ message: "Request not found" });
 		}
 
+		if ((reqRes.rows[0].initiated_by || "startup") !== "startup") {
+			return res.status(403).json({ message: "Mentor proposals must be answered by the startup" });
+		}
+
 		// Update status
 		const result = await pool.query(
 			"UPDATE mentorship_requests SET status = 'accepted' WHERE mentorship_request_id = $1 RETURNING *",
@@ -306,7 +310,7 @@ exports.rejectMentorshipRequest = async (req, res) => {
 		const mentor_id = mentorRes.rows[0].mentor_id;
 
 		const result = await pool.query(
-			"UPDATE mentorship_requests SET status = 'rejected' WHERE mentorship_request_id = $1 AND mentor_id = $2 RETURNING *",
+			"UPDATE mentorship_requests SET status = 'rejected' WHERE mentorship_request_id = $1 AND mentor_id = $2 AND COALESCE(initiated_by, 'startup') = 'startup' RETURNING *",
 			[requestId, mentor_id],
 		);
 
@@ -351,10 +355,25 @@ exports.sendMentorshipProposal = async (req, res) => {
 
 		const mentor_id = mentorRes.rows[0].mentor_id;
 
+		const existing = await pool.query(
+			`SELECT mentorship_request_id, status
+			 FROM mentorship_requests
+			 WHERE startup_id = $1 AND mentor_id = $2
+			   AND status IN ('pending', 'accepted')
+			 LIMIT 1`,
+			[startup_id, mentor_id],
+		);
+		if (existing.rowCount > 0) {
+			return res.status(409).json({
+				error: "You already have an active mentorship proposal or request with this startup.",
+				existing_proposal: existing.rows[0],
+			});
+		}
+
 		// Create a mentorship request
 		const result = await pool.query(
-			`INSERT INTO mentorship_requests (startup_id, mentor_id, subject, message)
-			 VALUES ($1, $2, $3, $4) RETURNING *`,
+			`INSERT INTO mentorship_requests (startup_id, mentor_id, subject, message, initiated_by)
+			 VALUES ($1, $2, $3, $4, 'mentor') RETURNING *`,
 			[startup_id, mentor_id, subject, message],
 		);
 
@@ -385,6 +404,49 @@ exports.sendMentorshipProposal = async (req, res) => {
 		});
 	} catch (err) {
 		res.status(500).json({ error: err.message });
+	}
+};
+
+exports.getProposalOptions = async (req, res) => {
+	try {
+		const mentorRes = await pool.query(
+			`SELECT expertise, primary_industry, secondary_industry, session_pricing
+			 FROM mentors
+			 WHERE user_id = $1`,
+			[req.user.user_id],
+		);
+		if (!mentorRes.rowCount) {
+			return res.status(404).json({ error: "Mentor profile not found" });
+		}
+
+		const mentor = mentorRes.rows[0];
+		const profileFocusAreas = [
+			mentor.expertise,
+			mentor.primary_industry,
+			mentor.secondary_industry,
+		]
+			.flatMap((value) => String(value || "").split(","))
+			.map((value) => value.trim())
+			.filter(Boolean);
+		const defaultFocusAreas = [
+			"Market Entry Strategy",
+			"Scale-up Strategy",
+			"Revenue Operations",
+			"Regulatory Compliance",
+			"Product Strategy",
+			"Fundraising Readiness",
+		];
+
+		return res.json({
+			focus_areas: Array.from(new Set([...profileFocusAreas, ...defaultFocusAreas])),
+			durations: ["1 Month", "3 Months", "6 Months", "12 Months"],
+			frequencies: ["Weekly", "Bi-weekly", "Monthly"],
+			formats: ["1:1 Session", "Group"],
+			modes: ["Remote", "In-person"],
+			default_hourly_rate: Number(mentor.session_pricing || 0),
+		});
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
 	}
 };
 

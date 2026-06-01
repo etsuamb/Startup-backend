@@ -257,8 +257,24 @@ CREATE TABLE IF NOT EXISTS mentorship_requests (
     mentor_id INTEGER NOT NULL REFERENCES mentors(mentor_id) ON DELETE CASCADE,
     subject VARCHAR(255) NOT NULL,
     message TEXT,
+    initiated_by VARCHAR(20) NOT NULL DEFAULT 'startup' CHECK (initiated_by IN ('startup', 'mentor')),
     status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'cancelled')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE mentorship_requests ADD COLUMN IF NOT EXISTS initiated_by VARCHAR(20) NOT NULL DEFAULT 'startup';
+ALTER TABLE mentorship_requests DROP CONSTRAINT IF EXISTS mentorship_requests_initiated_by_check;
+ALTER TABLE mentorship_requests
+    ADD CONSTRAINT mentorship_requests_initiated_by_check
+    CHECK (initiated_by IN ('startup', 'mentor'));
+UPDATE mentorship_requests mr
+SET initiated_by = 'mentor'
+WHERE EXISTS (
+    SELECT 1
+    FROM notifications n
+    WHERE n.reference_type = 'mentorship_requests'
+      AND n.reference_id = mr.mentorship_request_id
+      AND n.title = 'Mentorship Proposal'
 );
 
 CREATE TABLE IF NOT EXISTS mentorship_sessions (

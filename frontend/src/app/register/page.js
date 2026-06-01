@@ -3,7 +3,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loadRegistrationAccountInfo, saveRegistrationAccountInfo } from "@/lib/registerAccountStorage";
-import { validateRegistrationEmail } from "@/lib/authApi";
+import {
+  getRegistrationEmailVerificationStatus,
+  startRegistrationEmailVerification,
+  validateRegistrationEmail,
+} from "@/lib/authApi";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 export default function RegisterAccountInfo() {
@@ -23,6 +27,12 @@ export default function RegisterAccountInfo() {
   });
   const [accountDraftReady, setAccountDraftReady] = useState(false);
   const [showDraftNotice, setShowDraftNotice] = useState(false);
+  const [verificationId, setVerificationId] = useState("");
+  const [verificationEmail, setVerificationEmail] = useState("");
+  const [verificationExpiresAt, setVerificationExpiresAt] = useState("");
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [remainingSeconds, setRemainingSeconds] = useState(0);
+  const [sendingVerification, setSendingVerification] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -30,6 +40,13 @@ export default function RegisterAccountInfo() {
       name === "firstName" || name === "lastName"
         ? value.replace(/[^A-Za-z ]/g, "")
         : value;
+    if (name === "email" && cleanedValue.trim().toLowerCase() !== verificationEmail) {
+      setVerificationId("");
+      setVerificationEmail("");
+      setVerificationExpiresAt("");
+      setEmailVerified(false);
+      setRemainingSeconds(0);
+    }
     setFormData({ ...formData, [name]: cleanedValue });
   };
 
@@ -42,19 +59,25 @@ export default function RegisterAccountInfo() {
   useEffect(() => {
     const saved = loadRegistrationAccountInfo();
     if (!saved) {
-      setAccountDraftReady(true);
+      queueMicrotask(() => setAccountDraftReady(true));
       return;
     }
     const phoneTail = String(saved.phone_number || "").replace(/^\+?251/, "");
-    setFormData({
-      firstName: saved.first_name || "",
-      lastName: saved.last_name || "",
-      email: saved.email || "",
-      password: saved.password || "",
-      confirmPassword: saved.confirm_password || "",
-      phoneTail,
+    queueMicrotask(() => {
+      setFormData({
+        firstName: saved.first_name || "",
+        lastName: saved.last_name || "",
+        email: saved.email || "",
+        password: saved.password || "",
+        confirmPassword: saved.confirm_password || "",
+        phoneTail,
+      });
+      setVerificationId(saved.registration_email_verification_id || "");
+      setVerificationEmail(saved.registration_email_verification_id ? saved.email?.trim().toLowerCase() || "" : "");
+      setVerificationExpiresAt(saved.registration_email_verification_expires_at || "");
+      setEmailVerified(Boolean(saved.registration_email_verified));
+      setAccountDraftReady(true);
     });
-    setAccountDraftReady(true);
   }, []);
 
   useEffect(() => {
@@ -67,30 +90,105 @@ export default function RegisterAccountInfo() {
       password: formData.password,
       confirm_password: formData.confirmPassword,
       phone_number: formData.phoneTail ? `+251${String(formData.phoneTail).replace(/\D/g, "")}` : "",
+      registration_email_verification_id: verificationId,
+      registration_email_verification_expires_at: verificationExpiresAt,
+      registration_email_verified: emailVerified && verificationEmail === formData.email.trim().toLowerCase(),
     });
-  }, [accountDraftReady, formData]);
+  }, [accountDraftReady, emailVerified, formData, verificationEmail, verificationExpiresAt, verificationId]);
+
+  useEffect(() => {
+    if (!verificationExpiresAt || emailVerified) return;
+    const updateCounter = () => {
+      const seconds = Math.max(0, Math.ceil((new Date(verificationExpiresAt).getTime() - Date.now()) / 1000));
+      setRemainingSeconds(seconds);
+      if (seconds === 0) {
+        setVerificationId("");
+        setVerificationEmail("");
+        setVerificationExpiresAt("");
+        setFormData((current) => ({ ...current, email: "" }));
+        setError("The one-minute verification window expired. Re-enter your email to request a new link.");
+      }
+    };
+    updateCounter();
+    const timer = setInterval(updateCounter, 1000);
+    return () => clearInterval(timer);
+  }, [emailVerified, verificationExpiresAt]);
+
+  useEffect(() => {
+    if (!verificationId || !verificationEmail || emailVerified) return;
+    let cancelled = false;
+    const checkStatus = async () => {
+      try {
+        const status = await getRegistrationEmailVerificationStatus(verificationId, verificationEmail);
+        if (!cancelled && status.status === "verified") {
+          setEmailVerified(true);
+          setRemainingSeconds(0);
+          setError("");
+        }
+      } catch {
+        // Keep polling until the visible one-minute window expires.
+      }
+    };
+    checkStatus();
+    const timer = setInterval(checkStatus, 1500);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [emailVerified, verificationEmail, verificationId]);
+
+  const resetEmailVerification = () => {
+    setVerificationId("");
+    setVerificationEmail("");
+    setVerificationExpiresAt("");
+    setEmailVerified(false);
+    setRemainingSeconds(0);
+  };
+
+  const handleSendVerification = async () => {
+    const normalizedEmail = formData.email.trim().toLowerCase();
+    setError("");
+    if (!normalizedEmail) {
+      setError("Enter your email address first.");
+      return;
+    }
+
+    setValidatingEmail(true);
+    setSendingVerification(true);
+    try {
+      const check = await validateRegistrationEmail(normalizedEmail);
+      if (!check?.valid) {
+        setError(check?.message || "Enter a real email address you can access.");
+        return;
+      }
+      const verification = await startRegistrationEmailVerification(normalizedEmail);
+      setVerificationId(verification.verificationId);
+      setVerificationEmail(normalizedEmail);
+      setVerificationExpiresAt(verification.expiresAt);
+      setRemainingSeconds(60);
+      setEmailVerified(false);
+      setError("");
+    } catch (ex) {
+      setError(ex.message || "Could not send the verification email. Try again.");
+    } finally {
+      setValidatingEmail(false);
+      setSendingVerification(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords must match.");
+    const normalizedEmail = formData.email.trim().toLowerCase();
+    if (!emailVerified || verificationEmail !== normalizedEmail || !verificationId) {
+      setError("Verify your email address before continuing.");
       return;
     }
 
-    setValidatingEmail(true);
-    try {
-      const check = await validateRegistrationEmail(formData.email);
-      if (!check?.valid) {
-        setError(check?.message || "Enter a real email address you can access.");
-        return;
-      }
-    } catch (ex) {
-      setError(ex.message || "Could not validate email. Try again.");
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords must match.");
       return;
-    } finally {
-      setValidatingEmail(false);
     }
 
     const rawPhone = String(formData.phoneTail || "").replace(/\D/g, "");
@@ -118,15 +216,18 @@ export default function RegisterAccountInfo() {
       password: formData.password,
       confirm_password: formData.confirmPassword,
       phone_number: phoneNumber,
+      registration_email_verification_id: verificationId,
+      registration_email_verification_expires_at: verificationExpiresAt,
+      registration_email_verified: true,
     });
 
     router.push("/register/role");
   };
 
   return (
-    <div className="min-h-screen bg-[#fafbfc] font-sans flex flex-col relative">
+    <div className="min-h-screen bg-[#eaf2ee] font-sans flex flex-col relative text-[#0a4d3c]">
       {/* Header */}
-      <header className="absolute top-0 w-full px-6 py-6 flex justify-between items-center z-10">
+      <header className="absolute top-0 w-full px-5 py-5 flex justify-between items-center z-10">
         <Link href="/">
           <div className="flex items-center gap-2">
             <img
@@ -134,7 +235,7 @@ export default function RegisterAccountInfo() {
               alt="Logo"
               className="w-8 h-8 object-contain"
             />
-            <span className="font-bold text-[#0a4d3c] text-lg tracking-tight">
+            <span className="font-bold text-[#0a4d3c] text-base tracking-tight">
               StartupConnect
             </span>
           </div>
@@ -151,18 +252,21 @@ export default function RegisterAccountInfo() {
                 password: formData.password,
                 confirm_password: formData.confirmPassword,
                 phone_number: formData.phoneTail ? `+251${String(formData.phoneTail).replace(/\D/g, "")}` : "",
+                registration_email_verification_id: verificationId,
+                registration_email_verification_expires_at: verificationExpiresAt,
+                registration_email_verified: emailVerified && verificationEmail === formData.email.trim().toLowerCase(),
               });
               setShowDraftNotice(true);
               setTimeout(() => setShowDraftNotice(false), 2000);
             }}
-            className="text-[12px] font-bold text-gray-500 hover:text-gray-800 transition hidden sm:block"
+            className="text-[12px] font-bold text-[#52746b] hover:text-[#0a4d3c] transition hidden sm:block"
           >
             Save as Draft
           </button>
           {showDraftNotice && (
             <span className="text-[11px] font-bold text-[#0a4d3c]">✓ Draft saved</span>
           )}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#e8fbf0] text-[#0a4d3c] rounded-md border border-[#c2eadd]">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/45 text-[#0a4d3c] rounded-full border border-[#c5d9d2]">
             <svg
               className="w-3.5 h-3.5"
               fill="none"
@@ -184,34 +288,19 @@ export default function RegisterAccountInfo() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-grow flex items-center justify-center pt-24 pb-12 px-4">
+      <main className="flex-grow flex items-center justify-center pt-28 pb-12 px-4">
         <div className="w-full max-w-[480px]">
-          <div className="text-center mb-10">
-            <h1 className="text-[28px] font-bold text-gray-900 mb-2 tracking-tight">
-              Create your account
+          <div className="text-center mb-9">
+            <h1 className="font-serif text-[44px] leading-tight text-[#0a4d3c] mb-3 tracking-tight">
+              Register
             </h1>
-            <p className="text-[14px] text-gray-500">
-              Enter your details to get started with StartupConnect Ethiopia
+            <p className="text-[14px] font-medium text-[#52746b]">
+              Create new account
             </p>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 sm:p-10">
-            <div className="mb-6">
-              <GoogleSignInButton onError={setError} mode="register" />
-            </div>
-
-            <div className="relative mb-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200" />
-              </div>
-              <div className="relative flex justify-center text-xs">
-                <span className="bg-white px-3 text-gray-400 font-bold uppercase tracking-wider">
-                  or
-                </span>
-              </div>
-            </div>
-
-            <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+          <div>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-5">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[12px] font-bold text-gray-900 mb-2">
@@ -224,7 +313,7 @@ export default function RegisterAccountInfo() {
                     onChange={handleChange}
                     required
                     placeholder="e.g. Abebe"
-                    className="w-full px-4 py-3 bg-[#fafbfc] border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0a4d3c] focus:border-transparent transition text-[14px] text-gray-800 placeholder-gray-400"
+                    className="w-full px-5 py-3.5 bg-[#c9dbd5] border border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-[#438265]/35 focus:bg-[#d3e2dd] transition text-[14px] text-[#315f55] placeholder-[#52746b]"
                   />
                 </div>
                 <div>
@@ -238,7 +327,7 @@ export default function RegisterAccountInfo() {
                     onChange={handleChange}
                     required
                     placeholder="e.g. Kebede"
-                    className="w-full px-4 py-3 bg-[#fafbfc] border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0a4d3c] focus:border-transparent transition text-[14px] text-gray-800 placeholder-gray-400"
+                    className="w-full px-5 py-3.5 bg-[#c9dbd5] border border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-[#438265]/35 focus:bg-[#d3e2dd] transition text-[14px] text-[#315f55] placeholder-[#52746b]"
                   />
                 </div>
               </div>
@@ -252,10 +341,58 @@ export default function RegisterAccountInfo() {
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
+                  readOnly={Boolean(verificationId) || emailVerified}
                   required
                   placeholder="abebe@example.com"
-                  className="w-full px-4 py-3 bg-[#fafbfc] border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0a4d3c] focus:border-transparent transition text-[14px] text-gray-800 placeholder-gray-400"
+                  className="w-full px-5 py-3.5 bg-[#c9dbd5] border border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-[#438265]/35 focus:bg-[#d3e2dd] transition text-[14px] text-[#315f55] placeholder-[#52746b]"
                 />
+                {verificationId && !emailVerified ? (
+                  <div className="mt-2 flex items-center justify-between gap-3 text-sm text-amber-700">
+                    <span>
+                      Check your inbox. Link expires in 00:
+                      {String(remainingSeconds).padStart(2, "0")}
+                    </span>
+                    <button
+                      type="button"
+                      className="shrink-0 underline"
+                      onClick={() => {
+                        resetEmailVerification();
+                        setFormData((current) => ({ ...current, email: "" }));
+                      }}
+                    >
+                      Change email
+                    </button>
+                  </div>
+                ) : null}
+                {emailVerified ? (
+                  <div className="mt-2 flex items-center justify-between gap-3 text-sm text-green-700">
+                    <span>Email verified. You can continue.</span>
+                    <button
+                      type="button"
+                      className="shrink-0 underline"
+                      onClick={() => {
+                        resetEmailVerification();
+                        setFormData((current) => ({ ...current, email: "" }));
+                      }}
+                    >
+                      Use another email
+                    </button>
+                  </div>
+                ) : null}
+                {!verificationId && !emailVerified ? (
+                  <button
+                    type="button"
+                    onClick={handleSendVerification}
+                    disabled={validatingEmail || sendingVerification}
+                    className="mt-3 inline-flex w-full items-center justify-center rounded-full border border-[#438265] px-4 py-2.5 text-sm font-bold text-[#0a4d3c] transition hover:bg-[#d3e2dd] disabled:opacity-60"
+                  >
+                    {sendingVerification
+                      ? "Sending verification link..."
+                      : validatingEmail
+                        ? "Checking email..."
+                        : "Send verification link"}
+                  </button>
+                ) : null}
               </div>
 
               <div>
@@ -272,7 +409,7 @@ export default function RegisterAccountInfo() {
                     pattern="(?=.*[A-Z])(?=.*[!@#$%^&*])(?=.*\d).{8,}"
                     title="Password must be at least 8 characters with 1 capital letter, 1 special character (!@#$%^&*), and 1 number"
                     placeholder="••••••••"
-                    className="w-full px-4 py-3 pr-12 bg-[#fafbfc] border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0a4d3c] focus:border-transparent transition text-[14px] text-gray-800 placeholder-gray-400"
+                    className="w-full px-5 py-3.5 pr-12 bg-[#c9dbd5] border border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-[#438265]/35 focus:bg-[#d3e2dd] transition text-[14px] text-[#315f55] placeholder-[#52746b]"
                   />
                   <button
                     type="button"
@@ -334,7 +471,7 @@ export default function RegisterAccountInfo() {
                     pattern="(?=.*[A-Z])(?=.*[!@#$%^&*])(?=.*\d).{8,}"
                     title="Password must be at least 8 characters with 1 capital letter, 1 special character (!@#$%^&*), and 1 number"
                     placeholder="••••••••"
-                    className="w-full px-4 py-3 pr-12 bg-[#fafbfc] border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0a4d3c] focus:border-transparent transition text-[14px] text-gray-800 placeholder-gray-400"
+                    className="w-full px-5 py-3.5 pr-12 bg-[#c9dbd5] border border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-[#438265]/35 focus:bg-[#d3e2dd] transition text-[14px] text-[#315f55] placeholder-[#52746b]"
                   />
                   <button
                     type="button"
@@ -386,7 +523,7 @@ export default function RegisterAccountInfo() {
                   Phone Number
                 </label>
                 <div className="flex gap-3">
-                  <div className="w-20 px-4 py-3 bg-[#fafbfc] border border-gray-200 rounded-xl flex items-center justify-center text-[14px] text-gray-700">
+                  <div className="w-20 px-4 py-3.5 bg-[#c9dbd5] border border-transparent rounded-full flex items-center justify-center text-[14px] text-[#315f55]">
                     +251
                   </div>
                   <input
@@ -396,7 +533,7 @@ export default function RegisterAccountInfo() {
                     onChange={handleChange}
                     required
                     placeholder="9XX XXX XXX"
-                    className="flex-1 px-4 py-3 bg-[#fafbfc] border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0a4d3c] focus:border-transparent transition text-[14px] text-gray-800 placeholder-gray-400"
+                    className="flex-1 px-5 py-3.5 bg-[#c9dbd5] border border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-[#438265]/35 focus:bg-[#d3e2dd] transition text-[14px] text-[#315f55] placeholder-[#52746b]"
                   />
                 </div>
                 <p className="text-[11px] text-gray-500 mt-2">
@@ -409,15 +546,28 @@ export default function RegisterAccountInfo() {
 
               <button
                 type="submit"
-                disabled={validatingEmail}
-                className="w-full py-3.5 bg-[#0a4d3c] hover:bg-[#083b2e] disabled:opacity-60 text-white font-bold rounded-xl shadow-sm shadow-[#0a4d3c]/20 transition text-[14px] mt-2"
+                disabled={!emailVerified || validatingEmail || sendingVerification}
+                className="w-full py-3.5 bg-[#438265] hover:bg-[#356e56] disabled:opacity-60 text-white font-bold rounded-full shadow-md shadow-[#438265]/20 transition text-[14px] mt-2"
               >
-                {validatingEmail ? "Checking email…" : "Continue"}
+                {emailVerified ? "Continue" : "Verify email above to continue"}
               </button>
             </form>
+
+            <div className="relative my-7">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-[#9dbbb1]" />
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-[#eaf2ee] px-4 font-medium text-[#315f55]">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+
+            <GoogleSignInButton onError={setError} mode="register" />
           </div>
 
-          <p className="text-center text-[13px] text-gray-500 mt-8">
+          <p className="text-center text-[13px] text-[#52746b] mt-8">
             Already have an account?{" "}
             <Link
               href="/login"
@@ -431,8 +581,8 @@ export default function RegisterAccountInfo() {
 
       {/* Footer */}
       <footer className="w-full py-8 px-6 flex justify-center mt-auto">
-        <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-2 text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-          <span className="font-bold text-gray-500 normal-case tracking-normal">
+        <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-2 text-[11px] font-medium text-[#78978e] uppercase tracking-wider">
+          <span className="font-bold text-[#52746b] normal-case tracking-normal">
             StartupConnect Ethiopia
           </span>
           <Link href="/privacy-policy" className="hover:text-gray-800 transition">

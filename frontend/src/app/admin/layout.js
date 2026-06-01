@@ -1,4 +1,5 @@
 import AdminLayoutClient from "@/components/admin/AdminLayoutClient";
+import { AdminLocaleProvider } from "@/components/admin/AdminLocaleProvider";
 
 export const metadata = {
 	title: "Admin Dashboard | StartupConnect",
@@ -6,5 +7,9 @@ export const metadata = {
 };
 
 export default function AdminLayout({ children }) {
-	return <AdminLayoutClient>{children}</AdminLayoutClient>;
+	return (
+		<AdminLocaleProvider>
+			<AdminLayoutClient>{children}</AdminLayoutClient>
+		</AdminLocaleProvider>
+	);
 }

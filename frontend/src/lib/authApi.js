@@ -10,6 +10,16 @@ export async function validateRegistrationEmail(email) {
 	return apiPostJson("/auth/validate-email", { email: email.trim() });
 }
 
+export async function startRegistrationEmailVerification(email) {
+	return apiPostJson("/auth/registration-email/start", { email: email.trim() });
+}
+
+export async function getRegistrationEmailVerificationStatus(verificationId, email) {
+	return apiFetch(
+		`/auth/registration-email/status?verificationId=${encodeURIComponent(verificationId)}&email=${encodeURIComponent(email.trim())}`,
+	);
+}
+
 export async function verifyLogin2FA(pendingToken, code, backupCode) {
 	return apiPostJson("/auth/login/verify-2fa", {
 		pendingToken,
@@ -34,8 +44,10 @@ export async function resetPassword(token, newPassword, confirmPassword) {
 	return apiPostJson("/auth/reset-password", { token, newPassword, confirmPassword });
 }
 
-export async function verifyEmailToken(token) {
-	return apiFetch(`/auth/verify-email?token=${encodeURIComponent(token)}`);
+export async function verifyEmailToken(token, mode) {
+	const query = new URLSearchParams({ token });
+	if (mode) query.set("mode", mode);
+	return apiFetch(`/auth/verify-email?${query.toString()}`);
 }
 
 export async function resendVerification(email) {

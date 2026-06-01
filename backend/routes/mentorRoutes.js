@@ -114,6 +114,14 @@ router.post(
 	mentorComplete.sendMentorshipProposal,
 );
 
+router.get(
+	"/proposal-options",
+	authenticate,
+	authorizeRoles("Mentor"),
+	requireApproval,
+	mentorComplete.getProposalOptions,
+);
+
 // ——— Startup discovery & assigned startups ———
 
 router.get(

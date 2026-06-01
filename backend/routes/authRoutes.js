@@ -44,6 +44,16 @@ router.post(
 	authRateLimit({ scope: "validate-email", max: 30 }),
 	authSecurityController.validateEmailInput,
 );
+router.post(
+	"/registration-email/start",
+	authRateLimit({ scope: "registration-email", max: 10 }),
+	authSecurityController.startRegistrationEmailVerification,
+);
+router.get(
+	"/registration-email/status",
+	authRateLimit({ scope: "registration-email-status", max: 120 }),
+	authSecurityController.getRegistrationEmailVerificationStatus,
+);
 
 // Email verification & password reset
 router.get("/verify-email", authSecurityController.verifyEmail);

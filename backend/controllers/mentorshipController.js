@@ -82,8 +82,8 @@ exports.createMentorshipRequest = async (req, res) => {
 		}
 
 		const result = await pool.query(
-			`INSERT INTO mentorship_requests (startup_id, mentor_id, subject, message, status)
-       VALUES ($1,$2,$3,$4,'pending')
+			`INSERT INTO mentorship_requests (startup_id, mentor_id, subject, message, status, initiated_by)
+       VALUES ($1,$2,$3,$4,'pending','startup')
        RETURNING *`,
 			[startupId, mentorId, subject.trim(), message || null],
 		);
@@ -185,7 +185,7 @@ exports.respondToMentorshipRequest = async (req, res) => {
 		}
 
 		const requestResult = await pool.query(
-			`SELECT mentorship_request_id, status
+			`SELECT mentorship_request_id, status, initiated_by
        FROM mentorship_requests
        WHERE mentorship_request_id = $1 AND mentor_id = $2`,
 			[requestId, mentorId],
@@ -198,6 +198,12 @@ exports.respondToMentorshipRequest = async (req, res) => {
 		if (requestResult.rows[0].status !== "pending") {
 			return res.status(409).json({
 				error: "Only pending requests can be responded to",
+			});
+		}
+
+		if ((requestResult.rows[0].initiated_by || "startup") !== "startup") {
+			return res.status(403).json({
+				error: "Mentor proposals must be answered by the startup",
 			});
 		}
 

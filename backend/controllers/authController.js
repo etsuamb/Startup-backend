@@ -144,6 +144,7 @@ exports.register = async (req, res) => {
 		notable_startups_mentored,
 		key_achievement,
 		google_profile_token,
+		registration_email_verification_id,
 	} = req.body;
 
 	// Investor form may send camelCase or an array of industries; normalize for DB + validation.
@@ -468,6 +469,12 @@ exports.register = async (req, res) => {
 		const phoneForDb = normalizePhone(phone_number);
 
 		if (!isGoogleProfileCompletion) {
+			if (!registration_email_verification_id) {
+				return res.status(400).json({
+					message: "Verify your email on the first registration step before submitting your account",
+					code: "REGISTRATION_EMAIL_NOT_VERIFIED",
+				});
+			}
 			let emailCheck;
 			try {
 				emailCheck = await authSecurity.validateEmailDeliverability(normalizedEmail);
@@ -539,12 +546,26 @@ exports.register = async (req, res) => {
 				);
 				user = userUpdateResult.rows[0];
 			} else {
+				const emailVerificationConsumed =
+					await authSecurity.consumeRegistrationEmailVerification(
+						client,
+						registration_email_verification_id,
+						normalizedEmail,
+					);
+				if (!emailVerificationConsumed) {
+					await client.query("ROLLBACK");
+					return res.status(400).json({
+						message: "Your registration email verification is missing or expired. Return to the first step and verify your email again.",
+						code: "REGISTRATION_EMAIL_NOT_VERIFIED",
+					});
+				}
+
 				// Hash password
 				const hashedPassword = await bcrypt.hash(password, 10);
 
 				const userInsertResult = await client.query(
 					`INSERT INTO users (first_name, last_name, email, password_hash, role, phone_number, provider_type, email_verified)
-         VALUES ($1, $2, $3, $4, $5, $6, 'local', false)
+         VALUES ($1, $2, $3, $4, $5, $6, 'local', true)
          RETURNING user_id, first_name, last_name, email, role, is_approved, email_verified`,
 					[
 						effectiveFirstName,
@@ -906,27 +927,11 @@ exports.register = async (req, res) => {
 
 			await client.query("COMMIT");
 
-			try {
-				if (!isGoogleProfileCompletion) {
-					const fullUser = await pool.query(`SELECT * FROM users WHERE user_id = $1`, [user.user_id]);
-					if (fullUser.rowCount) {
-						await authSecurity.sendVerificationEmail(fullUser.rows[0]);
-					}
-				}
-			} catch (mailErr) {
-				console.error("Verification email failed:", mailErr.message);
-			}
-
-			const regMessage =
-				normalizedRole === "Investor"
-					? "Investor user registered successfully. Check your email to verify your address. Account pending admin approval."
-					: normalizedRole === "Mentor"
-						? "Mentor user registered successfully. Check your email to verify your address. Account pending admin approval."
-						: "Startup user registered successfully. Check your email to verify your address. Account pending admin approval.";
+			const regMessage = `${normalizedRole} user registered successfully. Your email is verified and your account is pending admin approval.`;
 			return res.status(201).json({
 				message: regMessage,
 				user,
-				emailVerificationSent: !isGoogleProfileCompletion,
+				emailVerificationSent,
 				startup: startupProfile,
 				investor: investorProfile,
 				mentor: mentorProfile,

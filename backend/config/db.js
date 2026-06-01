@@ -19,7 +19,16 @@ const pool = new Pool({
   database: process.env.DB_NAME,
   password: dbPassword,
   port: Number(process.env.DB_PORT) || 5432,
+  max: Number(process.env.DB_POOL_MAX) || 10,
+  idleTimeoutMillis: Number(process.env.DB_IDLE_TIMEOUT_MS) || 30_000,
+  connectionTimeoutMillis: Number(process.env.DB_CONNECT_TIMEOUT_MS) || 10_000,
+  keepAlive: true,
   ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
+});
+
+// Render Postgres may terminate idle connections; without this handler Node can crash.
+pool.on("error", (err) => {
+  console.error("PostgreSQL pool idle client error:", err.message || err);
 });
 
 module.exports = pool;

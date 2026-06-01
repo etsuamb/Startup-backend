@@ -13,7 +13,7 @@ router.get(
   authenticate,
   authorizeRoles("Startup"),
   (req, res) => {
-    res.send("Startup content only 🚀");
+    res.send("Startup content only ");
   }
 );
 

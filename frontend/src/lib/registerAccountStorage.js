@@ -10,6 +10,9 @@ export function saveRegistrationAccountInfo(info) {
 		password: info.password || "",
 		confirm_password: info.confirm_password || info.password || "",
 		phone_number: info.phone_number || "",
+		registration_email_verification_id: info.registration_email_verification_id || "",
+		registration_email_verification_expires_at: info.registration_email_verification_expires_at || "",
+		registration_email_verified: Boolean(info.registration_email_verified),
 	};
 	sessionStorage.setItem(KEY, JSON.stringify(payload));
 }

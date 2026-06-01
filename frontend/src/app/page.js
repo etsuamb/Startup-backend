@@ -5,7 +5,7 @@ import FeaturedStartups from "@/components/FeaturedStartups";
 export default function Home() {
   return (
     <div className="min-h-screen flex flex-col font-sans text-gray-900 bg-white">
-      {/* Header */}
+
       <header className="border-b border-gray-100 sticky top-0 bg-white z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -237,7 +237,7 @@ export default function Home() {
         <section className="py-20 bg-[#167b66] text-center px-4">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-3xl font-bold text-white mb-6">
-              Be part of Ethiopia's growing startup ecosystem
+              Be part of Ethiopia&apos;s growing startup ecosystem
             </h2>
             <p className="text-green-50 mb-10 text-lg opacity-90">
               Join thousands of startups, investors, and mentors building the
@@ -308,7 +308,7 @@ export default function Home() {
             <ul className="space-y-2 text-sm">
               <li>
                 <Link
-                  href="/register/startup"
+                  href="/register"
                   className="hover:text-white transition"
                 >
                   Join as Startup
@@ -316,7 +316,7 @@ export default function Home() {
               </li>
               <li>
                 <Link
-                  href="/register/investor"
+                  href="/register"
                   className="hover:text-white transition"
                 >
                   Join as Investor
@@ -324,7 +324,7 @@ export default function Home() {
               </li>
               <li>
                 <Link
-                  href="/register/mentor"
+                  href="/register"
                   className="hover:text-white transition"
                 >
                   Join as Mentor

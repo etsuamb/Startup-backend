@@ -2,6 +2,8 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const pool = require("../config/db");
 const authSecurity = require("../services/authSecurityService");
+const { ensureAuthSecuritySchema } = require("../services/ensureAuthSecuritySchema");
+const { MailDeliveryError } = require("../utils/mail");
 const securityMonitoringService = require("../services/securityMonitoringService");
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_secret_key";
@@ -16,6 +18,23 @@ try {
 
 const hasStrongPassword = (password) =>
 	typeof password === "string" && /(?=.*[A-Z])(?=.*[!@#$%^&*])(?=.*\d).{8,}/.test(password);
+
+function respondEmailDeliveryFailure(res, err, fallbackMessage) {
+	if (err instanceof MailDeliveryError) {
+		return res.status(503).json({
+			message: err.message,
+			code: err.code,
+			details: err.details || undefined,
+		});
+	}
+	if (/could not be delivered|resend|smtp|email provider|brevo/i.test(String(err.message || ""))) {
+		return res.status(503).json({
+			message: err.message || fallbackMessage,
+			code: "EMAIL_DELIVERY_FAILED",
+		});
+	}
+	return null;
+}
 
 async function loadUserById(userId) {
 	const r = await pool.query(`SELECT * FROM users WHERE user_id = $1`, [userId]);
@@ -132,11 +151,75 @@ exports.validateEmailInput = async (req, res) => {
 	}
 };
 
+// POST /auth/registration-email/start { email }
+exports.startRegistrationEmailVerification = async (req, res) => {
+	try {
+		await ensureAuthSecuritySchema();
+		const email = String(req.body?.email || "").trim().toLowerCase();
+		if (!email) return res.status(400).json({ message: "Email is required" });
+
+		const validation = await authSecurity.validateEmailDeliverability(email);
+		if (!validation.ok) {
+			return res.status(400).json({
+				message: authSecurity.emailRejectMessage(validation.reason),
+				code: validation.reason,
+			});
+		}
+
+		const existing = await pool.query(`SELECT user_id FROM users WHERE email = $1`, [email]);
+		if (existing.rowCount) {
+			return res.status(409).json({ message: "An account with this email already exists" });
+		}
+
+		const result = await authSecurity.sendRegistrationVerificationEmail(email);
+		return res.json({
+			message: "Verification link sent. Open it within one minute to continue.",
+			verificationId: result.verificationId,
+			expiresAt: result.expiresAt,
+		});
+	} catch (err) {
+		console.error("startRegistrationEmailVerification", err);
+		const deliveryResponse = respondEmailDeliveryFailure(
+			res,
+			err,
+			"We could not send the verification email. Please try another email or try again shortly.",
+		);
+		if (deliveryResponse) return deliveryResponse;
+		return res.status(500).json({ error: err.message });
+	}
+};
+
+// GET /auth/registration-email/status?verificationId=&email=
+exports.getRegistrationEmailVerificationStatus = async (req, res) => {
+	try {
+		await ensureAuthSecuritySchema();
+		const verificationId = String(req.query.verificationId || "").trim();
+		const email = String(req.query.email || "").trim().toLowerCase();
+		if (!verificationId || !email) {
+			return res.status(400).json({ message: "verificationId and email are required" });
+		}
+		return res.json(await authSecurity.getRegistrationEmailVerificationStatus(verificationId, email));
+	} catch (err) {
+		return res.status(500).json({ error: err.message });
+	}
+};
+
 // GET /auth/verify-email?token=
 exports.verifyEmail = async (req, res) => {
 	try {
 		const raw = req.query.token || req.body?.token;
 		if (!raw) return res.status(400).json({ message: "Verification token is required" });
+		if (req.query.mode === "registration" || req.body?.mode === "registration") {
+			await ensureAuthSecuritySchema();
+			const registration = await authSecurity.verifyRegistrationEmailToken(raw);
+			if (!registration) {
+				return res.status(400).json({ message: "Invalid or expired registration verification link" });
+			}
+			return res.json({
+				message: "Registration email verified. Return to the registration page to continue.",
+				mode: "registration",
+			});
+		}
 		const row = await authSecurity.consumeEmailToken(raw, "email_verify");
 		if (!row) {
 			return res.status(400).json({ message: "Invalid or expired verification link" });
@@ -170,6 +253,13 @@ exports.resendVerification = async (req, res) => {
 		await authSecurity.sendVerificationEmail(user);
 		return res.json({ message: "If that account exists, a verification email has been sent." });
 	} catch (err) {
+		console.error("resendVerification", err);
+		const deliveryResponse = respondEmailDeliveryFailure(
+			res,
+			err,
+			"We could not send the verification email right now. Please try again in a few minutes.",
+		);
+		if (deliveryResponse) return deliveryResponse;
 		return res.status(500).json({ error: err.message });
 	}
 };
@@ -223,6 +313,18 @@ exports.updateCurrentAccount = async (req, res) => {
 		}
 
 		const emailChanged = email !== current.email;
+		const accountPendingApproval = current.role !== "Admin" && !current.is_approved;
+		if (
+			accountPendingApproval &&
+			(firstName !== String(current.first_name || "").trim() ||
+				lastName !== String(current.last_name || "").trim() ||
+				phoneNumber !== (current.phone_number || null))
+		) {
+			return res.status(403).json({
+				message: "While your account is pending admin approval, only your email address can be changed.",
+				code: "ACCOUNT_PENDING_APPROVAL",
+			});
+		}
 		if (emailChanged) {
 			const validation = await authSecurity.validateEmailDeliverability(email);
 			if (!validation.ok) {
@@ -288,26 +390,30 @@ exports.updateCurrentAccount = async (req, res) => {
 
 // POST /auth/forgot-password { email }
 exports.forgotPassword = async (req, res) => {
+	const genericMessage =
+		"If an account exists for that email, password reset instructions have been sent.";
 	try {
-		const { email } = req.body;
+		const email = String(req.body?.email || "").trim().toLowerCase();
 		if (!email) return res.status(400).json({ message: "Email is required" });
-		const r = await pool.query(`SELECT * FROM users WHERE email = $1`, [email.trim().toLowerCase()]);
+		await ensureAuthSecuritySchema();
+		const r = await pool.query(`SELECT * FROM users WHERE email = $1`, [email]);
 		if (!r.rowCount) {
-			return res.json({
-				message: "If an account exists for that email, password reset instructions have been sent.",
-			});
+			return res.json({ message: genericMessage });
 		}
 		const user = r.rows[0];
-		if (!user.password_hash) {
-			return res.json({
-				message: "If an account exists for that email, password reset instructions have been sent.",
-			});
+		if (!user.password_hash || user.provider_type === "google") {
+			return res.json({ message: genericMessage });
 		}
 		await authSecurity.sendPasswordResetEmail(user);
-		return res.json({
-			message: "If an account exists for that email, password reset instructions have been sent.",
-		});
+		return res.json({ message: genericMessage });
 	} catch (err) {
+		console.error("forgotPassword", err);
+		const deliveryResponse = respondEmailDeliveryFailure(
+			res,
+			err,
+			"We could not send the reset email right now. Please try again in a few minutes or contact support.",
+		);
+		if (deliveryResponse) return deliveryResponse;
 		return res.status(500).json({ error: err.message });
 	}
 };

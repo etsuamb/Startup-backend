@@ -1,14 +1,20 @@
 {
   "sqltools.connections": [
     {
+      "pgOptions": {
+        "ssl": {
+          "rejectUnauthorized": true
+        }
+      },
       "ssh": "Disabled",
       "previewLimit": 50,
-      "server": "localhost",
+      "server": "dpg-d8dsvgho3t8c73esp5eg-a.oregon-postgres.render.com",
       "port": 5432,
+      "askForPassword": true,
       "driver": "PostgreSQL",
-      "name": "final project",
+      "name": "Startup-Connect-Ethiopia",
       "database": "connect_startup",
-      "username": "postgres"
+      "username": "connect_startup_user"
     }
   ]
 }

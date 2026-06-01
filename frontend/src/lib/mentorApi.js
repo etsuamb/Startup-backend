@@ -45,6 +45,10 @@ export function sendProposal(body) {
 	return apiPostJson("/mentors/proposals", body);
 }
 
+export function fetchProposalOptions() {
+	return apiFetch("/mentors/proposal-options");
+}
+
 /** Startups */
 export function browseStartups(params = {}) {
 	const q = new URLSearchParams();

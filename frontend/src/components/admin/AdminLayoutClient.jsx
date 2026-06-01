@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Sidebar from "@/components/admin/Sidebar";
@@ -14,9 +14,11 @@ import {
 import { resolveNotificationHref } from "@/lib/notificationNavigation";
 import { getCurrentAccount } from "@/lib/authApi";
 import { getUserName } from "@/lib/authStorage";
+import { useAdminLocale } from "@/components/admin/AdminLocaleProvider";
 
 export default function AdminLayoutClient({ children }) {
 	const router = useRouter();
+	const { dateLocale, t } = useAdminLocale();
 	const [notifications, setNotifications] = useState([]);
 	const [unreadCount, setUnreadCount] = useState(0);
 	const [isOpen, setIsOpen] = useState(false);
@@ -46,7 +48,7 @@ export default function AdminLayoutClient({ children }) {
 		return () => clearTimeout(timer);
 	}, []);
 
-	const loadNotifications = async () => {
+	const loadNotifications = useCallback(async () => {
 		try {
 			setNotificationError("");
 			const data = await fetchNotifications();
@@ -58,16 +60,16 @@ export default function AdminLayoutClient({ children }) {
 				setUnreadCount(countData.unread);
 			}
 		} catch (err) {
-			setNotificationError(err.message || "Failed to load notifications.");
+			setNotificationError(err.message || t("errors.loadNotifications"));
 		}
-	};
+	}, [t]);
 
 	useEffect(() => {
 		queueMicrotask(loadNotifications);
 		// Poll every 15 seconds for real-time notifications
 		const interval = setInterval(loadNotifications, 15000);
 		return () => clearInterval(interval);
-	}, []);
+	}, [loadNotifications]);
 
 	useEffect(() => {
 		function handleClickOutside(event) {
@@ -88,7 +90,7 @@ export default function AdminLayoutClient({ children }) {
 			);
 			setUnreadCount((prev) => Math.max(0, prev - 1));
 		} catch (err) {
-			setNotificationError(err.message || "Failed to mark notification as read.");
+			setNotificationError(err.message || t("errors.markNotificationRead"));
 		}
 	};
 
@@ -98,7 +100,7 @@ export default function AdminLayoutClient({ children }) {
 			setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
 			setUnreadCount(0);
 		} catch (err) {
-			setNotificationError(err.message || "Failed to mark all notifications as read.");
+			setNotificationError(err.message || t("errors.markAllNotificationsRead"));
 		}
 	};
 
@@ -120,7 +122,7 @@ export default function AdminLayoutClient({ children }) {
 
 	return (
 		<AdminAuthGuard>
-			<div className="flex min-h-screen bg-[#f8fafc] text-slate-900 font-sans selection:bg-[#006054] selection:text-white">
+			<div data-admin-locale-root className="flex min-h-screen bg-[#f8fafc] text-slate-900 font-sans selection:bg-[#006054] selection:text-white">
 				<Sidebar />
 				<div className="flex-1 flex flex-col h-screen overflow-hidden">
 					<header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0 relative z-30">
@@ -133,7 +135,7 @@ export default function AdminLayoutClient({ children }) {
 								<button
 									onClick={() => setIsOpen(!isOpen)}
 									className="p-2.5 hover:bg-slate-100 rounded-full transition relative text-slate-600 hover:text-slate-900 focus:outline-none"
-									aria-label="Notifications"
+									aria-label={t("layout.notifications")}
 								>
 									<svg
 										className="w-6 h-6"
@@ -160,15 +162,15 @@ export default function AdminLayoutClient({ children }) {
 										{/* Header */}
 										<div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-[#061e16] to-[#0a2f23] text-white">
 											<div>
-												<h3 className="font-bold text-base">Notifications</h3>
-												<p className="text-xs text-emerald-400 mt-0.5">{unreadCount} unread alerts</p>
+												<h3 className="font-bold text-base">{t("layout.notifications")}</h3>
+												<p className="text-xs text-emerald-400 mt-0.5">{t("layout.unreadAlerts", { count: unreadCount })}</p>
 											</div>
 											{unreadCount > 0 && (
 												<button
 													onClick={handleMarkAllRead}
 													className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition focus:outline-none"
 												>
-													Mark all read
+													{t("layout.markAllRead")}
 												</button>
 											)}
 										</div>
@@ -176,10 +178,10 @@ export default function AdminLayoutClient({ children }) {
 										{/* Tabs */}
 										<div className="flex border-b border-slate-100 bg-slate-50/50 p-1.5">
 											{[
-												{ id: "all", label: "All" },
-												{ id: "registrations", label: "Users" },
-												{ id: "verifications", label: "KYC" },
-												{ id: "alerts", label: "Alerts" }
+												{ id: "all", label: t("layout.all") },
+												{ id: "registrations", label: t("layout.users") },
+												{ id: "verifications", label: t("layout.kyc") },
+												{ id: "alerts", label: t("layout.alerts") }
 											].map((tab) => (
 												<button
 													key={tab.id}
@@ -248,7 +250,7 @@ export default function AdminLayoutClient({ children }) {
 																{notif.message}
 															</p>
 															<p className="text-[10px] text-slate-400 mt-2 font-medium">
-																{new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(notif.created_at).toLocaleDateString()}
+																{new Date(notif.created_at).toLocaleTimeString(dateLocale, { hour: "2-digit", minute: "2-digit" })} • {new Date(notif.created_at).toLocaleDateString(dateLocale)}
 															</p>
 														</div>
 													</div>
@@ -260,8 +262,8 @@ export default function AdminLayoutClient({ children }) {
 															<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
 														</svg>
 													</div>
-													<p className="text-sm font-medium text-slate-500">All caught up!</p>
-													<p className="text-xs text-slate-400 mt-1">No notifications found in this tab.</p>
+													<p className="text-sm font-medium text-slate-500">{t("layout.caughtUp")}</p>
+													<p className="text-xs text-slate-400 mt-1">{t("layout.noNotifications")}</p>
 												</div>
 											)}
 										</div>
@@ -276,7 +278,7 @@ export default function AdminLayoutClient({ children }) {
 								</div>
 								<div className="hidden lg:block text-left">
 									<p className="text-xs font-bold text-slate-800 leading-tight">{adminName}</p>
-									<p className="text-[10px] text-emerald-600 font-semibold uppercase tracking-wider mt-0.5">Administrator</p>
+									<p className="text-[10px] text-emerald-600 font-semibold uppercase tracking-wider mt-0.5">{t("layout.administrator")}</p>
 								</div>
 							</Link>
 						</div>

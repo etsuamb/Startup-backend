@@ -15,6 +15,7 @@ import {
 import { getCurrentAccount, updateCurrentAccount } from "@/lib/authApi";
 import { clearSession, getRefreshToken, getToken, setSession } from "@/lib/authStorage";
 import AccountSecurityPanel from "@/components/auth/AccountSecurityPanel";
+import { useAdminLocale } from "@/components/admin/AdminLocaleProvider";
 
 const DEFAULT_PLATFORM_CONFIG = {
   userRegistration: true,
@@ -28,6 +29,7 @@ const DEFAULT_PLATFORM_CONFIG = {
 };
 
 export default function AdminSettingsPage() {
+  const { language, setLocale, t } = useAdminLocale();
   const [dbStatus, setDbStatus] = useState(null);
   const [liveLogs, setLiveLogs] = useState([]);
 
@@ -43,7 +45,7 @@ export default function AdminSettingsPage() {
 
   const [profile, setProfile] = useState({ firstName: "", lastName: "", email: "", phone_number: "", role: "Admin" });
   const [accountLoading, setAccountLoading] = useState(true);
-  const [langPreference, setLangPreference] = useState("English");
+  const [langPreference, setLangPreference] = useState(language);
 
   // Modal active states
   const [activeModal, setActiveModal] = useState(null);
@@ -91,7 +93,7 @@ export default function AdminSettingsPage() {
       .then((d) => setDbStatus(d))
       .catch(() => setDbStatus({ database: "error" }));
 
-    loadSessions();
+    queueMicrotask(loadSessions);
 
     fetchPlatformSettings()
       .then((data) => {
@@ -105,7 +107,10 @@ export default function AdminSettingsPage() {
             notifVerification: cfg.notifVerification !== false,
             notifAlerts: cfg.notifAlerts === true,
           });
-          if (cfg.language) setLangPreference(cfg.language);
+          if (cfg.language) {
+            setLangPreference(cfg.language);
+            setLocale(cfg.language);
+          }
           if (cfg.defaultSignupRole) setRoleForm({ defaultRole: cfg.defaultSignupRole });
         }
       })
@@ -128,7 +133,11 @@ export default function AdminSettingsPage() {
       })
       .catch(() => {})
       .finally(() => setAccountLoading(false));
-  }, []);
+  }, [setLocale]);
+
+  useEffect(() => {
+    queueMicrotask(() => setLangPreference(language));
+  }, [language]);
 
   const handleToggle = (key) => {
     setToggles((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -279,6 +288,7 @@ export default function AdminSettingsPage() {
         notifAlerts: DEFAULT_PLATFORM_CONFIG.notifAlerts,
       });
       setLangPreference(DEFAULT_PLATFORM_CONFIG.language);
+      setLocale(DEFAULT_PLATFORM_CONFIG.language);
       setRoleForm({ defaultRole: DEFAULT_PLATFORM_CONFIG.defaultSignupRole });
       setActiveModal(null);
       setResetInput("");
@@ -320,7 +330,10 @@ export default function AdminSettingsPage() {
           notifVerification: cfg.notifVerification !== false,
           notifAlerts: cfg.notifAlerts !== false,
         });
-        if (cfg.language) setLangPreference(cfg.language);
+        if (cfg.language) {
+          setLangPreference(cfg.language);
+          setLocale(cfg.language);
+        }
         if (cfg.defaultSignupRole) setRoleForm({ defaultRole: cfg.defaultSignupRole });
       }
       const account = await getCurrentAccount();
@@ -495,16 +508,16 @@ export default function AdminSettingsPage() {
               <div className="pt-2">
                 <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-200">
                   <button 
-                    onClick={() => { setLangPreference("English"); triggerToast("Language preference set to English. Save settings to persist.", "info"); }}
+                    onClick={() => { setLangPreference("English"); setLocale("English"); triggerToast(t("language.englishSelected"), "info"); }}
                     className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${langPreference === "English" ? "bg-white text-[#006054] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
                   >
-                    English
+                    {t("language.english")}
                   </button>
                   <button 
-                    onClick={() => { setLangPreference("Amharic"); triggerToast("Language preference set to Amharic. Save settings to persist.", "info"); }}
+                    onClick={() => { setLangPreference("Amharic"); setLocale("Amharic"); triggerToast(t("language.amharicSelected"), "info"); }}
                     className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${langPreference === "Amharic" ? "bg-white text-[#006054] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
                   >
-                    Amharic
+                    {t("language.amharic")}
                   </button>
                 </div>
               </div>

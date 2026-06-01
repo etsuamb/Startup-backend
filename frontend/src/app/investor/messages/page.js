@@ -4,18 +4,32 @@ import Link from "next/link";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Sidebar from "@/components/investor/Sidebar";
+import ChatCallPanel from "@/components/startup/ChatCallPanel";
 import {
   createInvestorConversation,
   downloadInvestorChatFile,
+  endInvestorVideoCall,
   getInvestorMessageThreads,
   getInvestorMessages,
   getInvestorProfile,
   getInvestorFundingOffers,
   getInvestorStartups,
+  getInvestorVideoStatus,
+  joinInvestorVideoCall,
   sendInvestorChatFile,
   sendInvestorMessage,
+  setInvestorVideoScreenShare,
+  startInvestorVideoCall,
 } from "@/lib/investorApi";
 import { chatAccessMessage, isChatAccessError } from "@/lib/chatAccess";
+
+const callApi = {
+  getStatus: getInvestorVideoStatus,
+  start: startInvestorVideoCall,
+  join: joinInvestorVideoCall,
+  end: endInvestorVideoCall,
+  screenShare: setInvestorVideoScreenShare,
+};
 
 function initials(name = "") {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -91,6 +105,8 @@ function MessagesContent() {
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [callOpen, setCallOpen] = useState(false);
+  const [callMode, setCallMode] = useState(null);
   const [error, setError] = useState("");
 
   async function refreshThreads() {
@@ -467,6 +483,16 @@ function MessagesContent() {
                     <Link href={`/investor/meetings?startupId=${activeStartup.startup_id}`} className="px-5 py-2 bg-white border border-gray-300 rounded-lg text-[13px] font-bold text-gray-700 hover:bg-gray-50 transition shadow-sm">
                       Schedule Meeting
                     </Link>
+                    {activeConversationId && activeCanMessage ? (
+                      <>
+                        <button type="button" onClick={() => { setCallMode("voice"); setCallOpen(true); }} className="rounded-lg border border-gray-300 bg-white p-2 text-gray-600 hover:text-[#0a4d3c]" title="Voice call">
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-14 0m7 7v4m-4 0h8m-4-8a3 3 0 003-3V5a3 3 0 10-6 0v6a3 3 0 003 3z" /></svg>
+                        </button>
+                        <button type="button" onClick={() => { setCallMode("video"); setCallOpen(true); }} className="rounded-lg border border-gray-300 bg-white p-2 text-gray-600 hover:text-[#0a4d3c]" title="Video call">
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.6-2.3A1 1 0 0121 8.6v6.8a1 1 0 01-1.4.9L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                        </button>
+                      </>
+                    ) : null}
                   </div>
                 </>
               ) : (
@@ -617,6 +643,29 @@ function MessagesContent() {
           </div>
         </div>
       </div>
+      {callOpen && activeStartup && activeConversationId ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+              <h3 className="font-bold">Call with {activeStartup.startup_name}</h3>
+              <button type="button" onClick={() => { setCallOpen(false); setCallMode(null); }} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="p-4">
+              <ChatCallPanel
+                conversationId={activeConversationId}
+                partnerName={activeStartup.startup_name}
+                currentUserId={currentUserId}
+                api={callApi}
+                channel="investor"
+                autoStartMode={callMode}
+                onError={(message) => setError(message || "")}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

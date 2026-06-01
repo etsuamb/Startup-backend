@@ -14,6 +14,7 @@ const RESET_PASSWORD_HOURS = Number(process.env.RESET_PASSWORD_HOURS) || 1;
 const LOGIN_2FA_MINUTES = Number(process.env.LOGIN_2FA_MINUTES) || 10;
 const OTP_EMAIL_MINUTES = Number(process.env.OTP_EMAIL_MINUTES) || 10;
 const EMAIL_DNS_TIMEOUT_MS = Number(process.env.EMAIL_DNS_TIMEOUT_MS) || 6000;
+const REGISTRATION_EMAIL_VERIFY_MINUTES = 1;
 
 const DISPOSABLE_DOMAINS = new Set([
   "mailinator.com",
@@ -193,6 +194,12 @@ function buildEmailHtml(title, bodyHtml, ctaHref, ctaLabel) {
     </div>`;
 }
 
+function assertMailDelivered(result) {
+  if (!result?.delivered) {
+    throw new Error(result?.error || "Email could not be delivered");
+  }
+}
+
 async function sendVerificationEmail(user) {
   const { raw } = await createEmailToken(user.user_id, "email_verify", EMAIL_VERIFY_HOURS);
   const link = `${FRONTEND_URL}/verify-email?token=${encodeURIComponent(raw)}`;
@@ -202,13 +209,104 @@ async function sendVerificationEmail(user) {
     link,
     "Verify email",
   );
-  await mail.sendMail(
+  const result = await mail.sendMail(
     user.email,
     "Verify your StartupConnect email",
     `Verify your email: ${link}`,
     html,
   );
+  assertMailDelivered(result);
   return link;
+}
+
+async function sendRegistrationVerificationEmail(email) {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const verificationId = generateToken(18);
+  const raw = generateToken(24);
+  const tokenHash = hashToken(raw);
+  const expiresAt = new Date(Date.now() + REGISTRATION_EMAIL_VERIFY_MINUTES * 60 * 1000);
+
+  await pool.query(
+    `UPDATE auth_registration_email_verifications
+        SET consumed_at = CURRENT_TIMESTAMP
+      WHERE email = $1 AND consumed_at IS NULL`,
+    [normalizedEmail],
+  );
+  await pool.query(
+    `INSERT INTO auth_registration_email_verifications
+      (verification_id, email, token_hash, expires_at)
+     VALUES ($1,$2,$3,$4)`,
+    [verificationId, normalizedEmail, tokenHash, expiresAt],
+  );
+
+  const link = `${FRONTEND_URL}/verify-email?mode=registration&token=${encodeURIComponent(raw)}`;
+  const html = buildEmailHtml(
+    "Verify your registration email",
+    `<p>Please verify ${normalizedEmail} within one minute to continue creating your StartupConnect account.</p>`,
+    link,
+    "Verify registration email",
+  );
+
+  try {
+    const result = await mail.sendMail(
+      normalizedEmail,
+      "Verify your StartupConnect registration email",
+      `Verify your registration email within one minute: ${link}`,
+      html,
+    );
+    assertMailDelivered(result);
+    return { verificationId, expiresAt };
+  } catch (err) {
+    await pool.query(
+      `DELETE FROM auth_registration_email_verifications WHERE verification_id = $1`,
+      [verificationId],
+    );
+    throw err;
+  }
+}
+
+async function verifyRegistrationEmailToken(rawToken) {
+  const tokenHash = hashToken(rawToken);
+  const r = await pool.query(
+    `UPDATE auth_registration_email_verifications
+        SET verified_at = COALESCE(verified_at, CURRENT_TIMESTAMP)
+      WHERE token_hash = $1
+        AND consumed_at IS NULL
+        AND expires_at > NOW()
+      RETURNING verification_id, email, expires_at`,
+    [tokenHash],
+  );
+  return r.rows[0] || null;
+}
+
+async function getRegistrationEmailVerificationStatus(verificationId, email) {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const r = await pool.query(
+    `SELECT expires_at, verified_at, consumed_at
+       FROM auth_registration_email_verifications
+      WHERE verification_id = $1 AND email = $2`,
+    [verificationId, normalizedEmail],
+  );
+  const row = r.rows[0];
+  if (!row || row.consumed_at) return { status: "missing" };
+  if (row.verified_at) return { status: "verified", expiresAt: row.expires_at };
+  if (new Date(row.expires_at) <= new Date()) return { status: "expired" };
+  return { status: "pending", expiresAt: row.expires_at };
+}
+
+async function consumeRegistrationEmailVerification(client, verificationId, email) {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const r = await client.query(
+    `UPDATE auth_registration_email_verifications
+        SET consumed_at = CURRENT_TIMESTAMP
+      WHERE verification_id = $1
+        AND email = $2
+        AND verified_at IS NOT NULL
+        AND consumed_at IS NULL
+      RETURNING verification_id`,
+    [verificationId, normalizedEmail],
+  );
+  return r.rowCount > 0;
 }
 
 async function sendPasswordResetEmail(user) {
@@ -220,12 +318,13 @@ async function sendPasswordResetEmail(user) {
     link,
     "Reset password",
   );
-  await mail.sendMail(
+  const result = await mail.sendMail(
     user.email,
     "Reset your StartupConnect password",
     `Reset your password: ${link}`,
     html,
   );
+  assertMailDelivered(result);
 }
 
 async function sendLoginOtpEmail(user, code) {
@@ -235,12 +334,13 @@ async function sendLoginOtpEmail(user, code) {
     null,
     null,
   );
-  await mail.sendMail(
+  const result = await mail.sendMail(
     user.email,
     "Your StartupConnect login code",
     `Your login code is ${code}`,
     html,
   );
+  assertMailDelivered(result);
 }
 
 
@@ -368,6 +468,10 @@ module.exports = {
   createEmailToken,
   consumeEmailToken,
   sendVerificationEmail,
+  sendRegistrationVerificationEmail,
+  verifyRegistrationEmailToken,
+  getRegistrationEmailVerificationStatus,
+  consumeRegistrationEmailVerification,
   sendPasswordResetEmail,
   sendLoginOtpEmail,
   issueAuthTokens,

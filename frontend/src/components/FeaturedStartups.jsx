@@ -27,19 +27,35 @@ export default function FeaturedStartups() {
   const [startups, setStartups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [waking, setWaking] = useState(false);
 
   useEffect(() => {
     const abortController = new AbortController();
+    let retryTimer = null;
 
     async function loadStartups() {
       try {
         const res = await fetch("/api-backend/startups/featured?limit=3", {
           signal: abortController.signal,
+          cache: "no-store",
         });
+
+        // Render cold-start: show warm-up banner and retry
+        if (res.status === 502 || res.status === 503 || res.status === 504) {
+          setWaking(true);
+          setLoading(false);
+          retryTimer = setTimeout(() => {
+            setLoading(true);
+            loadStartups();
+          }, 6000);
+          return;
+        }
+
         if (!res.ok) {
           throw new Error(`Failed to load startups: ${res.statusText}`);
         }
         const data = await res.json();
+        setWaking(false);
         setStartups(Array.isArray(data.startups) ? data.startups : []);
       } catch (err) {
         if (err.name !== "AbortError") {
@@ -51,8 +67,12 @@ export default function FeaturedStartups() {
     }
 
     loadStartups();
-    return () => abortController.abort();
+    return () => {
+      abortController.abort();
+      if (retryTimer) clearTimeout(retryTimer);
+    };
   }, []);
+
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -64,6 +84,29 @@ export default function FeaturedStartups() {
         <p className="text-center text-gray-600">
           Loading featured startups...
         </p>
+      ) : waking ? (
+        <div className="flex flex-col items-center gap-3 py-8 text-gray-500">
+          <div className="flex gap-2">
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: "50%",
+                  background: "#16a34a",
+                  display: "inline-block",
+                  animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite`,
+                  opacity: 0.7,
+                }}
+              />
+            ))}
+            <style>{`@keyframes pulse{0%,80%,100%{transform:scale(0.6);opacity:.3}40%{transform:scale(1);opacity:1}}`}</style>
+          </div>
+          <p className="text-sm font-medium text-gray-600">
+            Server is waking up — featured startups will appear shortly…
+          </p>
+        </div>
       ) : error ? (
         <p className="text-center text-red-500">{error}</p>
       ) : startups.length === 0 ? (

@@ -24,6 +24,9 @@ export function buildRegisterFormData(role, fields, files) {
 	if (googleProfileToken) {
 		fd.append("google_profile_token", googleProfileToken);
 	}
+	if (accountInfo.registration_email_verification_id) {
+		fd.append("registration_email_verification_id", accountInfo.registration_email_verification_id);
+	}
 	const accountFullName =
 		f.full_name ||
 		accountInfo.full_name ||

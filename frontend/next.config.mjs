@@ -12,6 +12,11 @@ const nextConfig = {
 				source: "/uploads/:path*",
 				destination: `${backend}/uploads/:path*`,
 			},
+			// Direct health-check proxy — backend exposes /health at root (not under /api)
+			{
+				source: "/health-check",
+				destination: `${backend}/health`,
+			},
 		];
 	},
 	async headers() {
