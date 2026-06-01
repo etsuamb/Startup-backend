@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import StartupChatSidebar from "@/components/startup/StartupChatSidebar";
+import Sidebar from "@/components/startup/Sidebar";
 import ChatCallPanel from "@/components/startup/ChatCallPanel";
 import { getStartupProfile } from "@/lib/startupApi";
 import { getToken } from "@/lib/authStorage";
@@ -161,6 +161,7 @@ export default function StartupChatView({
 	const [profile, setProfile] = useState(null);
 	const [callModalOpen, setCallModalOpen] = useState(false);
 	const [callAutoMode, setCallAutoMode] = useState(null);
+	const [callConversationId, setCallConversationId] = useState(null);
 	const [isRecording, setIsRecording] = useState(false);
 	const messagesEndRef = useRef(null);
 	const fileInputRef = useRef(null);
@@ -218,6 +219,51 @@ export default function StartupChatView({
 		}
 		return list;
 	}, [conversations, listFilter, searchQuery]);
+
+	const callConversation = useMemo(
+		() =>
+			conversations.find(
+				(conversation) =>
+					String(conversation.id) === String(callConversationId),
+			) || selected,
+		[callConversationId, conversations, selected],
+	);
+
+	const getMessageId = useCallback(
+		(message) =>
+			messageId(message) ||
+			message.chat_message_id ||
+			message.mentor_chat_message_id ||
+			message.investor_chat_message_id,
+		[messageId],
+	);
+
+	const appendUniqueMessage = useCallback(
+		(message, displayBody) => {
+			if (!message) return;
+			const id = getMessageId(message);
+			setMessages((current) => {
+				if (
+					id &&
+					current.some(
+						(item) => String(getMessageId(item)) === String(id),
+					)
+				) {
+					return current;
+				}
+				return [
+					...current,
+					{
+						...message,
+						...(displayBody !== undefined
+							? { display_body: displayBody }
+							: {}),
+					},
+				];
+			});
+		},
+		[getMessageId],
+	);
 
 	const refreshConversations = useCallback(
 		async (preferredPartnerId = null, preferredConversationId = null) => {
@@ -345,17 +391,7 @@ export default function StartupChatView({
 	useEffect(() => {
 		setSocketHandlers({
 			onMessage: (msg) => {
-				const id = msg.chat_message_id || msg.mentor_chat_message_id;
-				setMessages((current) => {
-					if (id && current.some((m) => messageId(m) === id)) return current;
-					return [
-						...current,
-						{
-							...msg,
-							display_body: msg.text_body || "",
-						},
-					];
-				});
+				appendUniqueMessage(msg, msg.text_body || "");
 				refreshConversations();
 			},
 			onChatNotification: (payload) => {
@@ -368,17 +404,23 @@ export default function StartupChatView({
 			},
 			onCallSignal: (payload) => {
 				if (!payload || payload.channel !== socketChannel) return;
-				if (Number(payload.conversationId) !== Number(selected?.id)) return;
 				if (
 					payload.event === "ringing" &&
 					Number(payload.video_call?.started_by_user_id) !==
 						Number(currentUserId)
 				) {
+					setCallConversationId(payload.conversationId);
+					const incomingConversation = conversations.find(
+						(conversation) =>
+							Number(conversation.id) === Number(payload.conversationId),
+					);
+					if (incomingConversation) setSelected(incomingConversation);
+					else refreshConversations(null, payload.conversationId);
 					setCallAutoMode(null);
 					setCallModalOpen(true);
 					showLiveNotice(
 						"call",
-						`Incoming call from ${selected?.contactName || "your contact"}`,
+						`Incoming call from ${incomingConversation?.contactName || "your contact"}`,
 					);
 				}
 			},
@@ -389,11 +431,10 @@ export default function StartupChatView({
 	}, [
 		setSocketHandlers,
 		refreshConversations,
-		messageId,
+		appendUniqueMessage,
 		socketChannel,
-		selected?.id,
 		currentUserId,
-		selected?.contactName,
+		conversations,
 		showLiveNotice,
 	]);
 
@@ -507,7 +548,7 @@ export default function StartupChatView({
 					...data.message,
 					display_body: caption || "",
 				};
-				setMessages((current) => [...current, next]);
+				appendUniqueMessage(next, caption || "");
 				await refreshConversations();
 				setSelectedFile(null);
 				setMessageText("");
@@ -543,11 +584,7 @@ export default function StartupChatView({
 				sent = data.message;
 			}
 			if (!socketConnected) {
-				const id = sent?.chat_message_id || sent?.mentor_chat_message_id;
-				setMessages((current) => {
-					if (id && current.some((m) => messageId(m) === id)) return current;
-					return [...current, { ...sent, display_body: plain }];
-				});
+				appendUniqueMessage(sent, plain);
 			}
 			await refreshConversations();
 		} catch (err) {
@@ -578,6 +615,7 @@ export default function StartupChatView({
 	}
 
 	function openCallModal(mode) {
+		setCallConversationId(selected?.id ?? null);
 		setCallAutoMode(mode);
 		setCallModalOpen(true);
 	}
@@ -590,7 +628,7 @@ export default function StartupChatView({
 
 	return (
 		<div className="flex h-screen overflow-hidden bg-white font-sans text-gray-900">
-			<StartupChatSidebar chatKind={chatKind} />
+			<Sidebar />
 
 			<div className="flex flex-grow flex-col overflow-hidden min-w-0">
 				{/* Top bar */}
@@ -647,27 +685,22 @@ export default function StartupChatView({
 								)}
 							</div>
 							<div className="flex gap-2 flex-wrap">
-								{[
-									{ key: "all", label: "All Chats" },
-									{
-										key: chatKind,
-										label: chatKind === "investor" ? "Investors" : "Mentors",
-									},
-									{ key: "unread", label: "Unread" },
-								].map((tab) => (
-									<button
-										key={tab.key}
-										type="button"
-										onClick={() => setListFilter(tab.key)}
-										className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-											listFilter === tab.key
-												? "bg-[#0f3d32] text-white"
-												: "bg-[#f3f4f6] text-gray-600 hover:bg-gray-200"
-										}`}
-									>
-										{tab.label}
-									</button>
-								))}
+								<Link href="/startup/chat" className="px-3 py-1.5 rounded-lg bg-[#f3f4f6] text-xs font-bold text-gray-600 hover:bg-gray-200">
+									All Chats
+								</Link>
+								<Link href="/startup/chat?kind=investor" className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${chatKind === "investor" ? "bg-[#0f3d32] text-white" : "bg-[#f3f4f6] text-gray-600 hover:bg-gray-200"}`}>
+									Investors
+								</Link>
+								<Link href="/startup/chat?kind=mentor" className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${chatKind === "mentor" ? "bg-[#0f3d32] text-white" : "bg-[#f3f4f6] text-gray-600 hover:bg-gray-200"}`}>
+									Mentors
+								</Link>
+								<button
+									type="button"
+									onClick={() => setListFilter(listFilter === "unread" ? "all" : "unread")}
+									className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${listFilter === "unread" ? "bg-[#0f3d32] text-white" : "bg-[#f3f4f6] text-gray-600 hover:bg-gray-200"}`}
+								>
+									Unread
+								</button>
 							</div>
 						</div>
 
@@ -1187,18 +1220,19 @@ export default function StartupChatView({
 			</div>
 
 			{/* Call modal */}
-			{callModalOpen && selected && (
+			{callModalOpen && callConversation && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
 					<div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
 						<div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
 							<h3 className="font-bold text-gray-900">
-								Call with {selected.contactName}
+								Call with {callConversation.contactName}
 							</h3>
 							<button
 								type="button"
 								onClick={() => {
 									setCallModalOpen(false);
 									setCallAutoMode(null);
+									setCallConversationId(null);
 								}}
 								className="p-2 rounded-lg text-gray-400 hover:bg-gray-100"
 							>
@@ -1219,9 +1253,9 @@ export default function StartupChatView({
 						</div>
 						<div className="p-4">
 							<ChatCallPanel
-								conversationId={selected.id}
+								conversationId={callConversation.id}
 								channel={socketChannel}
-								partnerName={selected.contactName}
+								partnerName={callConversation.contactName}
 								currentUserId={currentUserId}
 								api={callApi}
 								autoStartMode={callAutoMode}

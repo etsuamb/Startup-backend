@@ -214,7 +214,7 @@ export default function StartupRecommendationsPage() {
                     <h2 className="text-lg font-bold text-gray-900">Mentor Recommendations</h2>
                     <p className="mt-1 text-sm text-gray-500">{mentorRecommendations.length} mentor matches are available from the existing mentor engine.</p>
                   </div>
-                  <Link href="/startup/mentorship" className="inline-flex h-10 items-center justify-center rounded-lg bg-white px-4 text-sm font-bold text-[#0a4d3c] ring-1 ring-gray-200 transition hover:bg-gray-100">
+                  <Link href="/startup/chat?kind=mentor" className="inline-flex h-10 items-center justify-center rounded-lg bg-white px-4 text-sm font-bold text-[#0a4d3c] ring-1 ring-gray-200 transition hover:bg-gray-100">
                     Open Mentorship
                   </Link>
                 </div>

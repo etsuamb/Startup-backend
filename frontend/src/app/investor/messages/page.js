@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Sidebar from "@/components/investor/Sidebar";
 import ChatCallPanel from "@/components/startup/ChatCallPanel";
@@ -22,6 +22,7 @@ import {
   startInvestorVideoCall,
 } from "@/lib/investorApi";
 import { chatAccessMessage, isChatAccessError } from "@/lib/chatAccess";
+import { useRealtimeChat } from "@/hooks/useRealtimeChat";
 
 const callApi = {
   getStatus: getInvestorVideoStatus,
@@ -108,6 +109,33 @@ function MessagesContent() {
   const [callOpen, setCallOpen] = useState(false);
   const [callMode, setCallMode] = useState(null);
   const [error, setError] = useState("");
+  const [liveNotice, setLiveNotice] = useState("");
+  const noticeTimerRef = useRef(null);
+
+  const showLiveNotice = useCallback((text) => {
+    if (!text) return;
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    setLiveNotice(text);
+    noticeTimerRef.current = setTimeout(() => setLiveNotice(""), 3500);
+  }, []);
+
+  const appendUniqueMessage = useCallback((message) => {
+    if (!message) return;
+    setMessages((current) => (
+      current.some((item) => String(item.chat_message_id) === String(message.chat_message_id))
+        ? current
+        : [...current, message]
+    ));
+  }, []);
+
+  const {
+    setHandlers: setSocketHandlers,
+    markRead: markReadSocket,
+  } = useRealtimeChat({
+    channel: "investor",
+    conversationId: activeConversationId,
+    enabled: Boolean(activeConversationId),
+  });
 
   async function refreshThreads() {
     const threadData = await getInvestorMessageThreads();
@@ -209,6 +237,49 @@ function MessagesContent() {
   const activeCanMessage = Boolean(
     activeStartup?.conversation_id || acceptedStartupIds.has(String(activeStartupId)),
   );
+
+  useEffect(() => {
+    setSocketHandlers({
+      onMessage: (message) => {
+        if (Number(message.conversation_id) === Number(activeConversationId)) {
+          appendUniqueMessage(message);
+          markReadSocket();
+        }
+        refreshThreads();
+      },
+      onChatNotification: (payload) => {
+        if (payload?.channel !== "investor") return;
+        showLiveNotice(payload.kind === "sent" ? "Message sent" : "New message received");
+      },
+      onCallSignal: (payload) => {
+        if (
+          payload?.channel !== "investor"
+          || payload.event !== "ringing"
+          || Number(payload.video_call?.started_by_user_id) === Number(currentUserId)
+        ) return;
+        const thread = threads.find(
+          (item) => Number(item.conversation_id) === Number(payload.conversationId),
+        );
+        const startupId = getThreadStartupId(thread || {});
+        if (startupId) setActiveStartupId(String(startupId));
+        setActiveConversationId(payload.conversationId);
+        setCallMode(null);
+        setCallOpen(true);
+        showLiveNotice("Incoming call");
+      },
+    });
+    return () => {
+      if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    };
+  }, [
+    activeConversationId,
+    appendUniqueMessage,
+    currentUserId,
+    markReadSocket,
+    setSocketHandlers,
+    showLiveNotice,
+    threads,
+  ]);
 
   useEffect(() => {
     let ignore = false;
@@ -322,7 +393,7 @@ function MessagesContent() {
       const data = pendingAttachment
         ? await sendInvestorChatFile(conversationId, pendingAttachment, attachmentCaption.trim())
         : await sendInvestorMessage(conversationId, text);
-      setMessages((current) => [...current, data.message].filter(Boolean));
+      appendUniqueMessage(data.message);
       setDraft("");
       setPendingAttachment(null);
       setAttachmentCaption("");
@@ -369,7 +440,7 @@ function MessagesContent() {
           const conversationId = await ensureConversation();
           if (!conversationId) throw new Error("Could not open conversation.");
           const data = await sendInvestorChatFile(conversationId, file, "Voice message");
-          setMessages((current) => [...current, data.message].filter(Boolean));
+          appendUniqueMessage(data.message);
           await refreshThreads();
         } catch (err) {
           setError(isChatAccessError(err) ? chatAccessMessage(err) : err.message || "Failed to send voice message.");
@@ -401,6 +472,11 @@ function MessagesContent() {
   return (
     <div className="flex h-screen bg-white font-sans text-gray-900 overflow-hidden">
       <Sidebar />
+      {liveNotice ? (
+        <div className="fixed right-5 top-5 z-[60] rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 shadow-lg">
+          {liveNotice}
+        </div>
+      ) : null}
 
       <div className="flex-grow flex flex-col overflow-hidden bg-white pt-16">
         <div className="flex flex-grow overflow-hidden">

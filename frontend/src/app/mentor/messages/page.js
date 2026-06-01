@@ -25,6 +25,7 @@ import {
 	isEncryptedChatPayload,
 } from "@/lib/chatEncryption";
 import { chatAccessMessage, isChatAccessError } from "@/lib/chatAccess";
+import { useRealtimeChat } from "@/hooks/useRealtimeChat";
 
 const callApi = {
 	getStatus: getMentorVideoStatus,
@@ -145,11 +146,44 @@ export default function MentorMessagesPage() {
 	const [sending, setSending] = useState(false);
 	const [recording, setRecording] = useState(false);
 	const [error, setError] = useState("");
+	const [liveNotice, setLiveNotice] = useState("");
 	const [callOpen, setCallOpen] = useState(false);
 	const [callMode, setCallMode] = useState(null);
 	const uid = useMemo(() => currentUserId(), []);
 	const fileInputRef = useRef(null);
 	const endRef = useRef(null);
+	const noticeTimerRef = useRef(null);
+
+	const showLiveNotice = useCallback((message) => {
+		if (!message) return;
+		if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+		setLiveNotice(message);
+		noticeTimerRef.current = setTimeout(() => setLiveNotice(""), 3500);
+	}, []);
+
+	const appendUniqueMessage = useCallback((message) => {
+		if (!message) return;
+		const id = message.mentor_chat_message_id || message.chat_message_id;
+		setMessages((current) =>
+			id &&
+			current.some(
+				(item) =>
+					String(item.mentor_chat_message_id || item.chat_message_id) ===
+					String(id),
+			)
+				? current
+				: [...current, message],
+		);
+	}, []);
+
+	const {
+		setHandlers: setSocketHandlers,
+		markRead: markReadSocket,
+	} = useRealtimeChat({
+		channel: "mentor",
+		conversationId: selected?.id ?? null,
+		enabled: Boolean(selected?.id),
+	});
 
 	const refreshConversations = useCallback(
 		async (preferredStartupId = null, preferredConversationId = null) => {
@@ -270,6 +304,58 @@ export default function MentorMessagesPage() {
 		endRef.current?.scrollIntoView({ behavior: "smooth" });
 	}, [messages, selected?.id]);
 
+	useEffect(() => {
+		setSocketHandlers({
+			onMessage: async (message) => {
+				if (Number(message.conversation_id) === Number(selected?.id)) {
+					let displayBody = message.text_body || "";
+					if (isEncryptedChatPayload(displayBody)) {
+						try {
+							displayBody = await decryptChatText(displayBody, selected.id);
+						} catch {
+							displayBody = "[Encrypted message]";
+						}
+					}
+					appendUniqueMessage({ ...message, display_body: displayBody });
+					markReadSocket();
+				}
+				refreshConversations();
+			},
+			onChatNotification: (payload) => {
+				if (payload?.channel !== "mentor") return;
+				showLiveNotice(payload.kind === "sent" ? "Message sent" : "New message received");
+			},
+			onCallSignal: (payload) => {
+				if (
+					payload?.channel !== "mentor" ||
+					payload.event !== "ringing" ||
+					Number(payload.video_call?.started_by_user_id) === Number(uid)
+				)
+					return;
+				const conversation = conversations.find(
+					(item) => Number(item.id) === Number(payload.conversationId),
+				);
+				if (conversation) setSelected(conversation);
+				else refreshConversations(null, payload.conversationId);
+				setCallMode(null);
+				setCallOpen(true);
+				showLiveNotice("Incoming call");
+			},
+		});
+		return () => {
+			if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+		};
+	}, [
+		appendUniqueMessage,
+		conversations,
+		markReadSocket,
+		refreshConversations,
+		selected?.id,
+		setSocketHandlers,
+		showLiveNotice,
+		uid,
+	]);
+
 	const visibleConversations = useMemo(() => {
 		const needle = query.trim().toLowerCase();
 		return conversations.filter((conversation) => {
@@ -380,10 +466,7 @@ export default function MentorMessagesPage() {
 				if (caption)
 					form.append("caption", await encryptChatText(caption, selected.id));
 				const data = await sendMentorChatFile(selected.id, form);
-				setMessages((current) => [
-					...current,
-					{ ...data.message, display_body: caption },
-				]);
+				appendUniqueMessage({ ...data.message, display_body: caption });
 				setFile(null);
 				setText("");
 			} else {
@@ -391,10 +474,7 @@ export default function MentorMessagesPage() {
 				setText("");
 				const encrypted = await encryptChatText(plain, selected.id);
 				const data = await sendMentorMessage(selected.id, encrypted);
-				setMessages((current) => [
-					...current,
-					{ ...data.message, display_body: plain },
-				]);
+				appendUniqueMessage({ ...data.message, display_body: plain });
 			}
 			await refreshConversations();
 		} catch (ex) {
@@ -415,6 +495,11 @@ export default function MentorMessagesPage() {
 
 	return (
 		<div className="flex h-full min-h-0 overflow-hidden bg-white text-gray-950">
+			{liveNotice ? (
+				<div className="fixed right-5 top-5 z-[60] rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-800 shadow-lg">
+					{liveNotice}
+				</div>
+			) : null}
 			<div className="flex min-w-0 flex-1 flex-col">
 				<header className="flex h-[74px] shrink-0 items-center gap-6 border-b border-gray-100 bg-white px-8">
 					<h1 className="text-lg font-black">Messages</h1>

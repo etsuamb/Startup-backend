@@ -348,6 +348,20 @@ module.exports = function initializeSocket(httpServer) {
 					userId,
 				);
 				if (peerUserId) {
+					await pool.query(
+						`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+						[
+							peerUserId,
+							channel === "mentor" ? "mentor_chat" : "chat",
+							"New message",
+							text.slice(0, 200),
+							channel === "mentor"
+								? "mentor_chat_conversations"
+								: "chat_conversations",
+							conversationId,
+						],
+					);
 					io.to(`user_${Number(peerUserId)}`).emit("chat_notification", {
 						channel,
 						conversationId,

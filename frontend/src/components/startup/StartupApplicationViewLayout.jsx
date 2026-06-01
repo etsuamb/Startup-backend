@@ -373,7 +373,7 @@ export default function StartupApplicationViewLayout({
                 ? "This offer is waiting for your response. Accept or reject when you have reviewed the details."
                 : ["accepted", "approved"].includes(String(offer.status || "").toLowerCase())
                   ? isInvestment
-                    ? "Your application was accepted. Continue the conversation from Investor Chat."
+                    ? "Your application was accepted. Continue the conversation from Messages."
                     : "Mentorship is active. You can message your mentor and complete payment when ready."
                   : offer.status === "rejected"
                     ? "This application was declined. You can submit a new request to other partners from Discover."

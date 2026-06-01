@@ -14,7 +14,9 @@ export function useRealtimeChat({ channel, conversationId, enabled = true }) {
 	const typingTimeoutRef = useRef(null);
 	const handlersRef = useRef({});
 
-	const socket = enabled ? getChatSocket() : null;
+	// Keep user-level notifications and incoming-call signals alive even before
+	// a conversation is selected. Room membership still follows `enabled`.
+	const socket = getChatSocket();
 
 	useEffect(() => {
 		if (!socket) return undefined;
@@ -37,7 +39,7 @@ export function useRealtimeChat({ channel, conversationId, enabled = true }) {
 		socket.on("call_signal", onCallSignal);
 		socket.on("chat_notification", onChatNotification);
 
-		if (socket.connected) setConnected(true);
+		if (socket.connected) queueMicrotask(onConnect);
 
 		return () => {
 			socket.off("connect", onConnect);

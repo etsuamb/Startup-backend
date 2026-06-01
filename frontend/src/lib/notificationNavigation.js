@@ -10,7 +10,9 @@ function roleHome(role) {
 }
 
 function withQuery(path, key, value) {
-	return value == null || value === "" ? path : `${path}?${key}=${encodeURIComponent(String(value))}`;
+	if (value == null || value === "") return path;
+	const separator = path.includes("?") ? "&" : "?";
+	return `${path}${separator}${key}=${encodeURIComponent(String(value))}`;
 }
 
 export function resolveNotificationHref(notification, currentRole) {
@@ -39,10 +41,10 @@ export function resolveNotificationHref(notification, currentRole) {
 		return withQuery(role === "investor" ? "/investor/messages" : "/startup/chat", "conversationId", referenceId);
 	}
 	if (referenceType === "mentor_chat_conversations") {
-		return withQuery(role === "mentor" ? "/mentor/messages" : "/startup/mentorship", "conversationId", referenceId);
+		return withQuery(role === "mentor" ? "/mentor/messages" : "/startup/chat?kind=mentor", "conversationId", referenceId);
 	}
 	if (referenceType === "chat_video_calls") return role === "investor" ? "/investor/messages" : "/startup/chat";
-	if (referenceType === "mentor_chat_video_calls") return role === "mentor" ? "/mentor/messages" : "/startup/mentorship";
+	if (referenceType === "mentor_chat_video_calls") return role === "mentor" ? "/mentor/messages" : "/startup/chat?kind=mentor";
 	if (referenceType === "investment_requests") {
 		return role === "investor"
 			? withQuery("/investor/offers", "requestId", referenceId)
@@ -85,9 +87,9 @@ export function resolveNotificationHref(notification, currentRole) {
 				: "/startup/offers";
 	}
 	if (notificationType === "chat") return role === "investor" ? "/investor/messages" : "/startup/chat";
-	if (notificationType === "mentor_chat") return role === "mentor" ? "/mentor/messages" : "/startup/mentorship";
+	if (notificationType === "mentor_chat") return role === "mentor" ? "/mentor/messages" : "/startup/chat?kind=mentor";
 	if (notificationType === "video") return role === "investor" ? "/investor/messages" : "/startup/chat";
-	if (notificationType === "mentor_video") return role === "mentor" ? "/mentor/messages" : "/startup/mentorship";
+	if (notificationType === "mentor_video") return role === "mentor" ? "/mentor/messages" : "/startup/chat?kind=mentor";
 	if (notificationType === "investment") return role === "investor" ? "/investor/funding" : "/startup/offers";
 	if (notificationType === "meeting") return role === "investor" ? "/investor/meetings" : "/startup/meetings";
 	if (notificationType === "mentorship") return role === "mentor" ? "/mentor/requests" : "/startup/offers";

@@ -507,7 +507,7 @@ export default function StartupDashboard() {
                   </div>
                   <div className="relative z-10 mt-6 flex flex-col gap-2">
                     <Link
-                      href={hiredMentorship ? "/startup/mentorship" : "/startup/discover"}
+                      href={hiredMentorship ? "/startup/chat?kind=mentor" : "/startup/discover"}
                       className="inline-flex items-center justify-center gap-2 rounded-xl bg-white text-[#0f3d32] text-sm font-bold px-5 py-3 hover:bg-gray-50 transition shadow-sm"
                     >
                       {hiredMentorship ? "View mentorship" : "Find mentor"}

@@ -77,7 +77,7 @@ export default function DiscoverProfileLayout({
   const messageHref =
     kind === "investor"
       ? `/startup/chat?investorId=${encodeURIComponent(String(contactId))}`
-      : `/startup/mentorship?mentorId=${encodeURIComponent(String(contactId))}`;
+      : `/startup/chat?kind=mentor&mentorId=${encodeURIComponent(String(contactId))}`;
   const canMessage = ["approved", "accepted"].includes(String(sentOffer?.status || "").toLowerCase());
   const lockedMessage =
     kind === "investor"

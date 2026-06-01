@@ -174,7 +174,7 @@ export default function OfferDetailsPage() {
           )}
         </div>
         <Link
-          href={isInvestment ? "/startup/chat" : "/startup/mentorship"}
+          href={isInvestment ? "/startup/chat?kind=investor" : "/startup/chat?kind=mentor"}
           className="text-xs font-bold text-[#0f3d32] hover:underline text-right"
         >
           Open {isInvestment ? "investor" : "mentor"} chat →

@@ -44,7 +44,7 @@ export default function StartupChatSidebar({ chatKind }) {
 						<span className="text-[10px] opacity-80">Live</span>
 					</Link>
 					<Link
-						href="/startup/mentorship"
+						href="/startup/chat?kind=mentor"
 						className={optionClass(
 							isMentor || pathname === "/startup/mentorship",
 						)}

@@ -216,7 +216,7 @@ export default function StartupMentorshipResourcesPage() {
             </div>
             <div className="flex items-center gap-2">
               <Link
-                href="/startup/mentorship"
+                href="/startup/chat?kind=mentor"
                 className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50"
               >
                 Mentor chat
