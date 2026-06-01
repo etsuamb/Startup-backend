@@ -161,13 +161,26 @@ export default function MentorMessagesPage() {
 		noticeTimerRef.current = setTimeout(() => setLiveNotice(""), 3500);
 	}, []);
 
-	const appendUniqueMessage = useCallback((message) => {
-		if (!message) return;
-		const id = message.mentor_chat_message_id || message.chat_message_id;
-		setMessages((current) =>
-			id &&
-			current.some(
-				(item) =>
+  const showBrowserNotification = useCallback((title, body) => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+    if (Notification.permission !== "granted") return;
+    const notification = new Notification(title, {
+      body: body || "",
+      silent: true,
+    });
+    notification.onclick = () => window.focus?.();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, []);
+
 					String(item.mentor_chat_message_id || item.chat_message_id) ===
 					String(id),
 			)
