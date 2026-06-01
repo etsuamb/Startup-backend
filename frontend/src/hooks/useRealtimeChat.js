@@ -24,10 +24,18 @@ export function useRealtimeChat({ channel, conversationId, enabled = true }) {
 		const onModeration = (payload) => {
 			setModerationAlert(payload?.message || MODERATION_WARNING);
 		};
+		const onCallSignal = (payload) => {
+			handlersRef.current.onCallSignal?.(payload);
+		};
+		const onChatNotification = (payload) => {
+			handlersRef.current.onChatNotification?.(payload);
+		};
 
 		socket.on("connect", onConnect);
 		socket.on("disconnect", onDisconnect);
 		socket.on("moderation_alert", onModeration);
+		socket.on("call_signal", onCallSignal);
+		socket.on("chat_notification", onChatNotification);
 
 		if (socket.connected) setConnected(true);
 
@@ -35,6 +43,8 @@ export function useRealtimeChat({ channel, conversationId, enabled = true }) {
 			socket.off("connect", onConnect);
 			socket.off("disconnect", onDisconnect);
 			socket.off("moderation_alert", onModeration);
+			socket.off("call_signal", onCallSignal);
+			socket.off("chat_notification", onChatNotification);
 		};
 	}, [socket]);
 
@@ -42,12 +52,16 @@ export function useRealtimeChat({ channel, conversationId, enabled = true }) {
 		if (!socket || !conversationId || !enabled) return undefined;
 
 		const roomPayload = { channel, conversationId: Number(conversationId) };
+		const joinCurrentRoom = () => {
+			socket.emit("join_room", roomPayload, (response) => {
+				if (response?.error) {
+					console.warn("join_room:", response.error);
+				}
+			});
+		};
 
-		socket.emit("join_room", roomPayload, (response) => {
-			if (response?.error) {
-				console.warn("join_room:", response.error);
-			}
-		});
+		joinCurrentRoom();
+		socket.on("connect", joinCurrentRoom);
 
 		const onMessage = (msg) => {
 			handlersRef.current.onMessage?.(msg);
@@ -56,7 +70,10 @@ export function useRealtimeChat({ channel, conversationId, enabled = true }) {
 			if (Number(data.conversationId) === Number(conversationId)) {
 				setTypingUserId(data.userId);
 				if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-				typingTimeoutRef.current = setTimeout(() => setTypingUserId(null), 3000);
+				typingTimeoutRef.current = setTimeout(
+					() => setTypingUserId(null),
+					3000,
+				);
 			}
 		};
 		const onStopTyping = (data) => {
@@ -75,6 +92,7 @@ export function useRealtimeChat({ channel, conversationId, enabled = true }) {
 
 		return () => {
 			socket.emit("leave_room", roomPayload);
+			socket.off("connect", joinCurrentRoom);
 			socket.off("receive_message", onMessage);
 			socket.off("user_typing", onTyping);
 			socket.off("user_stop_typing", onStopTyping);
@@ -119,12 +137,18 @@ export function useRealtimeChat({ channel, conversationId, enabled = true }) {
 
 	const emitStopTyping = useCallback(() => {
 		if (!socket?.connected || !conversationId) return;
-		socket.emit("stop_typing", { channel, conversationId: Number(conversationId) });
+		socket.emit("stop_typing", {
+			channel,
+			conversationId: Number(conversationId),
+		});
 	}, [socket, channel, conversationId]);
 
 	const markRead = useCallback(() => {
 		if (!socket?.connected || !conversationId) return;
-		socket.emit("mark_read", { channel, conversationId: Number(conversationId) });
+		socket.emit("mark_read", {
+			channel,
+			conversationId: Number(conversationId),
+		});
 	}, [socket, channel, conversationId]);
 
 	const clearModerationAlert = useCallback(() => setModerationAlert(null), []);

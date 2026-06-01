@@ -17,6 +17,42 @@ function parseConversationPayload(data) {
 	return { channel, conversationId };
 }
 
+async function resolvePeerUserId(channel, conversationId, senderUserId) {
+	if (channel === "mentor") {
+		const result = await pool.query(
+			`SELECT su.user_id AS startup_user_id, mu.user_id AS mentor_user_id
+       FROM mentor_chat_conversations c
+       INNER JOIN startups s ON s.startup_id = c.startup_id
+       INNER JOIN users su ON su.user_id = s.user_id
+       INNER JOIN mentors m ON m.mentor_id = c.mentor_id
+       INNER JOIN users mu ON mu.user_id = m.user_id
+       WHERE c.mentor_conversation_id = $1`,
+			[conversationId],
+		);
+		if (!result.rowCount) return null;
+		const row = result.rows[0];
+		return Number(row.startup_user_id) === Number(senderUserId)
+			? row.mentor_user_id
+			: row.startup_user_id;
+	}
+
+	const result = await pool.query(
+		`SELECT su.user_id AS startup_user_id, iu.user_id AS investor_user_id
+     FROM chat_conversations c
+     INNER JOIN startups s ON s.startup_id = c.startup_id
+     INNER JOIN users su ON su.user_id = s.user_id
+     INNER JOIN investors i ON i.investor_id = c.investor_id
+     INNER JOIN users iu ON iu.user_id = i.user_id
+     WHERE c.conversation_id = $1`,
+		[conversationId],
+	);
+	if (!result.rowCount) return null;
+	const row = result.rows[0];
+	return Number(row.startup_user_id) === Number(senderUserId)
+		? row.investor_user_id
+		: row.startup_user_id;
+}
+
 module.exports = function initializeSocket(httpServer) {
 	const corsOrigin = process.env.CORS_ORIGIN || process.env.FRONTEND_URL || "*";
 
@@ -47,7 +83,9 @@ module.exports = function initializeSocket(httpServer) {
 			}
 
 			if (await chatAccessService.isChatSuspended(decoded.user_id)) {
-				return next(new Error("Chat access suspended due to policy violations"));
+				return next(
+					new Error("Chat access suspended due to policy violations"),
+				);
 			}
 
 			next();
@@ -186,7 +224,8 @@ module.exports = function initializeSocket(httpServer) {
 				const text = typeof data?.text === "string" ? data.text.trim() : "";
 
 				if (!conversationId || !text) {
-					if (callback) callback({ error: "conversationId and text are required" });
+					if (callback)
+						callback({ error: "conversationId and text are required" });
 					return;
 				}
 
@@ -253,6 +292,29 @@ module.exports = function initializeSocket(httpServer) {
 
 				const room = roomKey(channel, conversationId);
 				io.to(room).emit("receive_message", newMsg);
+
+				const peerUserId = await resolvePeerUserId(
+					channel,
+					conversationId,
+					userId,
+				);
+				if (peerUserId) {
+					io.to(`user_${Number(peerUserId)}`).emit("chat_notification", {
+						channel,
+						conversationId,
+						kind: "received",
+						text: text.slice(0, 200),
+						senderUserId: userId,
+						receivedAt: new Date().toISOString(),
+					});
+				}
+				io.to(`user_${Number(userId)}`).emit("chat_notification", {
+					channel,
+					conversationId,
+					kind: "sent",
+					text: text.slice(0, 200),
+					receivedAt: new Date().toISOString(),
+				});
 				if (callback) callback({ success: true, message: newMsg });
 			} catch (err) {
 				console.error("send_message error:", err);
