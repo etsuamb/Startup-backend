@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ChatCallPanel from "@/components/startup/ChatCallPanel";
+import ActorAvatar from "@/components/auth/ActorAvatar";
 import { getToken } from "@/lib/authStorage";
 import {
 	fetchMentorConversations,
@@ -570,7 +571,7 @@ export default function MentorMessagesPage() {
 				</header>
 
 				<div className="flex min-h-0 flex-1">
-					<aside className="flex w-[380px] shrink-0 flex-col border-r border-gray-100 bg-white">
+					<aside className={`${selected ? "hidden md:flex" : "flex"} w-full md:w-[380px] shrink-0 flex-col border-r border-gray-100 bg-white`}>
 						<div className="border-b border-gray-100 px-5 py-6">
 							<div className="mb-4 flex items-center justify-between">
 								<h2 className="text-base font-black">Inbox</h2>
@@ -620,9 +621,7 @@ export default function MentorMessagesPage() {
 											onClick={() => setSelected(conversation)}
 											className={`flex w-full gap-4 border-b border-gray-50 px-5 py-5 text-left transition ${active ? "bg-[#edf8f2]" : "hover:bg-gray-50"}`}
 										>
-											<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#073f32] text-sm font-black text-white">
-												{initials(conversation.startupName)}
-											</div>
+											<ActorAvatar role="startup" profileId={conversation.startupId} initials={initials(conversation.startupName)} className="h-11 w-11 shrink-0 rounded-full text-sm font-black" alt={conversation.startupName} />
 											<div className="min-w-0 flex-1">
 												<div className="flex items-start justify-between gap-3">
 													<p className="truncate text-sm font-black">
@@ -660,14 +659,20 @@ export default function MentorMessagesPage() {
 						</div>
 					</aside>
 
-					<main className="flex min-w-0 flex-1 flex-col bg-[#f8fafb]">
+					<main className={`${selected ? "flex" : "hidden md:flex"} min-w-0 flex-1 flex-col bg-[#f8fafb]`}>
 						{selected ? (
 							<>
-								<div className="flex h-[86px] shrink-0 items-center justify-between border-b border-gray-100 bg-white px-8">
+								<div className="flex min-h-[86px] shrink-0 flex-col gap-3 border-b border-gray-100 bg-white px-4 py-4 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
 									<div className="flex min-w-0 items-center gap-4">
-										<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#073f32] text-sm font-black text-white">
-											{initials(selected.startupName)}
-										</div>
+										<button
+											type="button"
+											onClick={() => setSelected(null)}
+											className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-gray-500 hover:bg-gray-100 md:hidden"
+											aria-label="Back to conversations"
+										>
+											<span aria-hidden="true">&larr;</span>
+										</button>
+										<ActorAvatar role="startup" profileId={selected.startupId} initials={initials(selected.startupName)} className="h-11 w-11 shrink-0 rounded-xl text-sm font-black" alt={selected.startupName} />
 										<div className="min-w-0">
 											<h2 className="truncate text-lg font-black">
 												{selected.startupName} - {selected.founderName}
@@ -678,7 +683,7 @@ export default function MentorMessagesPage() {
 											</p>
 										</div>
 									</div>
-									<div className="flex shrink-0 items-center gap-3">
+									<div className="flex max-w-full shrink-0 items-center gap-2 overflow-x-auto pb-1 sm:gap-3">
 										<Link
 											href={`/mentor/requests/profile?startupId=${selected.startupId}`}
 											className="rounded-lg bg-emerald-50 px-4 py-2 text-xs font-black text-[#073f32] hover:bg-emerald-100"
@@ -782,7 +787,7 @@ export default function MentorMessagesPage() {
 																	<button
 																		type="button"
 																		onClick={() => openFile(message)}
-																		className={`flex w-full min-w-[280px] items-center gap-4 rounded-xl p-3 text-left ${mine ? "bg-white/10 hover:bg-white/15" : "bg-gray-50 hover:bg-gray-100"}`}
+																		className={`flex w-full min-w-0 items-center gap-4 rounded-xl p-3 text-left ${mine ? "bg-white/10 hover:bg-white/15" : "bg-gray-50 hover:bg-gray-100"}`}
 																	>
 																		<span
 																			className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${mine ? "bg-white/15" : "bg-emerald-50 text-emerald-600"}`}
@@ -843,7 +848,7 @@ export default function MentorMessagesPage() {
 
 								<form
 									onSubmit={send}
-									className="shrink-0 border-t border-gray-200 bg-white p-6"
+									className="shrink-0 border-t border-gray-200 bg-white p-3 sm:p-6"
 								>
 									{file ? (
 										<div className="mb-3 flex items-center gap-3 text-xs font-semibold text-gray-600">
@@ -859,7 +864,7 @@ export default function MentorMessagesPage() {
 											</button>
 										</div>
 									) : null}
-									<div className="flex items-center gap-3">
+									<div className="flex min-w-0 items-center gap-2 sm:gap-3">
 										<input
 											ref={fileInputRef}
 											type="file"
@@ -871,7 +876,7 @@ export default function MentorMessagesPage() {
 										<button
 											type="button"
 											onClick={() => fileInputRef.current?.click()}
-											className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-300 text-gray-500 hover:bg-gray-50"
+											className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-300 text-gray-500 hover:bg-gray-50 sm:h-11 sm:w-11"
 											title="Attach file"
 										>
 											<svg
@@ -891,7 +896,7 @@ export default function MentorMessagesPage() {
 										<button
 											type="button"
 											onClick={startDictation}
-											className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${
+											className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border sm:h-11 sm:w-11 ${
 												recording
 													? "border-red-200 bg-red-50 text-red-600"
 													: "border-gray-300 text-gray-500 hover:bg-gray-50"
@@ -921,10 +926,10 @@ export default function MentorMessagesPage() {
 										<button
 											type="submit"
 											disabled={sending || (!text.trim() && !file)}
-											className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0a3a2e] px-6 py-3.5 text-[14px] font-bold text-white shadow-md transition hover:bg-[#072a21] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:shadow-none"
+											className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0a3a2e] px-3 py-3.5 text-[14px] font-bold text-white shadow-md transition hover:bg-[#072a21] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:shadow-none sm:px-6"
 											title="Send"
 										>
-											{sending ? "Sending..." : file ? "Send File" : "Send"}
+											<span className="hidden sm:inline">{sending ? "Sending..." : file ? "Send File" : "Send"}</span>
 											<svg
 												className="h-4 w-4"
 												fill="none"

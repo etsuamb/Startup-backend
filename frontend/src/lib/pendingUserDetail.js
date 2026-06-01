@@ -149,7 +149,7 @@ export function buildProfileSections(user, profile) {
 					label: "Investment budget / range",
 					value:
 						profile.investment_budget != null
-							? fmtMoney(profile.investment_budget, "USD")
+							? `${fmtMoney(profile.investment_budget_min || 0, "USD")} - ${fmtMoney(profile.investment_budget, "USD")}`
 							: null,
 				},
 				{ label: "Location preference", value: fmt(profile.location_preference) },
@@ -230,7 +230,7 @@ export function buildProfileSections(user, profile) {
 					label: "Session pricing",
 					value:
 						profile.session_pricing != null
-							? fmtMoney(profile.session_pricing, "ETB")
+							? `${fmtMoney(profile.session_pricing_min || 0, "ETB")} - ${fmtMoney(profile.session_pricing, "ETB")}`
 							: profile.hourly_rate != null
 								? fmtMoney(profile.hourly_rate, "ETB")
 								: null,

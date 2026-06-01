@@ -11,6 +11,13 @@ export default function ProfilePictureAvatar({
 	refreshKey = 0,
 }) {
 	const [src, setSrc] = useState("");
+	const [localRefreshKey, setLocalRefreshKey] = useState(0);
+
+	useEffect(() => {
+		const refresh = () => setLocalRefreshKey((value) => value + 1);
+		window.addEventListener("profile-picture-updated", refresh);
+		return () => window.removeEventListener("profile-picture-updated", refresh);
+	}, []);
 
 	useEffect(() => {
 		let objectUrl = "";
@@ -50,7 +57,7 @@ export default function ProfilePictureAvatar({
 			clearTimeout(retryTimer);
 			if (objectUrl) URL.revokeObjectURL(objectUrl);
 		};
-	}, [refreshKey]);
+	}, [refreshKey, localRefreshKey]);
 
 	if (src) {
 		return <img src={src} alt={alt} className={`${className} object-cover`} />;

@@ -15,7 +15,10 @@ export default function MentorRegisterReviewClient() {
 	const fl = files || {};
 
 	useEffect(() => {
-		setAccountInfo(loadRegistrationAccountInfo() || {});
+		const timeout = window.setTimeout(() => {
+			setAccountInfo(loadRegistrationAccountInfo() || {});
+		}, 0);
+		return () => window.clearTimeout(timeout);
 	}, []);
 
 	const fullName = f.full_name || accountInfo.full_name || `${accountInfo.first_name || ""} ${accountInfo.last_name || ""}`.trim();
@@ -177,7 +180,7 @@ export default function MentorRegisterReviewClient() {
 						Session pricing (ETB)
 					</p>
 					<p className="text-sm font-bold text-gray-800">
-						{f.session_pricing || "—"}
+						{f.session_pricing ? `${f.session_pricing_min || "0"} - ${f.session_pricing}` : "—"}
 					</p>
 				</div>
 			</div>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import AiMentorWidget from "@/components/investor/AiMentorWidget";
 import Sidebar from "@/components/investor/Sidebar";
+import ActorAvatar from "@/components/auth/ActorAvatar";
 import {
 	getInvestorFundingOffers,
 	getInvestorPortfolio,
@@ -223,9 +224,7 @@ export default function InvestorDashboard() {
 											<div className="h-28 bg-[#0d3328] relative overflow-hidden flex items-center justify-center">
 												<div className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-500/10 to-transparent" />
 												<div className="absolute left-4 bottom-4 flex items-center gap-2 text-white font-bold">
-													<div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-[#0a4d3c] text-xs">
-														{initials(startupName(startup))}
-													</div>
+													<ActorAvatar role="startup" profileId={startup.startup_id} initials={initials(startupName(startup))} className="h-8 w-8 rounded-lg text-xs" alt={startupName(startup)} />
 													{startupName(startup)}
 												</div>
 											</div>
@@ -269,9 +268,7 @@ export default function InvestorDashboard() {
 										fundingOffers.slice(0, 4).map((offer) => (
 											<div key={offer.investment_request_id} className="flex items-center justify-between pb-4 border-b border-gray-50 last:border-b-0 last:pb-0">
 												<div className="flex items-center gap-3">
-													<div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600">
-														{initials(offer.startup_name)}
-													</div>
+													<ActorAvatar role="startup" profileId={offer.startup_id} initials={initials(offer.startup_name)} className="h-10 w-10 rounded-full text-xs" alt={offer.startup_name} />
 													<div>
 														<h4 className="text-sm font-bold text-gray-900">{offer.startup_name || "Startup"}</h4>
 														<p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{offer.status}</p>
@@ -337,9 +334,7 @@ export default function InvestorDashboard() {
 									{startups.slice(0, 6).map((startup) => (
 										<div key={startup.startup_id} className="grid grid-cols-4 items-center px-6 py-4 hover:bg-gray-50 transition">
 											<div className="flex items-center gap-3 min-w-0">
-												<div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600 shrink-0">
-													{initials(startup.startup_name)}
-												</div>
+												<ActorAvatar role="startup" profileId={startup.startup_id} initials={initials(startup.startup_name)} className="h-10 w-10 shrink-0 rounded-lg text-xs" alt={startup.startup_name} />
 												<div className="min-w-0">
 													<h4 className="text-sm font-bold text-gray-900 truncate">{startup.startup_name}</h4>
 													<p className="text-xs text-gray-500 truncate">{startup.location || startup.city || "Location not set"}</p>

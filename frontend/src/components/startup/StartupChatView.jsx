@@ -16,6 +16,7 @@ import {
 import { useRealtimeChat } from "@/hooks/useRealtimeChat";
 import { MODERATION_WARNING } from "@/lib/socketClient";
 import { chatAccessMessage, isChatAccessError } from "@/lib/chatAccess";
+import ActorAvatar from "@/components/auth/ActorAvatar";
 
 function readCurrentUserId() {
 	try {
@@ -668,7 +669,7 @@ export default function StartupChatView({
 
 				<div className="flex flex-grow overflow-hidden min-h-0">
 					{/* Conversation list */}
-					<aside className="w-full max-w-[360px] shrink-0 border-r border-gray-100 flex flex-col bg-white">
+					<aside className={`${selected ? "hidden md:flex" : "flex"} w-full md:max-w-[360px] shrink-0 border-r border-gray-100 flex-col bg-white`}>
 						<div className="px-5 pt-5 pb-3 border-b border-gray-50">
 							<div className="flex items-center gap-2 mb-4">
 								<h2 className="text-xl font-bold text-gray-900">Messages</h2>
@@ -720,10 +721,7 @@ export default function StartupChatView({
 											{active && (
 												<div className="absolute left-0 top-0 bottom-0 w-1 bg-[#0f3d32]" />
 											)}
-											<div className="w-11 h-11 rounded-full bg-[#0f3d32] text-white flex items-center justify-center text-sm font-bold shrink-0">
-												{conversation.avatarLetter ||
-													initials(conversation.company)}
-											</div>
+											<ActorAvatar role={chatKind} profileId={conversation.partnerId} initials={conversation.avatarLetter || initials(conversation.company)} className="h-11 w-11 shrink-0 rounded-full text-sm" alt={conversation.contactName} />
 											<div className="min-w-0 flex-grow">
 												<div className="flex justify-between items-start gap-2">
 													<p
@@ -770,7 +768,7 @@ export default function StartupChatView({
 					</aside>
 
 					{/* Chat panel */}
-					<section className="flex-grow flex flex-col min-w-0 bg-[#fafbfc]">
+					<section className={`${selected ? "flex" : "hidden md:flex"} flex-grow flex-col min-w-0 bg-[#fafbfc]`}>
 						{liveNotice && (
 							<div
 								className={`mx-4 mt-3 rounded-xl border px-4 py-2 text-sm ${
@@ -809,9 +807,15 @@ export default function StartupChatView({
 							{selected ? (
 								<>
 									<div className="flex items-center gap-3 min-w-0">
-										<div className="w-11 h-11 rounded-full bg-[#0f3d32] text-white flex items-center justify-center text-sm font-bold shrink-0">
-											{initials(selected.contactName)}
-										</div>
+										<button
+											type="button"
+											onClick={() => setSelected(null)}
+											className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-gray-500 hover:bg-gray-100 md:hidden"
+											aria-label="Back to conversations"
+										>
+											<span aria-hidden="true">&larr;</span>
+										</button>
+										<ActorAvatar role={chatKind} profileId={selected.partnerId} initials={initials(selected.contactName)} className="h-11 w-11 shrink-0 rounded-full text-sm" alt={selected.contactName} />
 										<div className="min-w-0">
 											<h3 className="text-base font-bold text-gray-900 truncate">
 												{selected.contactName}
@@ -1064,7 +1068,7 @@ export default function StartupChatView({
 						{/* Composer */}
 						<form
 							onSubmit={handleSend}
-							className="shrink-0 border-t border-gray-200 bg-white p-6"
+							className="shrink-0 border-t border-gray-200 bg-white p-3 sm:p-6"
 						>
 							{selectedFile && (
 								<div className="mb-3 flex items-center gap-2 text-xs text-gray-600">
@@ -1080,12 +1084,12 @@ export default function StartupChatView({
 									</button>
 								</div>
 							)}
-							<div className="flex items-center gap-3">
+							<div className="flex min-w-0 items-center gap-2 sm:gap-3">
 								<button
 									type="button"
 									onClick={() => fileInputRef.current?.click()}
 									disabled={!selected || sending}
-									className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-300 text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+									className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-300 text-gray-500 hover:bg-gray-50 disabled:opacity-50 sm:h-11 sm:w-11"
 									title="Attach file"
 								>
 									<svg
@@ -1112,7 +1116,7 @@ export default function StartupChatView({
 									type="button"
 									onClick={startVoiceRecording}
 									disabled={!selected || sending}
-									className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border disabled:opacity-50 ${
+									className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border disabled:opacity-50 sm:h-11 sm:w-11 ${
 										isRecording
 											? "border-red-200 bg-red-50 text-red-600"
 											: "border-gray-300 text-gray-500 hover:bg-gray-50"
@@ -1133,7 +1137,7 @@ export default function StartupChatView({
 										/>
 									</svg>
 								</button>
-								<div className="flex-grow">
+								<div className="min-w-0 flex-grow">
 									<input
 										value={messageText}
 										onChange={handleMessageInputChange}
@@ -1154,10 +1158,10 @@ export default function StartupChatView({
 										sending ||
 										(!messageText.trim() && !selectedFile)
 									}
-									className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0a3a2e] px-6 py-3.5 text-[14px] font-bold text-white shadow-md transition hover:bg-[#072a21] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:shadow-none"
+									className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0a3a2e] px-3 py-3.5 text-[14px] font-bold text-white shadow-md transition hover:bg-[#072a21] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:shadow-none sm:px-6"
 									title="Send"
 								>
-									{sending ? "Sending..." : selectedFile ? "Send File" : "Send"}
+									<span className="hidden sm:inline">{sending ? "Sending..." : selectedFile ? "Send File" : "Send"}</span>
 									<svg
 										className="w-4 h-4"
 										fill="none"

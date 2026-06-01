@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import NotificationBell from "@/components/NotificationBell";
+import ActorAvatar from "@/components/auth/ActorAvatar";
 import { fetchMentorDashboard } from "@/lib/mentorApi";
 
 function initials(name) {
@@ -226,9 +227,7 @@ export default function MentorDashboard() {
 								<div key={session.mentorship_session_id || session.session_id} className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition hover:shadow-md">
 									<div className="mb-4 flex items-start justify-between gap-3">
 										<div className="flex min-w-0 items-center gap-3">
-											<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#0b4a3c] text-[10px] font-black text-white">
-												{initials(session.startup_name)}
-											</div>
+											<ActorAvatar role="startup" profileId={session.startup_id} initials={initials(session.startup_name)} className="h-10 w-10 shrink-0 rounded-lg text-[10px] font-black" alt={session.startup_name} />
 											<div className="min-w-0">
 												<p className="truncate text-sm font-black text-gray-950">{session.startup_name || "Startup session"}</p>
 												<p className="truncate text-[11px] font-medium text-gray-500">{session.subject || session.title || "Mentorship session"}</p>
@@ -261,8 +260,8 @@ export default function MentorDashboard() {
 								View All
 							</Link>
 						</div>
-						<div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-							<div className="grid grid-cols-[1.2fr_1fr_1fr_80px] bg-gray-50 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-gray-500">
+						<div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+							<div className="grid min-w-[680px] grid-cols-[1.2fr_1fr_1fr_80px] bg-gray-50 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-gray-500">
 								<span>Startup</span>
 								<span>Industry</span>
 								<span>Focus Area</span>
@@ -274,11 +273,9 @@ export default function MentorDashboard() {
 								<p className="px-4 py-5 text-sm text-gray-500">No new mentorship requests.</p>
 							) : (
 								pendingRequests.slice(0, 3).map((request) => (
-									<div key={request.mentorship_request_id} className="grid grid-cols-[1.2fr_1fr_1fr_80px] items-center border-t border-gray-50 px-4 py-4 text-xs">
+									<div key={request.mentorship_request_id} className="grid min-w-[680px] grid-cols-[1.2fr_1fr_1fr_80px] items-center border-t border-gray-50 px-4 py-4 text-xs">
 										<div className="flex min-w-0 items-center gap-3">
-											<div className="flex h-7 w-7 items-center justify-center rounded bg-emerald-50 text-[10px] font-black text-[#0b4a3c]">
-												{initials(request.startup_name)}
-											</div>
+											<ActorAvatar role="startup" profileId={request.startup_id} initials={initials(request.startup_name)} className="h-7 w-7 rounded text-[10px] font-black" alt={request.startup_name} />
 											<span className="truncate font-black text-gray-950">{request.startup_name || "Startup"}</span>
 										</div>
 										<span className="truncate text-gray-700">{request.industry || "General"}</span>

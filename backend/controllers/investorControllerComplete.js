@@ -47,6 +47,9 @@ async function ensureInvestorSettingsSchema(client = pool) {
 	await client.query(
 		"ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_enabled BOOLEAN NOT NULL DEFAULT FALSE",
 	);
+	await client.query(
+		"ALTER TABLE investors ADD COLUMN IF NOT EXISTS investment_budget_min DECIMAL(14,2) CHECK (investment_budget_min IS NULL OR investment_budget_min >= 0)",
+	);
 }
 
 /** Startups visible to investors in discover/list/search (registered profiles; verified listed first). */
@@ -211,6 +214,10 @@ exports.updateInvestorSettings = async (req, res) => {
 			body.investment_budget ?? body.investment_range,
 			"investment_budget",
 		);
+		const budgetMin = optionalNumber(
+			body.investment_budget_min ?? body.investment_range_min,
+			"investment_budget_min",
+		);
 		const portfolioSize = optionalNumber(
 			body.portfolio_size,
 			"portfolio_size",
@@ -218,6 +225,14 @@ exports.updateInvestorSettings = async (req, res) => {
 		);
 
 		if (!budget.ok) return res.status(400).json({ error: budget.error });
+		if (!budgetMin.ok) return res.status(400).json({ error: budgetMin.error });
+		if (
+			budgetMin.value != null &&
+			budget.value != null &&
+			budgetMin.value > budget.value
+		) {
+			return res.status(400).json({ error: "investment_budget_min cannot exceed investment_budget" });
+		}
 		if (!portfolioSize.ok)
 			return res.status(400).json({ error: portfolioSize.error });
 
@@ -285,20 +300,22 @@ exports.updateInvestorSettings = async (req, res) => {
 			    investor_type = $1,
 			    organization_name = $2,
 			    investment_budget = $3,
-			    preferred_industry = $4,
-			    investment_stage = $5,
-			    location_preference = $6,
-			    linked_in_or_website = $7,
-			    bio = $8,
-			    country = $9,
-			    portfolio_size = $10
-			 WHERE user_id = $11`,
+			    investment_budget_min = $4,
+			    preferred_industry = $5,
+			    investment_stage = $6,
+			    location_preference = $7,
+			    linked_in_or_website = $8,
+			    bio = $9,
+			    country = $10,
+			    portfolio_size = $11
+			 WHERE user_id = $12`,
 			[
 				investorType !== undefined ? investorType : current.investor_type,
 				cleanText(body.organization_name) !== undefined
 					? cleanText(body.organization_name)
 					: current.organization_name,
 				budget.value !== undefined ? budget.value : current.investment_budget,
+				budgetMin.value !== undefined ? budgetMin.value : current.investment_budget_min,
 				cleanText(body.preferred_industry) !== undefined
 					? cleanText(body.preferred_industry)
 					: current.preferred_industry,

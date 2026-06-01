@@ -7,6 +7,9 @@ const multer = require("multer");
 exports.updateMentorProfile = async (req, res) => {
 	try {
 		const userId = req.user.user_id;
+		await pool.query(
+			"ALTER TABLE mentors ADD COLUMN IF NOT EXISTS session_pricing_min DECIMAL(10,2) CHECK (session_pricing_min IS NULL OR session_pricing_min >= 0)",
+		);
 		const {
 			headline,
 			expertise,
@@ -15,21 +18,42 @@ exports.updateMentorProfile = async (req, res) => {
 			country,
 			bio,
 			availability,
+			session_pricing,
+			session_pricing_min,
 		} = req.body;
+		const sessionPricing = session_pricing ?? hourly_rate;
+		const parsedSessionPricing =
+			sessionPricing === undefined || sessionPricing === ""
+				? null
+				: Number(sessionPricing);
+		const parsedSessionPricingMin =
+			session_pricing_min === undefined || session_pricing_min === ""
+				? null
+				: Number(session_pricing_min);
+		if (
+			(parsedSessionPricing != null && (Number.isNaN(parsedSessionPricing) || parsedSessionPricing < 0)) ||
+			(parsedSessionPricingMin != null && (Number.isNaN(parsedSessionPricingMin) || parsedSessionPricingMin < 0)) ||
+			(parsedSessionPricing != null && parsedSessionPricingMin != null && parsedSessionPricingMin > parsedSessionPricing)
+		) {
+			return res.status(400).json({ error: "Session price range is invalid" });
+		}
 
 		const result = await pool.query(
 			`UPDATE mentors SET headline = COALESCE($1, headline), expertise = COALESCE($2, expertise),
 			 years_experience = COALESCE($3, years_experience), hourly_rate = COALESCE($4, hourly_rate),
-			 country = COALESCE($5, country), bio = COALESCE($6, bio), availability = COALESCE($7, availability)
-			 WHERE user_id = $8 RETURNING *`,
+			 country = COALESCE($5, country), bio = COALESCE($6, bio), availability = COALESCE($7, availability),
+			 session_pricing = COALESCE($8, session_pricing), session_pricing_min = COALESCE($9, session_pricing_min)
+			 WHERE user_id = $10 RETURNING *`,
 			[
 				headline,
 				expertise,
 				years_experience,
-				hourly_rate,
+				parsedSessionPricing,
 				country,
 				bio,
 				availability,
+				parsedSessionPricing,
+				parsedSessionPricingMin,
 				userId,
 			],
 		);

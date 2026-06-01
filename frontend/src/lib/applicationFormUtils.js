@@ -81,8 +81,7 @@ export function contactRangeLabel(contact, kind) {
   if (kind === "investment") {
     return formatTicketRange(contact, "investor");
   }
-  const price = formatMoney(contact?.session_pricing);
-  return price ? `${price} / session` : null;
+  return formatTicketRange(contact, "mentor");
 }
 
 export function contactTags(contact, kind) {

@@ -10,7 +10,6 @@ import { useStartupApproval } from "@/hooks/useStartupApproval";
 import {
   buildInvestorMatchChecks,
   findInvestorRecommendation,
-  formatMoney,
   formatTicketRange,
   parseTagList,
 } from "@/lib/discoverProfileUtils";
@@ -73,7 +72,7 @@ function buildInvestorProfile(investor) {
       { label: "Preferred Stage", value: investor.investment_stage || "—" },
       {
         label: "Typical Budget",
-        value: formatMoney(investor.investment_budget) || investor.investment_range || "—",
+        value: formatTicketRange(investor, "investor") || investor.investment_range || "—",
       },
     ].filter((p) => p.value && p.value !== "—"),
     industryTags: parseTagList(investor.preferred_industry || investor.industry || investor.sector),

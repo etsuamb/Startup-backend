@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import NotificationBell from "@/components/NotificationBell";
+import ActorAvatar from "@/components/auth/ActorAvatar";
 import {
 	acceptRequest,
 	fetchIncomingRequests,
@@ -324,8 +325,8 @@ export default function MentorRequestsPage() {
 						</button>
 					</div>
 
-					<div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
-						<div className="grid grid-cols-[1.4fr_1fr_1.2fr_90px_70px] bg-gray-50 px-4 py-4 text-[10px] font-black uppercase tracking-[0.18em] text-gray-500">
+					<div className="overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm">
+						<div className="grid min-w-[760px] grid-cols-[1.4fr_1fr_1.2fr_90px_70px] bg-gray-50 px-4 py-4 text-[10px] font-black uppercase tracking-[0.18em] text-gray-500">
 							<span>Startup & Founder</span>
 							<span>Context</span>
 							<span>Requested Support</span>
@@ -347,12 +348,10 @@ export default function MentorRequestsPage() {
 										key={request.mentorship_request_id}
 										type="button"
 										onClick={() => setSelectedId(request.mentorship_request_id)}
-										className={`grid w-full grid-cols-[1.4fr_1fr_1.2fr_90px_70px] items-center border-t border-gray-50 px-4 py-4 text-left text-xs transition ${selectedRow ? "bg-[#eef4f1]" : "hover:bg-gray-50"}`}
+										className={`grid min-w-[760px] w-full grid-cols-[1.4fr_1fr_1.2fr_90px_70px] items-center border-t border-gray-50 px-4 py-4 text-left text-xs transition ${selectedRow ? "bg-[#eef4f1]" : "hover:bg-gray-50"}`}
 									>
 										<div className="flex min-w-0 items-center gap-3">
-											<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#0b4a3c] text-xs font-black text-white">
-												{initials(request.startup_name)}
-											</div>
+											<ActorAvatar role="startup" profileId={request.startup_id} initials={initials(request.startup_name)} className="h-9 w-9 shrink-0 rounded-lg text-xs font-black" alt={request.startup_name} />
 											<div className="min-w-0">
 												<p className="truncate font-black text-gray-950">{request.startup_name || "Startup"}</p>
 												<p className="truncate text-[11px] font-medium text-gray-500">{founderName(request)}</p>
@@ -391,9 +390,7 @@ export default function MentorRequestsPage() {
 						<div className="h-16 bg-[#0b4a3c]" />
 						{selected ? (
 							<div className="p-5">
-								<div className="-mt-11 mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-[#0b4a3c] text-lg font-black text-white ring-4 ring-white">
-									{initials(selected.startup_name)}
-								</div>
+								<ActorAvatar role="startup" profileId={selected.startup_id} initials={initials(selected.startup_name)} className="-mt-11 mb-4 h-14 w-14 rounded-xl text-lg font-black ring-4 ring-white" alt={selected.startup_name} />
 								<div className="mb-4 flex items-start justify-between gap-3">
 									<div>
 										<h2 className="text-base font-black text-gray-950">{selected.startup_name || "Startup"}</h2>

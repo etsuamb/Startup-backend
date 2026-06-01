@@ -298,15 +298,11 @@ export default function MentorRegistrationStep2Form() {
 
       <div className="grid gap-6">
         <label className="block text-sm font-bold text-[#0f3d32]">
-          Typical session pricing (ETB)
-          <input
-            type="text"
-            name="session_pricing"
-            required
-            defaultValue={f.session_pricing || ""}
-            placeholder="e.g. 2,000"
-            className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-[#136150] focus:ring-2 focus:ring-[#136150]"
-          />
+          Typical session price range (ETB)
+          <span className="mt-3 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+            <input type="number" name="session_pricing_min" min="0" required defaultValue={f.session_pricing_min || ""} placeholder="Minimum" className="w-full min-w-0 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-[#136150] focus:ring-2 focus:ring-[#136150]" />
+            <input type="number" name="session_pricing" min={f.session_pricing_min || "0"} required defaultValue={f.session_pricing || ""} placeholder="Maximum" className="w-full min-w-0 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-[#136150] focus:ring-2 focus:ring-[#136150]" />
+          </span>
         </label>
       </div>
 
