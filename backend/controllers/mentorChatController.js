@@ -208,7 +208,7 @@ exports.listConversations = async (req, res) => {
 			const r = await pool.query(
 				`SELECT c.mentor_conversation_id, c.startup_id, c.mentor_id, c.created_at, c.last_message_at,
               su.first_name AS startup_contact_first_name, su.last_name AS startup_contact_last_name,
-              s.startup_name,
+              s.startup_name, s.industry, s.business_stage,
               (SELECT cm.message_type FROM mentor_chat_messages cm WHERE cm.mentor_conversation_id = c.mentor_conversation_id ORDER BY cm.created_at DESC LIMIT 1) AS last_message_type,
               (SELECT COALESCE(cm.text_body, cm.file_name, '') FROM mentor_chat_messages cm WHERE cm.mentor_conversation_id = c.mentor_conversation_id ORDER BY cm.created_at DESC LIMIT 1) AS last_message_preview,
               (SELECT COUNT(*)::int FROM mentor_chat_messages cm

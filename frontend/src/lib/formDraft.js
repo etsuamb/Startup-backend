@@ -11,15 +11,17 @@ const PREFIX = "sc_form_draft_";
  * @param {object} data - Form data to save
  */
 export function saveDraft(pageKey, data) {
-	if (typeof window === "undefined") return;
+	if (typeof window === "undefined") return false;
 	try {
 		const key = PREFIX + pageKey;
 		localStorage.setItem(key, JSON.stringify({
 			data,
 			savedAt: new Date().toISOString(),
 		}));
+		return true;
 	} catch (err) {
 		console.error("Error saving draft:", err);
+		return false;
 	}
 }
 

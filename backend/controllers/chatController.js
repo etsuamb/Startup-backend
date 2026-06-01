@@ -228,7 +228,7 @@ exports.listConversations = async (req, res) => {
 			const r = await pool.query(
 				`SELECT c.conversation_id, c.startup_id, c.investor_id, c.created_at, c.last_message_at,
               iu.first_name AS investor_first_name, iu.last_name AS investor_last_name, iu.email AS investor_email,
-              inv.investor_type,
+              inv.investor_type, inv.organization_name AS investor_company,
               (SELECT cm.message_type FROM chat_messages cm WHERE cm.conversation_id = c.conversation_id ORDER BY cm.created_at DESC LIMIT 1) AS last_message_type,
               (SELECT COALESCE(cm.text_body, cm.file_name, '') FROM chat_messages cm WHERE cm.conversation_id = c.conversation_id ORDER BY cm.created_at DESC LIMIT 1) AS last_message_preview,
               (SELECT COUNT(*)::int FROM chat_messages cm
@@ -251,7 +251,7 @@ exports.listConversations = async (req, res) => {
 			const r = await pool.query(
 				`SELECT c.conversation_id, c.startup_id, c.investor_id, c.created_at, c.last_message_at,
               su.first_name AS startup_contact_first_name, su.last_name AS startup_contact_last_name,
-              s.startup_name,
+              s.startup_name, s.industry,
               (SELECT cm.message_type FROM chat_messages cm WHERE cm.conversation_id = c.conversation_id ORDER BY cm.created_at DESC LIMIT 1) AS last_message_type,
               (SELECT COALESCE(cm.text_body, cm.file_name, '') FROM chat_messages cm WHERE cm.conversation_id = c.conversation_id ORDER BY cm.created_at DESC LIMIT 1) AS last_message_preview,
               (SELECT COUNT(*)::int FROM chat_messages cm

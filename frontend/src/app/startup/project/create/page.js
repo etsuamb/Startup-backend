@@ -51,11 +51,14 @@ export default function StartupProjectCreate() {
     const editId = params.get("edit");
 
     if (editId) {
+      // Restore route state on the initial client mount.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setEditProjectId(editId);
     } else {
       // Load draft if not in edit mode
       const savedDraft = loadDraft(DRAFT_KEY);
       if (savedDraft) {
+        // Restore the locally saved form when starting a new project.
         setProjectTitle(savedDraft.projectTitle || "");
         setIndustry(savedDraft.industry || "");
         setStage(savedDraft.stage || "");
@@ -64,6 +67,7 @@ export default function StartupProjectCreate() {
         setSolution(savedDraft.solution || "");
         setFundingGoal(savedDraft.fundingGoal || "");
         setExpectedImpact(savedDraft.expectedImpact || "");
+        setDraftSavedAt(formatSavedTime(getDraftSavedAt(DRAFT_KEY)));
         setShowDraftNotice(true);
         setTimeout(() => setShowDraftNotice(false), 4000);
       }
@@ -85,9 +89,10 @@ export default function StartupProjectCreate() {
         expectedImpact,
       };
       if (Object.values(draftData).some(v => v && String(v).trim())) {
-        saveDraft(DRAFT_KEY, draftData);
-        const savedAt = getDraftSavedAt(DRAFT_KEY);
-        setDraftSavedAt(formatSavedTime(savedAt));
+        if (saveDraft(DRAFT_KEY, draftData)) {
+          const savedAt = getDraftSavedAt(DRAFT_KEY);
+          setDraftSavedAt(formatSavedTime(savedAt));
+        }
       }
     }, 2000);
     return () => clearTimeout(timer);
@@ -385,7 +390,11 @@ export default function StartupProjectCreate() {
                           fundingGoal,
                           expectedImpact,
                         };
-                        saveDraft(DRAFT_KEY, draftData);
+                        if (!saveDraft(DRAFT_KEY, draftData)) {
+                          setError("Could not save your draft in this browser. Check browser storage permissions and try again.");
+                          return;
+                        }
+                        setError(null);
                         setShowDraftNotice(true);
                         const savedAt = getDraftSavedAt(DRAFT_KEY);
                         setDraftSavedAt(formatSavedTime(savedAt));
@@ -394,7 +403,7 @@ export default function StartupProjectCreate() {
                       disabled={isEditMode}
                       className="px-6 py-3.5 bg-white border border-[#0f3d32] text-[#0f3d32] font-bold rounded-lg hover:bg-gray-50 transition text-xs shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Save Draft
+                      {showDraftNotice ? "Draft Saved" : "Save Draft"}
                     </button>
                     {draftSavedAt && !isEditMode && (
                       <span className="text-[10px] text-gray-500">Auto-saved {draftSavedAt}</span>

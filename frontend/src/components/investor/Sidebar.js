@@ -6,6 +6,8 @@ import { clearSession, getRole, getUserName } from "@/lib/authStorage";
 import { getInvestorProfile } from "@/lib/investorApi";
 import NotificationBell from "@/components/NotificationBell";
 import ProfilePictureAvatar from "@/components/auth/ProfilePictureAvatar";
+import SidebarCollapseButton, { SidebarMobileToggle } from "@/components/SidebarCollapseButton";
+import { useSidebarCollapse } from "@/hooks/useSidebarCollapse";
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -14,6 +16,7 @@ export default function Sidebar() {
   const [profileName, setProfileName] = useState("");
   const [profileRole, setProfileRole] = useState("Investor");
   const [profileError, setProfileError] = useState("");
+  const { collapsed, mobileOpen, toggleCollapsed, toggleMobile, closeMobile } = useSidebarCollapse(pathname);
 
   useEffect(() => {
     let ignore = false;
@@ -94,6 +97,11 @@ export default function Sidebar() {
   ];
 
   const commLinks = [
+    {
+      name: "Connections",
+      href: "/investor/connections",
+      icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72M12 15.75a6 6 0 00-6 6m6-6a6 6 0 016 6m-6-6a3.75 3.75 0 100-7.5 3.75 3.75 0 000 7.5z"></path>
+    },
     { 
       name: "Messages", 
       href: "/investor/messages", 
@@ -130,7 +138,7 @@ export default function Sidebar() {
 
   return (
     <>
-      <div className="fixed top-0 left-0 right-0 md:left-[260px] z-50 flex h-16 items-center justify-between gap-4 border-b border-gray-200 bg-white px-4 md:px-6">
+      <div className={`fixed top-0 left-0 right-0 ${collapsed ? "md:left-[72px]" : "md:left-[260px]"} z-50 flex h-16 items-center justify-between gap-4 border-b border-gray-200 bg-white px-4 md:px-6 transition-[left] duration-200`}>
         <div />
 
         <div className="relative flex items-center gap-3 shrink-0">
@@ -202,7 +210,9 @@ export default function Sidebar() {
         ) : null}
       </div>
 
-      <aside className="hidden md:flex flex-col w-[260px] bg-[#061e16] border-r border-[#0f3d32] shrink-0 sticky top-0 h-screen overflow-y-auto relative">
+      <SidebarMobileToggle open={mobileOpen} onToggle={toggleMobile} />
+      {mobileOpen && <button type="button" aria-label="Close sidebar" onClick={closeMobile} className="fixed inset-0 z-[70] bg-black/40 md:hidden" />}
+      <aside className={`fixed inset-y-0 left-0 z-[80] flex w-[260px] flex-col bg-[#061e16] border-r border-[#0f3d32] shrink-0 h-screen overflow-y-auto transition-transform duration-200 md:sticky md:top-0 md:z-auto md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"} ${collapsed ? "md:w-[72px]" : "md:w-[260px]"}`}>
       {/* Abstract Green Light Beams / Background */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         <div className="absolute inset-0 bg-[#061e16]"></div>
@@ -215,24 +225,26 @@ export default function Sidebar() {
       </div>
 
       {/* Logo */}
-      <div className="p-6 pb-2 relative z-10">
-        <Link href="/" className="flex items-center gap-3">
+      <div className={`relative z-10 flex items-center ${collapsed ? "justify-center p-4" : "gap-4 px-4 pb-2 pt-6"}`}>
+        {(!collapsed || mobileOpen) && <Link href="/" className="flex min-w-0 flex-1 items-center gap-3">
           <img src="/logo.png" alt="StartupConnect Logo" className="w-10 h-10 object-contain" />
           <div className="flex flex-col">
              <span className="font-bold text-white text-lg tracking-tight leading-tight">StartupConnect</span>
              <span className="text-[9px] font-bold text-[#10b981] uppercase tracking-widest leading-tight">Investor Dashboard</span>
           </div>
-        </Link>
+        </Link>}
+        <SidebarCollapseButton collapsed={collapsed} onToggle={toggleCollapsed} />
       </div>
 
       {/* Primary Nav */}
-      <div className="px-4 py-4 flex flex-col gap-1 mt-2 relative z-10">
+      <div className={`${collapsed ? "px-2" : "px-4"} py-4 flex flex-col gap-1 mt-2 relative z-10`}>
         {primaryLinks.map((link) => {
           const isActive = pathname === link.href || (link.href !== "/investor/dashboard" && pathname?.startsWith(link.href));
           return (
             <Link 
               key={link.name} 
               href={link.href} 
+              title={collapsed ? link.name : undefined}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition relative overflow-hidden group ${
                 isActive 
                   ? "bg-[#0f3d32] text-white" 
@@ -242,7 +254,7 @@ export default function Sidebar() {
               <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {link.icon}
               </svg>
-              {link.name}
+              {(!collapsed || mobileOpen) && link.name}
               {isActive && (
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-[#10b981] rounded-l-full"></div>
               )}
@@ -252,14 +264,15 @@ export default function Sidebar() {
       </div>
 
       {/* Communication Nav */}
-      <div className="px-4 py-2 mt-2 flex flex-col gap-1 relative z-10">
-        <p className="text-[10px] font-bold text-[#4d7066] uppercase tracking-widest px-4 mb-2">Communication</p>
+      <div className={`${collapsed ? "px-2" : "px-4"} py-2 mt-2 flex flex-col gap-1 relative z-10`}>
+        <p className={`${collapsed && !mobileOpen ? "sr-only" : ""} text-[10px] font-bold text-[#4d7066] uppercase tracking-widest px-4 mb-2`}>Communication</p>
         {commLinks.map((link) => {
           const isActive = pathname === link.href || pathname?.startsWith(link.href);
           return (
             <Link 
               key={link.name} 
               href={link.href} 
+              title={collapsed ? link.name : undefined}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition relative overflow-hidden group ${
                 isActive 
                   ? "bg-[#0f3d32] text-white" 
@@ -269,7 +282,7 @@ export default function Sidebar() {
               <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {link.icon}
               </svg>
-              {link.name}
+              {(!collapsed || mobileOpen) && link.name}
               {isActive && (
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-[#10b981] rounded-l-full"></div>
               )}

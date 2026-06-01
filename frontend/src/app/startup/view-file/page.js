@@ -70,10 +70,22 @@ function FileViewerContent() {
           <p className="text-sm font-semibold text-gray-900">
             {error || "Invalid or unavailable file link."}
           </p>
+          {error === "File missing on server" ? (
+            <p className="mt-2 text-xs leading-5 text-gray-500">
+              This older upload is no longer available. Upload a replacement document to continue.
+            </p>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => router.push("/startup/project/documents")}
+            className="mt-5 rounded-lg bg-[#0f3d32] px-4 py-2 text-sm font-bold text-white hover:bg-[#0a2921]"
+          >
+            Replace file
+          </button>
           <button
             type="button"
             onClick={() => router.back()}
-            className="mt-4 text-sm font-bold text-[#0f3d32] hover:underline"
+            className="ml-4 mt-4 text-sm font-bold text-[#0f3d32] hover:underline"
           >
             Go back
           </button>

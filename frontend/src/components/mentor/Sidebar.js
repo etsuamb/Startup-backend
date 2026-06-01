@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import SidebarCollapseButton, { SidebarMobileToggle } from "@/components/SidebarCollapseButton";
+import { useSidebarCollapse } from "@/hooks/useSidebarCollapse";
 
 const NAV_SECTIONS = [
   {
@@ -35,7 +37,7 @@ const NAV_SECTIONS = [
       },
       {
         id: "startups",
-        label: "My Startups",
+        label: "Discover",
         href: "/mentor/startups",
         icon: (
           <path
@@ -64,6 +66,14 @@ const NAV_SECTIONS = [
   {
     label: "Communication",
     links: [
+      {
+        id: "connections",
+        label: "Connections",
+        href: "/mentor/connections",
+        icon: (
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72M12 15.75a6 6 0 00-6 6m6-6a6 6 0 016 6m-6-6a3.75 3.75 0 100-7.5 3.75 3.75 0 000 7.5z" />
+        ),
+      },
       {
         id: "messages",
         label: "Messages",
@@ -114,17 +124,21 @@ const NAV_SECTIONS = [
 
 export default function MentorSidebar() {
   const pathname = usePathname();
+  const { collapsed, mobileOpen, toggleCollapsed, toggleMobile, closeMobile } = useSidebarCollapse(pathname);
 
   return (
-    <aside className="hidden md:flex flex-col w-[248px] bg-[#07251f] border-r border-[#123b32] shrink-0 sticky top-0 h-screen overflow-y-auto relative">
+    <>
+      <SidebarMobileToggle open={mobileOpen} onToggle={toggleMobile} />
+      {mobileOpen && <button type="button" aria-label="Close sidebar" onClick={closeMobile} className="fixed inset-0 z-[70] bg-black/40 md:hidden" />}
+      <aside className={`fixed inset-y-0 left-0 z-[80] flex w-[248px] flex-col bg-[#07251f] border-r border-[#123b32] shrink-0 h-screen overflow-y-auto transition-transform duration-200 md:sticky md:top-0 md:z-auto md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"} ${collapsed ? "md:w-[72px]" : "md:w-[248px]"}`}>
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none bg-gradient-to-b from-[#0a3028] via-[#07251f] to-[#061e1a]">
         <div className="absolute -top-24 -right-20 h-56 w-56 rounded-full bg-[#10b981]/10 blur-3xl" />
         <div className="absolute bottom-20 -left-24 h-48 w-48 rounded-full bg-[#10b981]/5 blur-3xl" />
       </div>
 
       {/* Logo */}
-      <div className="p-5 pb-4 relative z-10">
-        <Link href="/mentor/dashboard" className="flex items-center gap-3">
+      <div className={`relative z-10 flex items-center ${collapsed ? "justify-center p-4" : "justify-between p-5 pb-4"}`}>
+        {(!collapsed || mobileOpen) && <Link href="/mentor/dashboard" className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-[#10b981]/15 ring-1 ring-inset ring-[#10b981]/25 flex items-center justify-center shrink-0">
             <svg className="w-5 h-5 text-[#34d399]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
@@ -134,14 +148,15 @@ export default function MentorSidebar() {
             <span className="font-bold text-white text-[15px] tracking-tight leading-tight">StartupConnect</span>
             <span className="text-[9px] font-bold text-[#10b981] uppercase tracking-widest leading-tight">Mentor Dashboard</span>
           </div>
-        </Link>
+        </Link>}
+        <SidebarCollapseButton collapsed={collapsed} onToggle={toggleCollapsed} />
       </div>
 
       {/* Navigation sections */}
-      <div className="flex flex-col gap-4 px-3 py-3 relative z-10 flex-1">
+      <div className={`flex flex-col gap-4 ${collapsed ? "px-2" : "px-3"} py-3 relative z-10 flex-1`}>
         {NAV_SECTIONS.map((section) => (
           <div key={section.label}>
-            <p className="text-[9px] font-bold text-[#3d6b5f] uppercase tracking-widest px-3 mb-1.5">
+            <p className={`${collapsed && !mobileOpen ? "sr-only" : ""} text-[9px] font-bold text-[#3d6b5f] uppercase tracking-widest px-3 mb-1.5`}>
               {section.label}
             </p>
             <div className="flex flex-col gap-0.5">
@@ -153,6 +168,7 @@ export default function MentorSidebar() {
                   <Link
                     key={link.id}
                     href={link.href}
+                    title={collapsed ? link.label : undefined}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition-all duration-150 relative overflow-hidden ${
                       isActive
                         ? "bg-white/10 text-white shadow-sm ring-1 ring-inset ring-white/5"
@@ -162,7 +178,7 @@ export default function MentorSidebar() {
                     <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       {link.icon}
                     </svg>
-                    {link.name || link.label}
+                    {(!collapsed || mobileOpen) && (link.name || link.label)}
                     {isActive && (
                       <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-[#10b981] rounded-l-full" />
                     )}
@@ -174,6 +190,7 @@ export default function MentorSidebar() {
         ))}
       </div>
 
-    </aside>
+      </aside>
+    </>
   );
 }

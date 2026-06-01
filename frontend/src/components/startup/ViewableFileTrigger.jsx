@@ -10,15 +10,19 @@ export default function ViewableFileTrigger({
   filePath,
   fileName,
   fileType,
+  fileAvailable,
   description,
   className = "",
   showBadge = true,
   children,
 }) {
-  const canView = canPreviewDocument({ documentId, filePath });
+  const canView = canPreviewDocument({ documentId, filePath, fileAvailable });
 
   function handleClick() {
-    if (!canView) return;
+    if (!canView) {
+      window.location.assign("/startup/project/documents");
+      return;
+    }
     openUploadedFileForView({ documentId, filePath, fileName, fileType });
   }
 
@@ -34,10 +38,9 @@ export default function ViewableFileTrigger({
       type="button"
       onClick={handleClick}
       onKeyDown={handleKeyDown}
-      disabled={!canView}
-      title={canView ? "Tap to view" : "Preview unavailable"}
+      title={canView ? "Tap to view" : "Upload a replacement file"}
       className={`w-full text-left transition ${
-        canView ? "cursor-pointer hover:opacity-90" : "cursor-not-allowed opacity-60"
+        canView ? "cursor-pointer hover:opacity-90" : "cursor-pointer opacity-70 hover:opacity-100"
       } ${className}`}
     >
       {children ?? (
@@ -55,9 +58,13 @@ export default function ViewableFileTrigger({
               <span className="block text-xs text-gray-500 truncate mt-0.5">{description}</span>
             ) : null}
           </span>
-          {canView && (
+          {canView ? (
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#0f3d32] shrink-0">
               View
+            </span>
+          ) : (
+            <span className="text-[10px] font-bold uppercase tracking-wider text-red-600 shrink-0">
+              Replace
             </span>
           )}
         </span>

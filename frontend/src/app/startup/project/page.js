@@ -8,6 +8,7 @@ import StartupActionNotice from "@/components/startup/StartupActionNotice";
 import StartupTopBar from "@/components/startup/StartupTopBar";
 import { isAccountGateError } from "@/lib/accountGate";
 import {
+  deleteProject,
   getDocuments,
   getMyProjects,
   getStartupOffers,
@@ -126,6 +127,7 @@ export default function StartupProjectsListing() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
+  const [deletingProjectId, setDeletingProjectId] = useState(null);
 
   const loadProjects = useCallback(async (isRefresh = false) => {
     try {
@@ -152,7 +154,24 @@ export default function StartupProjectsListing() {
     }
   }, []);
 
+  async function handleDeleteProject(project) {
+    const title = project.project_title || "this project";
+    if (!window.confirm(`Delete "${title}"? This action cannot be undone.`)) return;
+
+    try {
+      setDeletingProjectId(project.project_id);
+      setError(null);
+      await deleteProject(project.project_id);
+      await loadProjects(true);
+    } catch (err) {
+      setError(err.message || "Could not delete project.");
+    } finally {
+      setDeletingProjectId(null);
+    }
+  }
+
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load the startup's projects when this page opens.
     loadProjects();
   }, [loadProjects]);
 
@@ -523,6 +542,14 @@ export default function StartupProjectsListing() {
                         >
                           View Details
                         </Link>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteProject(project)}
+                          disabled={deletingProjectId === project.project_id}
+                          className="text-sm font-semibold text-red-600 transition hover:text-red-700 disabled:cursor-wait disabled:opacity-60"
+                        >
+                          {deletingProjectId === project.project_id ? "Deleting..." : "Delete Project"}
+                        </button>
                         {missingDocs && (
                           <Link
                             href={`/startup/project/documents?project=${project.project_id}`}

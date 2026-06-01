@@ -262,6 +262,10 @@ export async function updateProject(projectId, project) {
   return apiPutJson(`/startups/projects/${projectId}`, project);
 }
 
+export async function deleteProject(projectId) {
+  return apiFetch(`/startups/projects/${projectId}`, { method: "DELETE" });
+}
+
 export async function getStartupOffers(params = {}) {
   const query = buildQuery(params);
   return apiFetch(`/startups/offers?${query}`);

@@ -1,9 +1,12 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import SidebarCollapseButton, { SidebarMobileToggle } from "@/components/SidebarCollapseButton";
+import { useSidebarCollapse } from "@/hooks/useSidebarCollapse";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { collapsed, mobileOpen, toggleCollapsed, toggleMobile, closeMobile } = useSidebarCollapse(pathname);
 
   const primaryLinks = [
     {
@@ -59,11 +62,11 @@ export default function Sidebar() {
   ];
 
   const networkLinks = [
-    // { 
-    //   name: "Investment", 
-    //   href: "#", 
-    //   icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path> 
-    // },
+    {
+      name: "Connections",
+      href: "/startup/connections",
+      icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72M12 15.75a6 6 0 00-6 6m6-6a6 6 0 016 6m-6-6a3.75 3.75 0 100-7.5 3.75 3.75 0 000 7.5z"></path>
+    },
     {
       name: "Messages",
       href: "/startup/chat",
@@ -73,7 +76,10 @@ export default function Sidebar() {
 
   // The sidebar container uses bg-[#061e16] and the faux light beams from the registration layout.
   return (
-    <aside className="hidden md:flex flex-col w-[260px] bg-[#061e16] border-r border-[#0f3d32] shrink-0 sticky top-0 h-screen overflow-y-auto relative">
+    <>
+      <SidebarMobileToggle open={mobileOpen} onToggle={toggleMobile} />
+      {mobileOpen && <button type="button" aria-label="Close sidebar" onClick={closeMobile} className="fixed inset-0 z-[70] bg-black/40 md:hidden" />}
+      <aside className={`fixed inset-y-0 left-0 z-[80] flex w-[260px] flex-col bg-[#061e16] border-r border-[#0f3d32] shrink-0 h-screen overflow-y-auto transition-transform duration-200 md:sticky md:top-0 md:z-auto md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"} ${collapsed ? "md:w-[72px]" : "md:w-[260px]"}`}>
       {/* Abstract Green Light Beams / Background */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         <div className="absolute inset-0 bg-[#061e16]"></div>
@@ -87,18 +93,19 @@ export default function Sidebar() {
       </div>
 
       {/* Logo */}
-      <div className="p-6 pb-2 relative z-10">
-        <Link href="/" className="flex items-center gap-3">
+      <div className={`relative z-10 flex items-center ${collapsed ? "justify-center p-4" : "justify-between p-6 pb-2"}`}>
+        {(!collapsed || mobileOpen) && <Link href="/" className="flex items-center gap-3">
           <img src="/logo.png" alt="Startup Hub Logo" className="w-10 h-10 object-contain" />
           <div className="flex flex-col">
             <span className="font-bold text-white text-lg tracking-tight leading-tight">Startup Hub</span>
             <span className="text-[9px] font-bold text-[#10b981] uppercase tracking-widest leading-tight">Entrepreneur Portal</span>
           </div>
-        </Link>
+        </Link>}
+        <SidebarCollapseButton collapsed={collapsed} onToggle={toggleCollapsed} />
       </div>
 
       {/* Primary Nav */}
-      <div className="px-4 py-4 flex flex-col gap-1 mt-4 relative z-10">
+      <div className={`${collapsed ? "px-2" : "px-4"} py-4 flex flex-col gap-1 mt-4 relative z-10`}>
         {primaryLinks.map((link) => {
           // Check if link is active (exact match or subpath if it's not dashboard)
           const isActive = pathname === link.href || (link.href !== "/startup/dashboard" && pathname?.startsWith(link.href));
@@ -106,6 +113,7 @@ export default function Sidebar() {
             <Link
               key={link.name}
               href={link.href}
+              title={collapsed ? link.name : undefined}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition relative overflow-hidden group ${isActive
                   ? "bg-[#0f3d32] text-white"
                   : "text-[#8ba39e] hover:text-white hover:bg-[#0a2921]"
@@ -114,7 +122,7 @@ export default function Sidebar() {
               <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {link.icon}
               </svg>
-              {link.name}
+              {(!collapsed || mobileOpen) && link.name}
               {isActive && (
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-[#10b981] rounded-l-full"></div>
               )}
@@ -124,14 +132,15 @@ export default function Sidebar() {
       </div>
 
       {/* Network Nav */}
-      <div className="px-4 py-2 mt-2 flex flex-col gap-1 relative z-10">
-        <p className="text-[10px] font-bold text-[#4d7066] uppercase tracking-widest px-4 mb-2">Network</p>
+      <div className={`${collapsed ? "px-2" : "px-4"} py-2 mt-2 flex flex-col gap-1 relative z-10`}>
+        <p className={`${collapsed && !mobileOpen ? "sr-only" : ""} text-[10px] font-bold text-[#4d7066] uppercase tracking-widest px-4 mb-2`}>Network</p>
         {networkLinks.map((link) => {
           const isActive = pathname === link.href || (pathname?.startsWith(link.href) && link.href !== "#");
           return (
             <Link
               key={link.name}
               href={link.href}
+              title={collapsed ? link.name : undefined}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition relative overflow-hidden group ${isActive
                   ? "bg-[#0f3d32] text-white"
                   : "text-[#8ba39e] hover:text-white hover:bg-[#0a2921]"
@@ -140,7 +149,7 @@ export default function Sidebar() {
               <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {link.icon}
               </svg>
-              {link.name}
+              {(!collapsed || mobileOpen) && link.name}
               {isActive && (
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-[#10b981] rounded-l-full"></div>
               )}
@@ -150,10 +159,11 @@ export default function Sidebar() {
       </div>
 
       {/* Bottom Area: Settings and User */}
-      <div className="mt-auto pt-4 px-4 pb-6 relative z-10">
+      <div className={`mt-auto pt-4 ${collapsed ? "px-2" : "px-4"} pb-6 relative z-10`}>
         <div className="flex flex-col gap-1 pt-4 border-t border-[#0f3d32]">
           <Link
             href="/startup/settings"
+            title={collapsed ? "Settings" : undefined}
             className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition relative overflow-hidden group ${pathname?.startsWith("/startup/settings")
                 ? "bg-[#0f3d32] text-white"
                 : "text-[#8ba39e] hover:text-white hover:bg-[#0a2921]"
@@ -163,24 +173,15 @@ export default function Sidebar() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
             </svg>
-            Settings
+            {(!collapsed || mobileOpen) && "Settings"}
             {pathname?.startsWith("/startup/settings") && (
               <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-[#10b981] rounded-l-full"></div>
             )}
           </Link>
         </div>
 
-        {/* User profile section at the bottom to match the screenshot */}
-        {/* <div className="mt-4 px-4 py-3 flex items-center gap-3 bg-[#0a2921] rounded-xl border border-[#0f3d32] cursor-pointer hover:bg-[#0f3d32] transition">
-          <div className="w-8 h-8 rounded-full bg-[#115b4c] text-white flex items-center justify-center font-bold text-xs shrink-0">
-            N
-          </div>
-          <div className="flex flex-col overflow-hidden">
-            <span className="text-xs font-bold text-white truncate">Nebiyu</span>
-            <span className="text-[9px] text-[#8ba39e] truncate">Founder</span>
-          </div> */}
-        {/* </div> */}
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

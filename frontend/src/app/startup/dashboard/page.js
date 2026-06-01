@@ -433,6 +433,7 @@ export default function StartupDashboard() {
                             filePath={doc.file_path}
                             fileName={doc.file_name}
                             fileType={doc.file_type}
+                            fileAvailable={doc.file_available}
                             description={`Type: ${startupDocumentTypeLabel(doc)}`}
                           />
                         </li>

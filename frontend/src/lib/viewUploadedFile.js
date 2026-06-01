@@ -30,7 +30,8 @@ export function fileTypeBadge(fileName, fileType) {
   return "FILE";
 }
 
-export function canPreviewDocument({ documentId, filePath } = {}) {
+export function canPreviewDocument({ documentId, filePath, fileAvailable } = {}) {
+  if (fileAvailable === false) return false;
   if (documentId) return true;
   return Boolean(filePath && !String(filePath).startsWith("db://"));
 }

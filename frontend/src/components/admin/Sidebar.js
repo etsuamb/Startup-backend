@@ -3,11 +3,14 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { clearSession } from "@/lib/authStorage";
 import { useAdminLocale } from "@/components/admin/AdminLocaleProvider";
+import SidebarCollapseButton, { SidebarMobileToggle } from "@/components/SidebarCollapseButton";
+import { useSidebarCollapse } from "@/hooks/useSidebarCollapse";
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useAdminLocale();
+  const { collapsed, mobileOpen, toggleCollapsed, toggleMobile, closeMobile } = useSidebarCollapse(pathname);
 
   function handleLogout(e) {
     e.preventDefault();
@@ -93,7 +96,10 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="hidden md:flex flex-col w-[260px] bg-[#061e16] border-r border-[#0f3d32] shrink-0 sticky top-0 h-screen overflow-y-auto relative">
+    <>
+      <SidebarMobileToggle open={mobileOpen} onToggle={toggleMobile} />
+      {mobileOpen && <button type="button" aria-label="Close sidebar" onClick={closeMobile} className="fixed inset-0 z-[70] bg-black/40 md:hidden" />}
+      <aside className={`fixed inset-y-0 left-0 z-[80] flex w-[260px] flex-col bg-[#061e16] border-r border-[#0f3d32] shrink-0 h-screen overflow-y-auto transition-transform duration-200 md:sticky md:top-0 md:z-auto md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"} ${collapsed ? "md:w-[72px]" : "md:w-[260px]"}`}>
       {/* Abstract Green Light Beams / Background */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         <div className="absolute inset-0 bg-[#061e16]"></div>
@@ -106,23 +112,25 @@ export default function Sidebar() {
       </div>
 
       {/* Logo */}
-      <div className="p-6 pb-2 relative z-10">
-        <Link href="/" className="flex items-center gap-3">
+      <div className={`relative z-10 flex items-center ${collapsed ? "justify-center p-4" : "justify-between p-6 pb-2"}`}>
+        {(!collapsed || mobileOpen) && <Link href="/" className="flex items-center gap-3">
           <div className="flex flex-col">
              <span className="font-bold text-white text-lg tracking-tight leading-tight">{t("sidebar.adminCentral")}</span>
              <span className="text-[9px] font-bold text-[#10b981] uppercase tracking-widest leading-tight">{t("sidebar.platformManagement")}</span>
           </div>
-        </Link>
+        </Link>}
+        <SidebarCollapseButton collapsed={collapsed} onToggle={toggleCollapsed} />
       </div>
 
       {/* Primary Nav */}
-      <div className="px-4 py-4 flex flex-col gap-1 mt-6 relative z-10">
+      <div className={`${collapsed ? "px-2" : "px-4"} py-4 flex flex-col gap-1 mt-6 relative z-10`}>
         {primaryLinks.map((link) => {
           const isActive = pathname === link.href || (link.href !== "/admin/dashboard" && pathname?.startsWith(link.href));
           return (
             <Link 
               key={link.name} 
               href={link.href} 
+              title={collapsed ? link.name : undefined}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition relative overflow-hidden group ${
                 isActive 
                   ? "bg-[#0f3d32] text-white" 
@@ -132,7 +140,7 @@ export default function Sidebar() {
               <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {link.icon}
               </svg>
-              {link.name}
+              {(!collapsed || mobileOpen) && link.name}
               {isActive && (
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-[#10b981] rounded-l-full"></div>
               )}
@@ -142,7 +150,7 @@ export default function Sidebar() {
       </div>
 
       {/* Bottom Area: System and User */}
-      <div className="mt-auto pt-4 px-4 pb-6 relative z-10">
+      <div className={`mt-auto pt-4 ${collapsed ? "px-2" : "px-4"} pb-6 relative z-10`}>
         <div className="flex flex-col gap-1 pt-4 border-[#0f3d32]">
           {bottomLinks.map((link) => {
             const isActive = pathname === link.href || pathname?.startsWith(link.href);
@@ -157,12 +165,13 @@ export default function Sidebar() {
                   key={link.name}
                   href={link.href}
                   onClick={link.onClick}
+                  title={collapsed ? link.name : undefined}
                   className={className}
                 >
                   <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     {link.icon}
                   </svg>
-                  {link.name}
+                  {(!collapsed || mobileOpen) && link.name}
                 </a>
               );
             }
@@ -170,12 +179,13 @@ export default function Sidebar() {
               <Link 
                 key={link.name} 
                 href={link.href} 
+                title={collapsed ? link.name : undefined}
                 className={className}
               >
                 <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   {link.icon}
                 </svg>
-                {link.name}
+                {(!collapsed || mobileOpen) && link.name}
                 {isActive && (
                   <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-[#10b981] rounded-l-full"></div>
                 )}
@@ -184,6 +194,7 @@ export default function Sidebar() {
           })}
         </div>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

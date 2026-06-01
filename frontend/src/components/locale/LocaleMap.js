@@ -645,7 +645,6 @@ export const visibleTextAm = {
   "StartupConnect": "ስታርትአፕኮኔክት",
   "Investor Dashboard": "የባለሀብት ዳሽቦርድ",
   "Requests": "ጥያቄዎች",
-  "My Startups": "የእኔ ስታርትአፖች",
   "Sessions": "ክፍለ ጊዜዎች",
   "Messages": "መልዕክቶች",
   "Resources": "ግብዓቶች",

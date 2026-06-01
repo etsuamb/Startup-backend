@@ -11,12 +11,6 @@ const ROLE_STYLES = {
 	Mentor: "bg-rose-100 text-rose-700 border-rose-200",
 };
 
-const ROLE_ICONS = {
-	Startup: "🚀",
-	Investor: "💼",
-	Mentor: "🎓",
-};
-
 export default function VerifyUsersPage() {
 	const [view, setView] = useState("pending");
 	const [users, setUsers] = useState([]);
@@ -145,8 +139,8 @@ export default function VerifyUsersPage() {
 								>
 									<div className="flex items-start justify-between gap-4 mb-4">
 										<div className="flex items-center gap-4">
-											<div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-2xl">
-												{ROLE_ICONS[u.role] || "👤"}
+											<div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-sm font-black text-slate-600">
+												{String(u.role || "User").slice(0, 2).toUpperCase()}
 											</div>
 											<div>
 												<h3 className="font-bold text-slate-900 text-lg">

@@ -3,6 +3,7 @@ const profileSanitizer = require("../services/profileSanitizer");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
 
 const PROJECT_DOC_CATEGORIES = {
 	pitch_deck: {
@@ -35,7 +36,7 @@ const PROJECT_DOC_CATEGORIES = {
 		acceptMime: ["video/mp4"],
 		acceptExt: [".mp4"],
 		maxBytes: 50 * 1024 * 1024,
-		required: true,
+		required: false,
 	},
 };
 
@@ -94,10 +95,38 @@ async function assertProjectOwnership(projectId, userId) {
 function unlinkStoredFile(filePath) {
 	if (!filePath || String(filePath).startsWith("db://")) return;
 	try {
-		if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+		const resolvedPath = resolveStoredUploadPath(filePath) || filePath;
+		if (fs.existsSync(resolvedPath)) fs.unlinkSync(resolvedPath);
 	} catch {
 		/* ignore */
 	}
+}
+
+function resolveStoredUploadPath(filePath) {
+	if (!filePath || String(filePath).startsWith("db://")) return null;
+	const normalized = String(filePath).replace(/\\/g, "/");
+	const uploadRoots = [
+		path.resolve(process.cwd(), "uploads"),
+		path.resolve(__dirname, "..", "uploads"),
+	];
+	const candidates = path.isAbsolute(normalized)
+		? [path.resolve(normalized)]
+		: [
+				path.resolve(process.cwd(), normalized),
+				path.resolve(__dirname, "..", normalized),
+			];
+
+	for (const candidate of candidates) {
+		if (
+			uploadRoots.some(
+				(root) => candidate === root || candidate.startsWith(`${root}${path.sep}`),
+			) &&
+			fs.existsSync(candidate)
+		) {
+			return candidate;
+		}
+	}
+	return null;
 }
 
 async function ensureInvestmentRequestDirectionSchema() {
@@ -264,6 +293,64 @@ exports.updateProject = async (req, res) => {
 	}
 };
 
+exports.deleteProject = async (req, res) => {
+	let client;
+	try {
+		client = await pool.connect();
+		const userId = req.user.user_id;
+		const projectId = Number(req.params.projectId);
+		if (!Number.isInteger(projectId) || projectId <= 0) {
+			return res.status(400).json({ error: "Invalid project id" });
+		}
+
+		await client.query("BEGIN");
+		const projectRes = await client.query(
+			`SELECT p.project_id, p.cover_photo_path
+			 FROM projects p
+			 JOIN startups s ON s.startup_id = p.startup_id
+			 WHERE p.project_id = $1 AND s.user_id = $2
+			 FOR UPDATE`,
+			[projectId, userId],
+		);
+		if (!projectRes.rowCount) {
+			await client.query("ROLLBACK");
+			return res.status(404).json({ error: "Project not found" });
+		}
+
+		const linkedRequests = await client.query(
+			"SELECT 1 FROM investment_requests WHERE project_id = $1 LIMIT 1",
+			[projectId],
+		);
+		if (linkedRequests.rowCount) {
+			await client.query("ROLLBACK");
+			return res.status(409).json({
+				error: "This project has funding activity and cannot be deleted.",
+			});
+		}
+
+		const docs = await client.query(
+			"SELECT file_path FROM documents WHERE project_id = $1",
+			[projectId],
+		);
+		await client.query("DELETE FROM projects WHERE project_id = $1", [projectId]);
+		await client.query("COMMIT");
+
+		for (const doc of docs.rows) unlinkStoredFile(doc.file_path);
+		unlinkStoredFile(projectRes.rows[0].cover_photo_path);
+
+		return res.json({ message: "Project deleted successfully" });
+	} catch (err) {
+		try {
+			await client.query("ROLLBACK");
+		} catch {
+			/* ignore */
+		}
+		return res.status(500).json({ error: err.message });
+	} finally {
+		client?.release();
+	}
+};
+
 // UC_29: Upload Documents
 exports.uploadDocument = async (req, res) => {
 	try {
@@ -316,10 +403,14 @@ exports.uploadDocument = async (req, res) => {
 			await pool.query("DELETE FROM documents WHERE document_id = $1", [row.document_id]);
 		}
 
-		const storedPath = path.join("uploads", path.basename(req.file.path)).replace(/\\/g, "/");
+		const fileBuffer = fs.readFileSync(req.file.path);
+		const fileHash = crypto.createHash("sha256").update(fileBuffer).digest("hex");
+		const storedPath = `db://documents/startup/${startup_id}/${crypto.randomBytes(16).toString("hex")}`;
 		const result = await pool.query(
-			`INSERT INTO documents (startup_id, project_id, file_name, file_path, file_type, file_size_bytes, description)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+			`INSERT INTO documents (startup_id, project_id, file_name, file_path, file_type, file_size_bytes, file_hash, file_data, description)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			 RETURNING document_id, startup_id, project_id, file_name, file_path, file_type,
+			           file_size_bytes, description, created_at`,
 			[
 				startup_id,
 				projectIdValue,
@@ -327,12 +418,16 @@ exports.uploadDocument = async (req, res) => {
 				storedPath,
 				req.file.mimetype,
 				req.file.size,
+				fileHash,
+				fileBuffer,
 				docDescription,
 			],
 		);
+		unlinkStoredFile(req.file.path);
 
 		res.status(201).json(result.rows[0]);
 	} catch (err) {
+		unlinkStoredFile(req.file?.path);
 		res.status(500).json({ error: err.message });
 	}
 };
@@ -355,6 +450,7 @@ exports.getDocuments = async (req, res) => {
 		const params = [startupRes.rows[0].startup_id];
 		let query = `SELECT document_id, startup_id, project_id, file_name, file_path, file_type,
                     file_size_bytes, description,
+                    (file_data IS NOT NULL) AS has_file_data,
                     COALESCE(verification_status, 'pending') AS verification_status,
                     created_at
              FROM documents WHERE startup_id = $1`;
@@ -368,7 +464,13 @@ exports.getDocuments = async (req, res) => {
 
 		const result = await pool.query(query, params);
 
-		res.json({ documents: result.rows });
+		res.json({
+			documents: result.rows.map(({ has_file_data, ...doc }) => ({
+				...doc,
+				file_available:
+					has_file_data || Boolean(resolveStoredUploadPath(doc.file_path)),
+			})),
+		});
 	} catch (err) {
 		res.status(500).json({ error: err.message });
 	}
@@ -426,12 +528,8 @@ exports.getDocumentFile = async (req, res) => {
 			return res.status(404).json({ error: "File content is not available" });
 		}
 
-		const uploadsDir = path.resolve(process.cwd(), "uploads");
-		const absPath = path.resolve(process.cwd(), doc.file_path);
-		if (!absPath.startsWith(uploadsDir)) {
-			return res.status(400).json({ error: "Invalid file path" });
-		}
-		if (!fs.existsSync(absPath)) {
+		const absPath = resolveStoredUploadPath(doc.file_path);
+		if (!absPath) {
 			return res.status(404).json({ error: "File missing on server" });
 		}
 		return res.sendFile(absPath);

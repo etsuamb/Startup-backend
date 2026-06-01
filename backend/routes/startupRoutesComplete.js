@@ -50,6 +50,14 @@ router.put(
 	startupController.updateProject
 );
 
+router.delete(
+	"/projects/:projectId",
+	authenticate,
+	authorizeRoles("Startup"),
+	requireApproval,
+	startupController.deleteProject
+);
+
 // ============================================
 // DOCUMENT MANAGEMENT
 // ============================================

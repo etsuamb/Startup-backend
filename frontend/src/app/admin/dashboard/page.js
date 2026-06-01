@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import {
 	fetchEngagementAnalytics,
 	fetchFundingAnalytics,
-	fetchMaintenanceStatus,
 	fetchPendingUsers,
 	fetchStartupAnalytics,
 	fetchSystemAnalytics,
@@ -134,7 +133,6 @@ export default function AdminDashboard() {
 	const [engagement, setEngagement] = useState(null);
 	const [analyticsTab, setAnalyticsTab] = useState("system");
 	const [pendingCount, setPendingCount] = useState(0);
-	const [dbOk, setDbOk] = useState(true);
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(true);
 	const [actionPage, setActionPage] = useState(0);
@@ -143,10 +141,9 @@ export default function AdminDashboard() {
 		let cancelled = false;
 		(async () => {
 			try {
-				const [analytics, pending, maintenance, startups, funding, engage] = await Promise.all([
+				const [analytics, pending, startups, funding, engage] = await Promise.all([
 					fetchSystemAnalytics(),
 					fetchPendingUsers(),
-					fetchMaintenanceStatus(),
 					fetchStartupAnalytics(),
 					fetchFundingAnalytics(),
 					fetchEngagementAnalytics(),
@@ -157,7 +154,6 @@ export default function AdminDashboard() {
 				setFundingStats(funding);
 				setEngagement(engage);
 				setPendingCount(pending.pending?.length ?? 0);
-				setDbOk(maintenance.database === "ok");
 			} catch (ex) {
 				if (!cancelled) setError(ex.message || t("dashboard.loadError"));
 			} finally {
@@ -189,16 +185,6 @@ export default function AdminDashboard() {
 					<p className="text-xs font-bold uppercase tracking-[0.22em] text-[#007c6a]">{t("dashboard.adminOverview")}</p>
 					<h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-950 md:text-4xl">StartupConnect Ethiopia</h1>
 					<p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">{t("dashboard.intro")}</p>
-				</div>
-				<div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-					<span className={`flex h-10 w-10 items-center justify-center rounded-xl ${dbOk ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-						<DashboardIcon name="verified" />
-					</span>
-					<div>
-						<p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">{t("dashboard.currentStatus")}</p>
-						<p className="mt-1 text-sm font-bold text-slate-800">{dbOk ? t("dashboard.databaseConnected") : t("dashboard.databaseUnavailable")}</p>
-					</div>
-					<span className={`ml-2 h-2.5 w-2.5 rounded-full ${dbOk ? "bg-emerald-500" : "bg-amber-500"}`} />
 				</div>
 			</section>
 
@@ -233,10 +219,6 @@ export default function AdminDashboard() {
 							})}
 						</p>
 					</div>
-					<span className={`inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold ${dbOk ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-						<span className={`h-2 w-2 rounded-full ${dbOk ? "bg-emerald-500" : "bg-amber-500"}`} />
-						{dbOk ? t("dashboard.healthy") : t("dashboard.attentionNeeded")}
-					</span>
 				</div>
 
 				<div className="pt-5">

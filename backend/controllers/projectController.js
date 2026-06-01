@@ -1,4 +1,6 @@
 const pool = require("../config/db");
+const crypto = require("crypto");
+const fs = require("fs");
 
 async function getStartupIdByUserId(userId) {
   const startupResult = await pool.query(
@@ -89,24 +91,32 @@ exports.createProject = async (req, res) => {
       ...req.files.pitch_deck,
       ...req.files.business_plan,
       ...req.files.financial_projection,
+      ...(req.files.demo_video || []),
     ];
 
     for (const file of files) {
       try {
+        const fileBuffer = fs.readFileSync(file.path);
+        const fileHash = crypto.createHash("sha256").update(fileBuffer).digest("hex");
+        const storagePath = `db://documents/startup/${startupId}/${crypto.randomBytes(16).toString("hex")}`;
         await pool.query(
-          `INSERT INTO documents (startup_id, project_id, file_name, file_path, file_type, file_size_bytes, created_at)
-           VALUES ($1,$2,$3,$4,$5,$6,CURRENT_TIMESTAMP)`,
+          `INSERT INTO documents (startup_id, project_id, file_name, file_path, file_type, file_size_bytes, file_hash, file_data, created_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,CURRENT_TIMESTAMP)`,
           [
             startupId,
             project.project_id,
             file.originalname,
-            file.path,
+            storagePath,
             file.mimetype,
             file.size,
+            fileHash,
+            fileBuffer,
           ],
         );
       } catch (docErr) {
         console.error("Failed saving project file record:", docErr.message);
+      } finally {
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
       }
     }
 

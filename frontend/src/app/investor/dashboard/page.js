@@ -315,7 +315,6 @@ export default function InvestorDashboard() {
 					<section>
 						<div className="flex items-center gap-4 mb-5">
 							<h2 className="text-xl font-bold text-gray-900">Visible Startups</h2>
-							<span className="px-3 py-1 bg-[#0a4d3c] text-white text-[10px] font-bold rounded-full">From API</span>
 						</div>
 						<div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-10">
 							<div className="grid grid-cols-4 px-6 py-4 border-b border-gray-100 text-[10px] font-bold text-gray-400 uppercase tracking-widest">

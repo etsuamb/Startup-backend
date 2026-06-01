@@ -35,22 +35,11 @@ app.get("/health/ready", async (_req, res) => {
   }
 });
 
-// ✅ Routes FIRST
+// Routes
 app.use("/api/auth", authRoutes);
 app.use("/api", requireVerifiedAndApprovedIfAuthenticated);
 
-// Test DB connection
-app.get("/", async (req, res) => {
-	try {
-		const result = await pool.query("SELECT NOW()");
-		res.json({
-			message: "Database connected ✅",
-			time: result.rows[0],
-		});
-	} catch (err) {
-		res.status(500).send(err.message);
-	}
-});
+app.get("/", (_req, res) => res.json({ service: "StartupConnect API" }));
 
 const testRoutes = require("./routes/testRoutes");
 app.use("/api/test", testRoutes);

@@ -33,7 +33,7 @@ export function buildDocumentSlotRows(documents, projectId) {
   const scoped = resolveApplicationDocuments(documents, projectId);
   return APPLICATION_DOC_SLOTS.map((slot) => {
     const doc = findDocForSlot(scoped, slot);
-    const uploaded = Boolean(doc?.file_path && !String(doc.file_path).startsWith("db://"));
+    const uploaded = Boolean(doc?.file_path);
     return {
       ...slot,
       doc,

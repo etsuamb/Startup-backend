@@ -21,12 +21,6 @@ const ROLE_STYLES = {
 	Mentor: "bg-rose-100 text-rose-700 border-rose-200",
 };
 
-const ROLE_ICONS = {
-	Startup: "🚀",
-	Investor: "💼",
-	Mentor: "🎓",
-};
-
 function ConfirmDialog({ title, message, onConfirm, onCancel, isLoading, confirmText, cancelText, isDangerous }) {
 	return (
 		<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -284,8 +278,8 @@ export default function PendingUserDetailPage({ userId }) {
 			{/* Hero */}
 			<header className="rounded-[32px] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-8 mb-8 shadow-lg border border-slate-700/50">
 				<div className="flex flex-col md:flex-row md:items-center gap-6">
-					<div className="w-20 h-20 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-4xl shrink-0">
-						{ROLE_ICONS[user.role] || "👤"}
+					<div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-xl font-black">
+						{String(user.role || "User").slice(0, 2).toUpperCase()}
 					</div>
 					<div className="flex-1 min-w-0">
 						<h1 className="text-3xl font-bold tracking-tight">{fullName || "Unnamed applicant"}</h1>

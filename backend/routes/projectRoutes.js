@@ -19,6 +19,7 @@ router.post(
 		{ name: "pitch_deck", maxCount: 1 },
 		{ name: "business_plan", maxCount: 1 },
 		{ name: "financial_projection", maxCount: 1 },
+		{ name: "demo_video", maxCount: 1 },
 	]),
 	projectController.createProject,
 );
