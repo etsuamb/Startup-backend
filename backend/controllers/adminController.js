@@ -28,7 +28,7 @@ async function ensureUserApprovalSchema() {
 }
 
 /** Keep directory listing flags aligned with account approval decisions. */
-async function syncStartupListingForUser(client, userId, { approved, rejected }) {
+async function syncStartupListingForUser(client, userId, { approved, rejected, pending }) {
 	if (approved) {
 		const roleRes = await client.query(
 			"SELECT role FROM users WHERE user_id = $1",
@@ -83,15 +83,33 @@ async function syncStartupListingForUser(client, userId, { approved, rejected })
 			`UPDATE investors SET is_approved = false WHERE user_id = $1`,
 			[userId],
 		);
+		return;
+	}
+	if (pending) {
+		await client.query(
+			`UPDATE startups
+			 SET admin_status = 'Pending', is_listed = false
+			 WHERE user_id = $1`,
+			[userId],
+		);
+		await client.query(
+			`UPDATE mentors SET is_approved = false WHERE user_id = $1`,
+			[userId],
+		);
+		await client.query(
+			`UPDATE investors SET is_approved = false WHERE user_id = $1`,
+			[userId],
+		);
 	}
 }
 
 // GET /api/admin/users/pending
 exports.listPendingUsers = async (_req, res) => {
 	try {
+		await ensureUserApprovalSchema();
 		const usersRes = await pool.query(
 			`SELECT user_id, first_name, last_name, email, role, phone_number, email_verified, provider_type, created_at
-       FROM users WHERE is_approved = false ORDER BY created_at DESC`,
+       FROM users WHERE is_approved = false AND rejected_at IS NULL ORDER BY created_at DESC`,
 		);
 
 		return res.json({ pending: usersRes.rows });
@@ -279,7 +297,8 @@ exports.rejectUser = async (req, res) => {
 exports.searchUsers = async (req, res) => {
 	const { q, role, limit = 50, offset = 0 } = req.query;
 	try {
-		let base = `SELECT user_id, first_name, last_name, email, role, is_active, is_approved, created_at FROM users`;
+		await ensureUserApprovalSchema();
+		let base = `SELECT user_id, first_name, last_name, email, role, is_active, is_approved, rejected_at, rejection_reason, created_at FROM users`;
 		const where = [];
 		const params = [];
 		if (q) {
@@ -300,6 +319,97 @@ exports.searchUsers = async (req, res) => {
 		return res.json({ users: r.rows });
 	} catch (err) {
 		return res.status(500).json({ error: err.message });
+	}
+};
+
+// PUT /api/admin/users/:userId/status { status, reason? }
+exports.updateUserStatus = async (req, res) => {
+	const { userId } = req.params;
+	const admin = req.user;
+	const status = String(req.body?.status || "").trim().toLowerCase();
+	const reason = String(req.body?.reason || "").trim() || null;
+	if (!["pending", "approved", "rejected"].includes(status)) {
+		return res.status(400).json({ message: "Status must be pending, approved, or rejected." });
+	}
+
+	const client = await pool.connect();
+	try {
+		await ensureUserApprovalSchema();
+		await client.query("BEGIN");
+		const userR = await client.query(
+			`SELECT user_id, email, role, email_verified, provider_type
+			 FROM users WHERE user_id = $1 FOR UPDATE`,
+			[userId],
+		);
+		if (!userR.rowCount) {
+			await client.query("ROLLBACK");
+			return res.status(404).json({ message: "User not found" });
+		}
+		const user = userR.rows[0];
+		if (user.role === "Admin") {
+			await client.query("ROLLBACK");
+			return res.status(400).json({ message: "Administrator approval status cannot be changed from the directory." });
+		}
+		if (status === "approved" && user.provider_type !== "google" && user.email_verified === false) {
+			await client.query("ROLLBACK");
+			return res.status(400).json({
+				message: "This user must verify their email address before admin approval.",
+				code: "EMAIL_NOT_VERIFIED",
+			});
+		}
+
+		const result = await client.query(
+			`UPDATE users
+			 SET is_approved = $1,
+			     is_active = $2,
+			     approved_by = $3,
+			     approved_at = $4,
+			     rejection_reason = $5,
+			     rejected_at = $6,
+			     rejected_by = $7
+			 WHERE user_id = $8
+			 RETURNING user_id, email, role, is_active, is_approved, rejected_at, rejection_reason`,
+			[
+				status === "approved",
+				status !== "rejected",
+				status === "approved" ? admin.user_id : null,
+				status === "approved" ? new Date() : null,
+				status === "rejected" ? reason : null,
+				status === "rejected" ? new Date() : null,
+				status === "rejected" ? admin.user_id : null,
+				userId,
+			],
+		);
+		await syncStartupListingForUser(client, userId, { [status]: true });
+		await client.query("COMMIT");
+
+		await pool.query(
+			`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata)
+			 VALUES ($1, $2, $3, $4, $5, $6)`,
+			[admin.user_id, "update_user_status", "users", userId, `Status changed to ${status}`, JSON.stringify({ status, reason })],
+		);
+		await pool.query(
+			`INSERT INTO notifications (user_id, notification_type, title, message, reference_type, reference_id)
+			 VALUES ($1, $2, $3, $4, $5, $6)`,
+			[
+				userId,
+				"account",
+				`Account ${status}`,
+				status === "rejected" && reason ? `Your account was rejected: ${reason}` : `Your account status is now ${status}.`,
+				"users",
+				userId,
+			],
+		);
+		return res.json({ message: `User status updated to ${status}`, user: result.rows[0] });
+	} catch (err) {
+		try {
+			await client.query("ROLLBACK");
+		} catch {
+			/* ignore rollback errors */
+		}
+		return res.status(500).json({ error: err.message });
+	} finally {
+		client.release();
 	}
 };
 
@@ -488,7 +598,7 @@ exports.getUser = async (req, res) => {
 	const { userId } = req.params;
 	try {
 		const userRes = await pool.query(
-			`SELECT user_id, first_name, last_name, email, role, phone_number, is_active, is_approved, created_at
+			`SELECT user_id, first_name, last_name, email, role, phone_number, is_active, is_approved, rejected_at, rejection_reason, created_at
 			 FROM users WHERE user_id = $1`,
 			[userId],
 		);

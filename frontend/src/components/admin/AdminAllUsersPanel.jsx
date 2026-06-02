@@ -6,21 +6,27 @@ import {
 	deleteUser,
 	fetchUser,
 	fetchUserAuditLogs,
-	restoreUser,
 	searchUsers,
-	unsuspendUser,
+	updateUserStatus,
 } from "@/lib/adminApi";
 import { formatFieldValue, profileFieldMap } from "@/lib/adminDisplay";
 import AdminActionModal from "@/components/admin/AdminActionModal";
 
+function accountStatus(user) {
+	if (user.rejected_at || !user.is_active) return "rejected";
+	if (user.is_approved) return "approved";
+	return "pending";
+}
+
 function statusBadge(user) {
-	if (!user.is_active) {
-		return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">Suspended</span>;
-	}
-	if (user.is_approved) {
+	const status = accountStatus(user);
+	if (status === "approved") {
 		return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">Approved</span>;
 	}
-	return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">Pending</span>;
+	if (status === "rejected") {
+		return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">Rejected</span>;
+	}
+	return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">Pending approval</span>;
 }
 
 function ProfileDetails({ profile, role }) {
@@ -108,20 +114,33 @@ export default function AdminAllUsersPanel() {
 		}
 	}
 
+	function changeStatus(status) {
+		if (!selectedId || status === accountStatus(detail?.user || {})) return;
+		if (status === "rejected") {
+			setActionModal({ type: "reject" });
+			return;
+		}
+		runAction(() => updateUserStatus(selectedId, status));
+	}
+
 	return (
 		<div className="space-y-6">
-			{actionModal?.type === "deactivate" ? (
+			{actionModal?.type === "reject" ? (
 				<AdminActionModal
 					open
-					title="Deactivate account?"
-					message="This user will be deactivated and lose access until restored."
-					confirmLabel="Deactivate"
+					title="Reject account?"
+					message="The user will lose access and their profile will be removed from public directories."
+					confirmLabel="Reject account"
+					variant="prompt"
+					inputLabel="Reason"
+					inputType="textarea"
+					placeholder="Explain why this account is being rejected"
 					isDangerous
 					isLoading={actionLoading}
 					onCancel={() => setActionModal(null)}
-					onConfirm={() => {
+					onConfirm={(reason) => {
 						setActionModal(null);
-						runAction(() => deleteUser(selectedId, { hard: false }));
+						runAction(() => updateUserStatus(selectedId, "rejected", reason));
 					}}
 				/>
 			) : null}
@@ -233,40 +252,27 @@ export default function AdminAllUsersPanel() {
 							</div>
 
 							<div className="flex flex-wrap gap-2">
+								{detail.user.role !== "Admin" ? (
+									<label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600">
+										Status
+										<select
+											value={accountStatus(detail.user)}
+											onChange={(event) => changeStatus(event.target.value)}
+											disabled={actionLoading}
+											className="bg-transparent text-xs font-bold text-slate-800 outline-none disabled:opacity-50"
+										>
+											<option value="pending">Pending approval</option>
+											<option value="approved">Approved</option>
+											<option value="rejected">Rejected</option>
+										</select>
+									</label>
+								) : null}
 								<Link
 									href={`/admin/users/${detail.user.user_id}`}
 									className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50"
 								>
 									Full page view
 								</Link>
-								{!detail.user.is_active ? (
-									<>
-										<button
-											type="button"
-											disabled={actionLoading}
-											onClick={() => runAction(() => unsuspendUser(selectedId))}
-											className="px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 disabled:opacity-50"
-										>
-											Unsuspend
-										</button>
-										<button
-											type="button"
-											disabled={actionLoading}
-											onClick={() => runAction(() => restoreUser(selectedId))}
-											className="px-3 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 disabled:opacity-50"
-										>
-											Restore
-										</button>
-									</>
-								) : null}
-								<button
-									type="button"
-									disabled={actionLoading}
-									onClick={() => setActionModal({ type: "deactivate" })}
-									className="px-3 py-2 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 disabled:opacity-50"
-								>
-									Deactivate
-								</button>
 								<button
 									type="button"
 									disabled={actionLoading}

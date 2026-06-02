@@ -68,6 +68,7 @@ router.get("/verify-email", authSecurityController.verifyEmail);
 router.post("/verify-email", authSecurityController.verifyEmail);
 router.get("/me", authenticate, authSecurityController.getCurrentAccount);
 router.put("/me", authenticate, authSecurityController.updateCurrentAccount);
+router.delete("/me", authenticate, authSecurityController.deleteCurrentAccount);
 router.post(
 	"/resend-verification",
 	authRateLimit({ scope: "resend-verify", max: 5 }),

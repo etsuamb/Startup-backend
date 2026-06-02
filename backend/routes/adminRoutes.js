@@ -254,6 +254,13 @@ router.get(
 	adminController.getUser,
 );
 
+router.put(
+	"/users/:userId/status",
+	authenticate,
+	authorizeRoles("Admin"),
+	adminController.updateUserStatus,
+);
+
 router.post(
 	"/users/:userId/suspend",
 	authenticate,

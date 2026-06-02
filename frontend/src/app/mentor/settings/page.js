@@ -2,11 +2,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchMentorDocument, fetchMentorProfile, updateMentorProfile } from "@/lib/mentorApi";
 import { getCurrentAccount, updateCurrentAccount } from "@/lib/authApi";
-import { clearSession } from "@/lib/authStorage";
-import { useRouter } from "next/navigation";
 import AccountAccessBanner from "@/components/auth/AccountAccessBanner";
 import ProfilePictureEditor from "@/components/auth/ProfilePictureEditor";
 import AccountSecurityPanel from "@/components/auth/AccountSecurityPanel";
+import AccountDeletionPanel from "@/components/auth/AccountDeletionPanel";
 import { IndustrySelectWithOther } from "@/components/register/IndustryFields";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -294,7 +293,6 @@ const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sun
 
 // ─── Main Settings Page ───────────────────────────────────────────────────────
 export default function MentorSettingsPage() {
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState("profile");
   const [loading, setLoading]     = useState(true);
   const [saving, setSaving]       = useState(false);
@@ -355,7 +353,6 @@ export default function MentorSettingsPage() {
   const [showNew,         setShowNew]         = useState(false);
 
   // ── Danger state ──
-  const [deleteConfirm, setDeleteConfirm] = useState("");
 
   const showToast = useCallback((message, type = "success") => {
     setToast({ message, type });
@@ -1132,96 +1129,7 @@ export default function MentorSettingsPage() {
   // ── DANGER ZONE TAB ───────────────────────────────────────────────────────
   function renderDangerTab() {
     return (
-      <div className="space-y-6">
-        {/* Deactivate */}
-        <SectionCard className="border-amber-200">
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shrink-0">
-              <Icon path="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-base font-bold text-gray-900 mb-1">Pause Mentorship Activity</h3>
-              <p className="text-sm text-gray-500 mb-4">
-                Temporarily pause your mentor account. You won&apos;t appear in search results, and no new requests can be sent to you. Your existing mentorships remain active.
-              </p>
-              <button
-                type="button"
-                id="pause-account-btn"
-                onClick={() => showToast("Your mentor account has been paused.", "error")}
-                className="inline-flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-5 py-2.5 text-sm font-bold text-amber-800 hover:bg-amber-100 transition"
-              >
-                Pause Account
-              </button>
-            </div>
-          </div>
-        </SectionCard>
-
-        {/* Export data */}
-        <SectionCard>
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
-              <Icon path="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-base font-bold text-gray-900 mb-1">Export My Data</h3>
-              <p className="text-sm text-gray-500 mb-4">
-                Download all your mentor profile data, session history, and mentorship records as a JSON file.
-              </p>
-              <button
-                type="button"
-                id="export-data-btn"
-                onClick={() => showToast("Your data export is being prepared. You'll receive an email shortly.")}
-                className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-5 py-2.5 text-sm font-bold text-blue-800 hover:bg-blue-100 transition"
-              >
-                Request Data Export
-              </button>
-            </div>
-          </div>
-        </SectionCard>
-
-        {/* Delete account */}
-        <SectionCard className="border-red-200 bg-red-50/30">
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-xl bg-red-100 border border-red-200 flex items-center justify-center text-red-600 shrink-0 mt-0.5">
-              <IconTrash />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-base font-bold text-red-700 mb-1">Delete Mentor Account</h3>
-              <p className="text-sm text-gray-600 mb-5">
-                This permanently deletes your mentor account, profile, all session history, reports, and mentorship data.
-                <strong className="text-red-700"> This action cannot be undone.</strong>
-              </p>
-
-              <div className="rounded-xl bg-white border border-red-200 p-5 space-y-4">
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                  Type <span className="text-red-600 font-black">DELETE MY ACCOUNT</span> to confirm
-                </p>
-                <input
-                  id="delete-confirm-input"
-                  type="text"
-                  value={deleteConfirm}
-                  onChange={(e) => setDeleteConfirm(e.target.value)}
-                  className={`${inputClass} border-red-200 focus:border-red-400`}
-                  placeholder="DELETE MY ACCOUNT"
-                />
-                <button
-                  type="button"
-                  id="delete-account-btn"
-                  disabled={deleteConfirm !== "DELETE MY ACCOUNT"}
-                  onClick={() => {
-                    clearSession();
-                    router.push("/login");
-                  }}
-                  className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-red-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <IconTrash />
-                  Permanently Delete Account
-                </button>
-              </div>
-            </div>
-          </div>
-        </SectionCard>
-      </div>
+      <AccountDeletionPanel actorLabel="mentor" />
     );
   }
 

@@ -280,6 +280,59 @@ exports.getCurrentAccount = async (req, res) => {
 	}
 };
 
+// DELETE /auth/me { confirmation }
+exports.deleteCurrentAccount = async (req, res) => {
+	let client;
+	try {
+		if (req.user.role === "Admin") {
+			return res.status(403).json({ message: "Administrator accounts cannot be deleted from actor settings." });
+		}
+		if (req.body?.confirmation !== "DELETE MY ACCOUNT") {
+			return res.status(400).json({ message: "Type DELETE MY ACCOUNT to confirm account deletion." });
+		}
+
+		client = await pool.connect();
+		await client.query("BEGIN");
+		const userR = await client.query(
+			`SELECT user_id, email, role FROM users WHERE user_id = $1 FOR UPDATE`,
+			[req.user.user_id],
+		);
+		if (!userR.rowCount) {
+			await client.query("ROLLBACK");
+			return res.status(404).json({ message: "User not found" });
+		}
+
+		const user = userR.rows[0];
+		await client.query(
+			`INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details, metadata)
+			 VALUES ($1, $2, $3, $4, $5, $6)`,
+			[
+				user.user_id,
+				"delete_own_account",
+				"users",
+				user.user_id,
+				`${user.role} account permanently deleted by its owner`,
+				JSON.stringify({ email: user.email, role: user.role }),
+			],
+		);
+		await client.query(`DELETE FROM users WHERE user_id = $1`, [user.user_id]);
+		await client.query("COMMIT");
+		return res.json({ message: "Account permanently deleted" });
+	} catch (err) {
+		if (client) {
+			try {
+				await client.query("ROLLBACK");
+			} catch {
+				/* ignore rollback errors */
+			}
+		}
+		console.error("deleteCurrentAccount", err);
+		return res.status(500).json({ message: "Unable to delete account right now. Please try again shortly." });
+	} finally {
+		if (client) client.release();
+	}
+};
+
 // PUT /auth/me { first_name, last_name, phone_number, email }
 exports.updateCurrentAccount = async (req, res) => {
 	try {
