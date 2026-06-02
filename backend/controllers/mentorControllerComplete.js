@@ -10,16 +10,44 @@ exports.updateMentorProfile = async (req, res) => {
 		await pool.query(
 			"ALTER TABLE mentors ADD COLUMN IF NOT EXISTS session_pricing_min DECIMAL(10,2) CHECK (session_pricing_min IS NULL OR session_pricing_min >= 0)",
 		);
+		await pool.query(
+			"ALTER TABLE mentors ADD COLUMN IF NOT EXISTS expertise_areas JSONB",
+		);
+		await pool.query(
+			"ALTER TABLE mentors ADD COLUMN IF NOT EXISTS website VARCHAR(255)",
+		);
+		await pool.query(
+			"ALTER TABLE mentors ADD COLUMN IF NOT EXISTS mentorship_focus TEXT",
+		);
+		await pool.query(
+			"ALTER TABLE mentors ADD COLUMN IF NOT EXISTS max_startups INTEGER CHECK (max_startups >= 0)",
+		);
+
 		const {
 			headline,
 			expertise,
+			expertise_areas,
 			years_experience,
 			hourly_rate,
 			country,
+			location,
 			bio,
-			availability,
+			website,
+			linkedin_url,
+			mentorship_focus,
+			max_startups,
+			languages,
+			current_company,
+			current_title,
+			primary_industry,
 			session_pricing,
 			session_pricing_min,
+			timezone,
+			session_duration,
+			available_days,
+			available_from,
+			available_to,
+			accepting_mentees,
 		} = req.body;
 		const sessionPricing = session_pricing ?? hourly_rate;
 		const parsedSessionPricing =
@@ -38,22 +66,52 @@ exports.updateMentorProfile = async (req, res) => {
 			return res.status(400).json({ error: "Session price range is invalid" });
 		}
 
+		const currentAvailabilityRes = await pool.query(
+			"SELECT availability FROM mentors WHERE user_id = $1",
+			[userId],
+		);
+		const currentAvailability = currentAvailabilityRes.rows[0]?.availability || {};
+		const mergedAvailability = {
+			...currentAvailability,
+			...(timezone !== undefined ? { timezone } : {}),
+			...(session_duration !== undefined ? { session_duration } : {}),
+			...(available_days !== undefined ? { available_days } : {}),
+			...(available_from !== undefined ? { available_from } : {}),
+			...(available_to !== undefined ? { available_to } : {}),
+			...(accepting_mentees !== undefined ? { accepting_mentees } : {}),
+		};
+
 		const result = await pool.query(
 			`UPDATE mentors SET headline = COALESCE($1, headline), expertise = COALESCE($2, expertise),
-			 years_experience = COALESCE($3, years_experience), hourly_rate = COALESCE($4, hourly_rate),
-			 country = COALESCE($5, country), bio = COALESCE($6, bio), availability = COALESCE($7, availability),
-			 session_pricing = COALESCE($8, session_pricing), session_pricing_min = COALESCE($9, session_pricing_min)
-			 WHERE user_id = $10 RETURNING *`,
+			 expertise_areas = COALESCE($3, expertise_areas), years_experience = COALESCE($4, years_experience),
+			 hourly_rate = COALESCE($5, hourly_rate), country = COALESCE($6, country), bio = COALESCE($7, bio),
+			 availability = COALESCE($8, availability), website = COALESCE($9, website),
+			 mentorship_focus = COALESCE($10, mentorship_focus), max_startups = COALESCE($11, max_startups),
+			 languages = COALESCE($12, languages), current_organization = COALESCE($13, current_organization),
+			 current_title = COALESCE($14, current_title), session_pricing = COALESCE($15, session_pricing),
+			 session_pricing_min = COALESCE($16, session_pricing_min), city_location = COALESCE($17, city_location),
+			 linkedin_or_portfolio = COALESCE($18, linkedin_or_portfolio), primary_industry = COALESCE($19, primary_industry)
+			 WHERE user_id = $20 RETURNING *`,
 			[
 				headline,
 				expertise,
+				expertise_areas ? JSON.stringify(expertise_areas) : null,
 				years_experience,
 				parsedSessionPricing,
-				country,
+				country ?? location,
 				bio,
-				availability,
+				Object.keys(mergedAvailability).length ? mergedAvailability : null,
+				website,
+				mentorship_focus,
+				max_startups,
+				Array.isArray(languages) ? JSON.stringify(languages) : languages,
+				current_company,
+				current_title,
 				parsedSessionPricing,
 				parsedSessionPricingMin,
+				location,
+				linkedin_url,
+				primary_industry,
 				userId,
 			],
 		);
@@ -74,7 +132,8 @@ exports.getMentorProfile = async (req, res) => {
 		const userId = req.user.user_id;
 
 		const result = await pool.query(
-			`SELECT m.*, u.first_name, u.last_name, u.email, u.phone_number, u.is_approved
+			`SELECT m.*, u.first_name, u.last_name, u.email, u.phone_number, u.is_approved,
+			        u.email_verified
        FROM mentors m
        JOIN users u ON u.user_id = m.user_id
        WHERE m.user_id = $1`,
@@ -205,7 +264,7 @@ exports.getStartupDocument = async (req, res) => {
 exports.getMentorshipRequests = async (req, res) => {
 	try {
 		const userId = req.user.user_id;
-		const { status, page = 1, limit = 20 } = req.query;
+		const { status, search, page = 1, limit = 20 } = req.query;
 
 		const pageNum = Math.max(1, parseInt(page) || 1);
 		const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
@@ -222,6 +281,15 @@ exports.getMentorshipRequests = async (req, res) => {
 		if (status) {
 			params.push(status);
 			query += ` AND mr.status = $${params.length}`;
+		}
+
+		if (search && String(search).trim() !== "") {
+			params.push(`%${String(search).trim().toLowerCase()}%`);
+			query += ` AND (
+				LOWER(s.startup_name) LIKE $${params.length}
+				OR LOWER(mr.subject) LIKE $${params.length}
+				OR LOWER(CONCAT(u.first_name, ' ', u.last_name)) LIKE $${params.length}
+			)`;
 		}
 
 		const countQuery = query.replace(
@@ -517,6 +585,8 @@ exports.listStartups = async (req, res) => {
 			params.push(`%${String(search).trim()}%`);
 			query += ` AND (
 				COALESCE(s.startup_name, '') ILIKE $${params.length}
+				OR COALESCE(s.founder_full_name, '') ILIKE $${params.length}
+				OR COALESCE(s.founder_role, '') ILIKE $${params.length}
 				OR COALESCE(s.description, '') ILIKE $${params.length}
 				OR COALESCE(s.startup_tagline, '') ILIKE $${params.length}
 				OR COALESCE(s.industry, '') ILIKE $${params.length}
@@ -552,6 +622,44 @@ exports.listStartups = async (req, res) => {
 	}
 };
 
+// UC_47a: Get available filter options (industries, stages, locations)
+exports.getFilterOptions = async (req, res) => {
+	try {
+		// Get all unique industries, stages, and locations from approved, listed startups
+		const query = `
+			SELECT
+				ARRAY_AGG(DISTINCT COALESCE(s.industry, '')) FILTER (WHERE COALESCE(s.industry, '') != '') as industries,
+				ARRAY_AGG(DISTINCT COALESCE(s.business_stage, '')) FILTER (WHERE COALESCE(s.business_stage, '') != '') as stages,
+				ARRAY_AGG(DISTINCT COALESCE(s.city, '')) FILTER (WHERE COALESCE(s.city, '') != '') as cities,
+				ARRAY_AGG(DISTINCT COALESCE(s.region, '')) FILTER (WHERE COALESCE(s.region, '') != '') as regions,
+				ARRAY_AGG(DISTINCT COALESCE(s.location, '')) FILTER (WHERE COALESCE(s.location, '') != '') as locations
+			FROM startups s
+			JOIN users u ON s.user_id = u.user_id
+			WHERE u.is_approved = true
+			  AND COALESCE(s.is_listed, false) = true
+		`;
+
+		const result = await pool.query(query);
+		const row = result.rows[0];
+
+		// Combine and deduplicate location data
+		const allLocations = [
+			...(row.cities || []),
+			...(row.regions || []),
+			...(row.locations || []),
+		].filter((v) => v && String(v).trim());
+		const uniqueLocations = Array.from(new Set(allLocations)).sort();
+
+		res.json({
+			industries: (row.industries || []).filter((v) => v && String(v).trim()).sort(),
+			stages: (row.stages || []).filter((v) => v && String(v).trim()).sort(),
+			locations: uniqueLocations,
+		});
+	} catch (err) {
+		res.status(500).json({ error: err.message });
+	}
+};
+
 // UC_47: View Startup Details
 exports.getStartupDetails = async (req, res) => {
 	try {
@@ -580,9 +688,15 @@ exports.getStartupDetails = async (req, res) => {
 			[startupId],
 		);
 
+		const projectsRes = await pool.query(
+			"SELECT * FROM projects WHERE startup_id = $1 ORDER BY created_at DESC",
+			[startupId],
+		);
+
 		res.json({
 			startup: profileSanitizer.sanitizeStartup(startup, access),
 			documents: profileSanitizer.sanitizeDocuments(documentsRes.rows, access),
+			projects: projectsRes.rows || [],
 			privacy: access.privacy,
 		});
 	} catch (err) {

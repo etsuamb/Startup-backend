@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import NotificationBell from "@/components/NotificationBell";
 import ActorAvatar from "@/components/auth/ActorAvatar";
-import { browseStartups, fetchIncomingRequests } from "@/lib/mentorApi";
+import { browseStartups, fetchIncomingRequests, fetchStartupFilterOptions } from "@/lib/mentorApi";
 
 function initials(name) {
 	return String(name || "SC")
@@ -25,6 +25,16 @@ function formatMoney(value) {
 
 function startupLocation(startup) {
 	return startup.city || startup.region || startup.location || "Ethiopia";
+}
+
+function startupFilterOptions(startups) {
+	const unique = (getValue) =>
+		Array.from(new Set(startups.map(getValue).filter(Boolean))).sort();
+	return {
+		industries: unique((startup) => startup.industry),
+		stages: unique((startup) => startup.business_stage),
+		locations: unique(startupLocation),
+	};
 }
 
 function Icon({ path, className = "h-4 w-4" }) {
@@ -48,12 +58,17 @@ export default function MentorStartupsPage() {
 	const [error, setError] = useState("");
 	const [total, setTotal] = useState(0);
 	const [activeRequests, setActiveRequests] = useState([]);
+	const [filterOptions, setFilterOptions] = useState({
+		industries: [],
+		stages: [],
+		locations: [],
+	});
 
 	const load = useCallback(async () => {
 		setLoading(true);
 		setError("");
 		try {
-			const [data, requestData] = await Promise.all([
+			const [data, requestData, optionsData] = await Promise.all([
 				browseStartups({
 					search: appliedSearch || undefined,
 					industry: industry || undefined,
@@ -62,13 +77,29 @@ export default function MentorStartupsPage() {
 					limit: 60,
 				}),
 				fetchIncomingRequests().catch(() => []),
+				fetchStartupFilterOptions().catch(() => ({})),
 			]);
 			const requests = Array.isArray(requestData) ? requestData : requestData?.requests || [];
-			setStartups(data.startups || []);
-			setTotal(Number(data.total || data.startups?.length || 0));
+			const loadedStartups = data.startups || [];
+			const fallbackOptions = startupFilterOptions(loadedStartups);
+			setStartups(loadedStartups);
+			setTotal(Number(data.total || loadedStartups.length || 0));
 			setActiveRequests(
 				requests.filter((request) => ["pending", "accepted"].includes(String(request.status || "").toLowerCase())),
 			);
+			if (optionsData) {
+				setFilterOptions({
+					industries: optionsData.industries?.length
+						? optionsData.industries
+						: fallbackOptions.industries,
+					stages: optionsData.stages?.length
+						? optionsData.stages
+						: fallbackOptions.stages,
+					locations: optionsData.locations?.length
+						? optionsData.locations
+						: fallbackOptions.locations,
+				});
+			}
 		} catch (ex) {
 			setError(ex.message || "Failed to load startups.");
 		} finally {
@@ -90,15 +121,6 @@ export default function MentorStartupsPage() {
 		setAppliedSearch(querySearch);
 	}, [searchParams]);
 
-	const filterOptions = useMemo(() => {
-		const unique = (fn) => Array.from(new Set(startups.map(fn).filter(Boolean))).sort();
-		return {
-			industries: unique((startup) => startup.industry),
-			stages: unique((startup) => startup.business_stage),
-			locations: unique(startupLocation),
-		};
-	}, [startups]);
-
 	const activeRequestByStartup = useMemo(() => {
 		return new Map(activeRequests.map((request) => [String(request.startup_id), request]));
 	}, [activeRequests]);
@@ -106,6 +128,14 @@ export default function MentorStartupsPage() {
 	function applyFilters(event) {
 		event.preventDefault();
 		setAppliedSearch(search.trim());
+	}
+
+	function clearFilters() {
+		setSearch("");
+		setAppliedSearch("");
+		setIndustry("");
+		setStage("");
+		setLocation("");
 	}
 
 	return (
@@ -155,7 +185,7 @@ export default function MentorStartupsPage() {
 				) : null}
 
 				<form onSubmit={applyFilters} className="mb-8 rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-					<div className="grid grid-cols-1 gap-5 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
+					<div className="grid grid-cols-1 gap-5 md:grid-cols-[1fr_1fr_1fr_auto_auto] md:items-end">
 						<FilterSelect label="Industry" value={industry} onChange={setIndustry} emptyLabel="All Industries" options={filterOptions.industries} />
 						<FilterSelect label="Stage" value={stage} onChange={setStage} emptyLabel="All Stages" options={filterOptions.stages} />
 						<FilterSelect label="Location" value={location} onChange={setLocation} emptyLabel="All Locations" options={filterOptions.locations} />
@@ -165,6 +195,13 @@ export default function MentorStartupsPage() {
 						>
 							<Icon path="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 20.5v-6.068a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
 							Apply Filters
+						</button>
+						<button
+							type="button"
+							onClick={clearFilters}
+							className="inline-flex h-11 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-black text-gray-600 transition hover:bg-gray-50"
+						>
+							Clear
 						</button>
 					</div>
 				</form>

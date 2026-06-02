@@ -62,6 +62,10 @@ export function browseStartups(params = {}) {
 	return apiFetch(`/mentors/startups${qs ? `?${qs}` : ""}`);
 }
 
+export function fetchStartupFilterOptions() {
+	return apiFetch("/mentors/startups/filter-options");
+}
+
 export function fetchMyStartups() {
 	return apiFetch("/mentors/my-startups");
 }

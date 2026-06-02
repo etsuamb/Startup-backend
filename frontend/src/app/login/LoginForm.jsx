@@ -62,7 +62,7 @@ export default function LoginForm() {
 
 	return (
 		<div className="mb-7">
-			<form className="flex flex-col gap-4" onSubmit={onSubmit}>
+			<form className="flex flex-col gap-4" onSubmit={onSubmit} noValidate>
 				<div>
 					<label className="mb-2 block text-xs font-bold text-gray-700">Email address</label>
 					<input

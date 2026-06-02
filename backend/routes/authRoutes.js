@@ -68,6 +68,8 @@ router.get("/verify-email", authSecurityController.verifyEmail);
 router.post("/verify-email", authSecurityController.verifyEmail);
 router.get("/me", authenticate, authSecurityController.getCurrentAccount);
 router.put("/me", authenticate, authSecurityController.updateCurrentAccount);
+router.get("/me/export", authenticate, authSecurityController.exportCurrentAccount);
+router.put("/me/deactivate", authenticate, authSecurityController.deactivateCurrentAccount);
 router.delete("/me", authenticate, authSecurityController.deleteCurrentAccount);
 router.post(
 	"/resend-verification",

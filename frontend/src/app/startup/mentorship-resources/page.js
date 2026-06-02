@@ -175,7 +175,7 @@ export default function StartupMentorshipResourcesPage() {
   }, []);
 
   useEffect(() => {
-    load();
+    queueMicrotask(load);
   }, [load]);
 
   const filtered = useMemo(() => {

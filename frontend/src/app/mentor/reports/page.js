@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   fetchMentorReports,
   fetchMentorSessions,
@@ -132,15 +133,8 @@ function endOfDay(dateStr) {
 /* ─── Stat Card ───────────────────────────────────────────── */
 function StatCard({ label, value, icon, accent }) {
   return (
-    <div
-      className="relative rounded-2xl overflow-hidden"
-      style={{
-        background: "rgba(255,255,255,0.72)",
-        backdropFilter: "blur(14px)",
-        border: "1px solid rgba(255,255,255,0.5)",
-        boxShadow: "0 4px 24px 0 rgba(10,77,60,0.07)",
-      }}
-    >
+    <div className="relative rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm">
+
       <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl" style={{ background: accent }} />
       <div className="flex items-center gap-4 p-5 pl-6">
         <div
@@ -171,12 +165,11 @@ function ActivityCard({ activity, selected, onClick }) {
       onClick={onClick}
       className="w-full text-left rounded-2xl p-4 transition-all duration-200"
       style={{
-        background: selected ? "rgba(16,185,129,0.08)" : "rgba(255,255,255,0.72)",
-        backdropFilter: "blur(14px)",
-        border: selected ? "1.5px solid #10b981" : "1px solid rgba(255,255,255,0.5)",
+        background: selected ? "#ecfdf5" : "#ffffff",
+        border: selected ? "1.5px solid #10b981" : "1px solid #e5e7eb",
         boxShadow: selected
-          ? "0 4px 24px 0 rgba(16,185,129,0.12)"
-          : "0 2px 12px 0 rgba(10,77,60,0.06)",
+          ? "0 10px 24px 0 rgba(16,185,129,0.18)"
+          : "0 1px 2px 0 rgba(15,23,42,0.06)",
       }}
     >
       <div className="flex items-start gap-3">
@@ -215,15 +208,7 @@ function ActivityDetail({ activity }) {
   const d = activity.data || {};
 
   return (
-    <div
-      className="rounded-2xl overflow-hidden"
-      style={{
-        background: "rgba(255,255,255,0.85)",
-        backdropFilter: "blur(20px)",
-        border: "1px solid rgba(255,255,255,0.6)",
-        boxShadow: "0 8px 40px 0 rgba(10,77,60,0.10)",
-      }}
-    >
+    <div className="rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm">
       <div className="px-7 py-6" style={{ background: "linear-gradient(135deg, #0a4d3c 0%, #0d6b54 100%)" }}>
         <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${meta.bg}`}>
           {meta.label}
@@ -291,15 +276,7 @@ function ReportDetail({ report, onExport }) {
   const nextSteps = parseList(report.next_steps);
 
   return (
-    <div
-      className="rounded-2xl overflow-hidden"
-      style={{
-        background: "rgba(255,255,255,0.85)",
-        backdropFilter: "blur(20px)",
-        border: "1px solid rgba(255,255,255,0.6)",
-        boxShadow: "0 8px 40px 0 rgba(10,77,60,0.10)",
-      }}
-    >
+    <div className="rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm">
       <div className="px-7 py-6" style={{ background: "linear-gradient(135deg, #0a4d3c 0%, #0d6b54 100%)" }}>
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -420,6 +397,7 @@ function ReportDetail({ report, onExport }) {
 
 /* ─── Page ────────────────────────────────────────────────── */
 export default function MentorReportsPage() {
+  const searchParams = useSearchParams();
   const [reports, setReports] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [resources, setResources] = useState([]);
@@ -472,8 +450,13 @@ export default function MentorReportsPage() {
   }, []);
 
   useEffect(() => {
-    load();
+    queueMicrotask(load);
   }, [load]);
+
+  useEffect(() => {
+    const search = searchParams.get("search") || "";
+    queueMicrotask(() => setQuery(search));
+  }, [searchParams]);
 
   useEffect(() => {
     const interval = setInterval(load, 30000);
@@ -583,20 +566,14 @@ ${parseList(report.next_steps).map((item, i) => `${i + 1}. ${item}`).join("\n") 
 
   return (
     <div
-      className="min-h-screen flex"
-      style={{ background: "linear-gradient(135deg, #e8f5ef 0%, #ddeef7 50%, #e8f0fa 100%)" }}
+      className="min-h-screen flex bg-[#fbfcfc]"
     >
       <div className="flex-1 flex flex-col min-w-0">
         <header
-          className="sticky top-0 z-30 flex items-center justify-between gap-4 px-6 py-4 border-b"
-          style={{
-            background: "rgba(255,255,255,0.80)",
-            backdropFilter: "blur(14px)",
-            borderColor: "rgba(10,77,60,0.08)",
-          }}
+          className="sticky top-0 z-30 flex items-center justify-between gap-4 px-6 py-4 border-b border-gray-100 bg-white"
         >
           <div>
-            <h1 className="text-xl font-black text-[#0a4d3c] leading-none">Activity & Reports</h1>
+            <h1 className="text-xl font-black text-[#052b23] leading-none">Activity & Reports</h1>
             <p className="text-[12px] text-gray-400 mt-0.5">
               Sessions, resources, requests, and mentorship reports in one place
             </p>
@@ -614,12 +591,7 @@ ${parseList(report.next_steps).map((item, i) => `${i + 1}. ${item}`).join("\n") 
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search activity…"
-              className="w-full rounded-xl border pl-9 pr-4 py-2 text-sm outline-none transition"
-              style={{
-                background: "rgba(255,255,255,0.7)",
-                border: "1px solid rgba(10,77,60,0.12)",
-                color: "#111",
-              }}
+              className="w-full rounded-xl border border-gray-200 bg-white pl-9 pr-4 py-2 text-sm outline-none transition"
             />
           </div>
         </header>
@@ -631,30 +603,27 @@ ${parseList(report.next_steps).map((item, i) => `${i + 1}. ${item}`).join("\n") 
 
           <div className="flex flex-wrap gap-3 items-center">
             <div className="flex items-center gap-2">
-              <label className="text-[11px] font-bold uppercase tracking-widest text-[#0a4d3c]">From:</label>
+              <label className="text-[11px] font-bold uppercase tracking-widest text-[#052b23]">From:</label>
               <input
                 type="date"
                 value={dateRange.start}
                 onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                className="rounded-lg border px-3 py-1.5 text-sm outline-none"
-                style={{ background: "rgba(255,255,255,0.8)", border: "1px solid rgba(10,77,60,0.12)" }}
+                className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm outline-none"
               />
             </div>
             <div className="flex items-center gap-2">
-              <label className="text-[11px] font-bold uppercase tracking-widest text-[#0a4d3c]">To:</label>
+              <label className="text-[11px] font-bold uppercase tracking-widest text-[#052b23]">To:</label>
               <input
                 type="date"
                 value={dateRange.end}
                 onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                className="rounded-lg border px-3 py-1.5 text-sm outline-none"
-                style={{ background: "rgba(255,255,255,0.8)", border: "1px solid rgba(10,77,60,0.12)" }}
+                className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm outline-none"
               />
             </div>
             <select
               value={selectedStartup}
               onChange={(e) => setSelectedStartup(e.target.value)}
-              className="rounded-lg border px-3 py-1.5 text-sm outline-none"
-              style={{ background: "rgba(255,255,255,0.8)", border: "1px solid rgba(10,77,60,0.12)" }}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm outline-none"
             >
               <option value="">All startups</option>
               {uniqueStartups.map((s) => (
@@ -666,8 +635,7 @@ ${parseList(report.next_steps).map((item, i) => `${i + 1}. ${item}`).join("\n") 
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="rounded-lg border px-3 py-1.5 text-sm outline-none"
-              style={{ background: "rgba(255,255,255,0.8)", border: "1px solid rgba(10,77,60,0.12)" }}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm outline-none"
             >
               <option value="">All activity</option>
               <option value="report">Reports</option>
@@ -683,8 +651,7 @@ ${parseList(report.next_steps).map((item, i) => `${i + 1}. ${item}`).join("\n") 
                 setTypeFilter("");
                 setQuery("");
               }}
-              className="px-3 py-1.5 rounded-lg text-xs font-bold text-[#0a4d3c]"
-              style={{ background: "rgba(255,255,255,0.8)", border: "1px solid rgba(10,77,60,0.12)" }}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-700"
             >
               Clear filters
             </button>
@@ -731,7 +698,7 @@ ${parseList(report.next_steps).map((item, i) => `${i + 1}. ${item}`).join("\n") 
 
           <div className="flex gap-5 items-start">
             <div className="w-80 shrink-0 flex flex-col gap-3 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
-              <p className="text-[11px] font-black uppercase tracking-widest text-[#0a4d3c] px-1 sticky top-0 bg-transparent">
+              <p className="text-[11px] font-black uppercase tracking-widest text-[#052b23] px-1 sticky top-0 bg-transparent">
                 {filtered.length} activit{filtered.length === 1 ? "y" : "ies"}
               </p>
               {loading ? (

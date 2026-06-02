@@ -84,6 +84,14 @@ router.get(
 	mentorController.listStartups
 );
 
+// UC_47a: Get available filter options
+router.get(
+	"/startups/filter-options",
+	authenticate,
+	authorizeRoles("Mentor"),
+	mentorController.getFilterOptions
+);
+
 // UC_47: View startup details
 router.get(
 	"/startups/:startupId/documents/:documentId",

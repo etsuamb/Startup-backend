@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   fetchMentorResources,
   fetchMyStartups,
@@ -18,7 +19,7 @@ import { openUploadedFileForView } from "@/lib/viewUploadedFile";
 const DRAFT_KEY = "mentor_resources_share";
 
 const RESOURCE_TYPES = [
-  { value: "file", label: "Guide" },
+  { value: "file", label: "Document" },
   { value: "link", label: "Link" },
   { value: "note", label: "Note" },
 ];
@@ -73,12 +74,14 @@ function bytes(value) {
 }
 
 export default function MentorResourcesPage() {
+  const searchParams = useSearchParams();
   const [resources, setResources] = useState([]);
   const [startups, setStartups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [query, setQuery] = useState(searchParams.get("search") || "");
   const [file, setFile] = useState(null);
   const fileRef = useRef(null);
   const [showDraftNotice, setShowDraftNotice] = useState(false);
@@ -149,6 +152,11 @@ export default function MentorResourcesPage() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    const search = searchParams.get("search") || "";
+    queueMicrotask(() => setQuery(search));
+  }, [searchParams]);
+
   // Auto-save draft
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -195,10 +203,36 @@ export default function MentorResourcesPage() {
     selectedStartup,
   ]);
 
+  const filteredResources = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return resources;
+    return resources.filter((resource) =>
+      [
+        resource.resource_title,
+        resource.resource_description,
+        resource.startup_name,
+        resource.resource_type,
+        resource.file_name,
+      ].some((value) => String(value || "").toLowerCase().includes(needle)),
+    );
+  }, [query, resources]);
+
   const quickResources = resources.slice(0, 4);
 
   function update(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function changeResourceType(resourceType) {
+    setForm((current) => ({
+      ...current,
+      resource_type: resourceType,
+      external_url: resourceType === "link" ? current.external_url : "",
+    }));
+    if (resourceType !== "file") {
+      setFile(null);
+      if (fileRef.current) fileRef.current.value = "";
+    }
   }
 
   function resetForm() {
@@ -225,6 +259,14 @@ export default function MentorResourcesPage() {
     }
     if (!form.resource_title.trim()) {
       setError("Resource title is required.");
+      return;
+    }
+    if (form.resource_type === "file" && !file) {
+      setError("Choose a document to upload.");
+      return;
+    }
+    if (form.resource_type === "link" && !form.external_url.trim()) {
+      setError("Resource link is required for a link resource.");
       return;
     }
 
@@ -279,8 +321,9 @@ export default function MentorResourcesPage() {
             </svg>
           </span>
           <input
-            readOnly
-            value=""
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
             placeholder="Search resources or startups..."
             className="h-10 w-full rounded-lg border-0 bg-gray-100 pl-11 pr-4 text-xs outline-none"
           />
@@ -420,7 +463,7 @@ export default function MentorResourcesPage() {
                     <select
                       value={form.resource_type}
                       onChange={(event) =>
-                        update("resource_type", event.target.value)
+                        changeResourceType(event.target.value)
                       }
                       className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-[#073f32]"
                     >
@@ -451,59 +494,64 @@ export default function MentorResourcesPage() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="mb-1.5 block text-[11px] font-bold text-gray-600">
-                    Resource Link (Optional)
-                  </label>
-                  <input
-                    type="url"
-                    value={form.external_url}
-                    onChange={(event) =>
-                      update("external_url", event.target.value)
-                    }
-                    placeholder="https://example.com/resource"
-                    className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-[#073f32]"
-                  />
-                </div>
+                {form.resource_type === "link" ? (
+                  <div>
+                    <label className="mb-1.5 block text-[11px] font-bold text-gray-600">
+                      Resource Link
+                    </label>
+                    <input
+                      type="url"
+                      required
+                      value={form.external_url}
+                      onChange={(event) =>
+                        update("external_url", event.target.value)
+                      }
+                      placeholder="https://example.com/resource"
+                      className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-[#073f32]"
+                    />
+                  </div>
+                ) : null}
 
-                <div>
-                  <label className="mb-1.5 block text-[11px] font-bold text-gray-600">
-                    Upload File
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => fileRef.current?.click()}
-                    className="flex h-32 w-full flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white text-center text-xs text-gray-500"
-                  >
-                    <svg
-                      className="mb-2 h-7 w-7 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                {form.resource_type === "file" ? (
+                  <div>
+                    <label className="mb-1.5 block text-[11px] font-bold text-gray-600">
+                      Upload Document
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => fileRef.current?.click()}
+                      className="flex h-32 w-full flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white text-center text-xs text-gray-500"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="1.8"
-                        d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"
-                      />
-                    </svg>
-                    <span>
-                      {file ? file.name : "Drag and drop files here, or browse"}
-                    </span>
-                    <span className="mt-1 text-[10px] text-gray-400">
-                      PDF, DOCX, PPTX, PNG, JPG (Max 25MB)
-                    </span>
-                  </button>
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    className="hidden"
-                    onChange={(event) =>
-                      setFile(event.target.files?.[0] || null)
-                    }
-                  />
-                </div>
+                      <svg
+                        className="mb-2 h-7 w-7 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="1.8"
+                          d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"
+                        />
+                      </svg>
+                      <span>
+                        {file ? file.name : "Choose a file to upload"}
+                      </span>
+                      <span className="mt-1 text-[10px] text-gray-400">
+                        PDF, DOCX, PPTX, PNG, JPG (Max 25MB)
+                      </span>
+                    </button>
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      className="hidden"
+                      onChange={(event) =>
+                        setFile(event.target.files?.[0] || null)
+                      }
+                    />
+                  </div>
+                ) : null}
 
                 <div>
                   <label className="mb-1.5 block text-[11px] font-bold text-gray-600">
@@ -589,8 +637,8 @@ export default function MentorResourcesPage() {
                           Loading resources...
                         </td>
                       </tr>
-                    ) : resources.length ? (
-                      resources.slice(0, 5).map((resource) => {
+                    ) : filteredResources.length ? (
+                      filteredResources.slice(0, 5).map((resource) => {
                         const status = resourceStatus(resource);
                         return (
                           <tr key={resource.resource_id}>
@@ -651,7 +699,7 @@ export default function MentorResourcesPage() {
                     ) : (
                       <tr>
                         <td colSpan="5" className="py-6 text-gray-500">
-                          No resources shared yet.
+                          No resources match your search.
                         </td>
                       </tr>
                     )}

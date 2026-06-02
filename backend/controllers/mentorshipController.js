@@ -143,7 +143,13 @@ exports.getMentorIncomingRequests = async (req, res) => {
          mr.*,
          s.startup_name,
          s.industry,
+         s.business_stage,
+         s.team_size,
+         s.location,
+         s.region,
          s.website,
+         s.founder_full_name AS founder_name,
+         s.founder_role,
          u.first_name AS startup_owner_first_name,
          u.last_name AS startup_owner_last_name,
          u.email AS startup_owner_email

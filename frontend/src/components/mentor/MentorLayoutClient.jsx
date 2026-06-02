@@ -88,7 +88,24 @@ function MentorTopbar() {
   function onSearchSubmit(event) {
     event.preventDefault();
     const q = search.trim();
-    if (q) router.push(`/mentor/startups?search=${encodeURIComponent(q)}`);
+    if (!q) return;
+    if (pathname?.includes("/requests")) {
+      router.push(`/mentor/requests?search=${encodeURIComponent(q)}`);
+      return;
+    }
+    if (pathname?.includes("/reports")) {
+      router.push(`/mentor/reports?search=${encodeURIComponent(q)}`);
+      return;
+    }
+    if (pathname?.includes("/messages")) {
+      router.push(`/mentor/messages?search=${encodeURIComponent(q)}`);
+      return;
+    }
+    if (pathname?.includes("/resources")) {
+      router.push(`/mentor/resources?search=${encodeURIComponent(q)}`);
+      return;
+    }
+    router.push(`/mentor/startups?search=${encodeURIComponent(q)}`);
   }
 
   function logout() {
@@ -112,7 +129,7 @@ function MentorTopbar() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={pagePlaceholder(pathname)}
-              className="h-10 w-full rounded-full border border-transparent bg-[#eef1f4] pl-11 pr-4 text-xs font-medium text-gray-700 outline-none transition focus:border-[#0b4a3c]/20 focus:bg-white focus:ring-2 focus:ring-[#0b4a3c]/10"
+              className="h-10 w-full rounded-full border border-transparent bg-[#eef1f4] pl-11 pr-4 text-sm font-medium text-gray-700 outline-none transition focus:border-[#0b4a3c]/20 focus:bg-white focus:ring-2 focus:ring-[#0b4a3c]/10"
             />
           </form>
         ) : (
@@ -137,10 +154,10 @@ function MentorTopbar() {
               aria-label="Profile menu"
             >
               <div className="hidden min-w-0 text-right sm:block">
-                <p className="max-w-[160px] truncate text-xs font-black text-gray-950">
+                <p className="max-w-[160px] truncate text-sm font-bold text-gray-950">
                   {name}
                 </p>
-                <p className="max-w-[160px] truncate text-[10px] font-medium text-gray-500">
+                <p className="max-w-[160px] truncate text-xs font-medium text-gray-500">
                   {title}
                 </p>
               </div>
@@ -194,7 +211,7 @@ export default function MentorLayoutClient({ children }) {
       <MentorLocaleProvider>
         <div
           data-mentor-locale-root
-          className="flex h-screen bg-[#f6f8f7] font-sans text-gray-900 overflow-hidden"
+          className="flex h-screen bg-[#f6f8f7] font-sans text-gray-900 text-sm overflow-hidden"
         >
           <Sidebar />
           <div className="flex-grow flex flex-col overflow-hidden bg-[#f6f8f7]">

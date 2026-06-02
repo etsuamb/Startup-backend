@@ -120,6 +120,26 @@ function MessagesContent() {
     noticeTimerRef.current = setTimeout(() => setLiveNotice(""), 3500);
   }, []);
 
+  const showBrowserNotification = useCallback((title, body) => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+    if (Notification.permission !== "granted") return;
+    const notification = new Notification(title, {
+      body: body || "",
+      silent: true,
+    });
+    notification.onclick = () => window.focus?.();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, []);
+
   const appendUniqueMessage = useCallback((message) => {
     if (!message) return;
     setMessages((current) => (
@@ -266,7 +286,9 @@ function MessagesContent() {
         setActiveConversationId(payload.conversationId);
         setCallMode(null);
         setCallOpen(true);
+        const callFromName = thread?.startup_name || "your contact";
         showLiveNotice("Incoming call");
+        showBrowserNotification("Incoming call", `Incoming call from ${callFromName}`);
       },
     });
     return () => {

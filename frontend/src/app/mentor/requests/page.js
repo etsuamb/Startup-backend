@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import NotificationBell from "@/components/NotificationBell";
 import ActorAvatar from "@/components/auth/ActorAvatar";
@@ -124,6 +125,8 @@ function DetailRow({ label, value }) {
 }
 
 export default function MentorRequestsPage() {
+	const searchParams = useSearchParams();
+	const [query, setQuery] = useState(searchParams.get("search") || "");
 	const [requests, setRequests] = useState([]);
 	const [statusFilter, setStatusFilter] = useState("all");
 	const [industryFilter, setIndustryFilter] = useState("all");
@@ -156,6 +159,10 @@ export default function MentorRequestsPage() {
 		load();
 	}, [load]);
 
+	useEffect(() => {
+		queueMicrotask(() => setQuery(searchParams.get("search") || ""));
+	}, [searchParams]);
+
 	const options = useMemo(() => {
 		const unique = (keyFn) => Array.from(new Set(requests.map(keyFn).filter(Boolean))).sort();
 		return {
@@ -166,6 +173,7 @@ export default function MentorRequestsPage() {
 	}, [requests]);
 
 	const filtered = useMemo(() => {
+		const needle = query.trim().toLowerCase();
 		return requests.filter((request) => {
 			const status = normalizeStatus(request.status);
 			const stage = request.business_stage || request.stage || "";
@@ -173,10 +181,17 @@ export default function MentorRequestsPage() {
 				(statusFilter === "all" || status === statusFilter || request.status === statusFilter) &&
 				(industryFilter === "all" || request.industry === industryFilter) &&
 				(stageFilter === "all" || stage === stageFilter) &&
-				(focusFilter === "all" || requestFocus(request) === focusFilter)
+				(focusFilter === "all" || requestFocus(request) === focusFilter) &&
+				(!needle || [
+					request.startup_name,
+					founderName(request),
+					request.industry,
+					stage,
+					requestFocus(request),
+				].some((value) => String(value || "").toLowerCase().includes(needle)))
 			);
 		});
-	}, [focusFilter, industryFilter, requests, stageFilter, statusFilter]);
+	}, [focusFilter, industryFilter, query, requests, stageFilter, statusFilter]);
 
 	useEffect(() => {
 		if (!filtered.length) {
@@ -241,6 +256,8 @@ export default function MentorRequestsPage() {
 					</div>
 					<input
 						type="search"
+						value={query}
+						onChange={(event) => setQuery(event.target.value)}
 						placeholder="Search startups or founders..."
 						className="h-10 w-full rounded-full border border-transparent bg-[#eef1f4] pl-11 pr-4 text-xs font-medium text-gray-700 outline-none transition focus:border-[#0b4a3c]/20 focus:bg-white focus:ring-2 focus:ring-[#0b4a3c]/10"
 					/>

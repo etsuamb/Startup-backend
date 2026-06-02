@@ -1,6 +1,29 @@
 const router = require("express").Router();
 const multer = require("multer");
-const upload = multer({ dest: "uploads/" });
+const path = require("path");
+const allowedResourceExtensions = new Set([".pdf", ".doc", ".docx", ".ppt", ".pptx", ".png", ".jpg", ".jpeg"]);
+const upload = multer({
+	dest: "uploads/",
+	limits: { fileSize: 25 * 1024 * 1024 },
+	fileFilter: (_req, file, callback) => {
+		const extension = path.extname(file.originalname || "").toLowerCase();
+		callback(
+			allowedResourceExtensions.has(extension) ? null : new Error("Unsupported resource file type"),
+			allowedResourceExtensions.has(extension),
+		);
+	},
+});
+
+function uploadMentorshipResource(req, res, next) {
+	upload.single("file")(req, res, (err) => {
+		if (!err) return next();
+		const message =
+			err.code === "LIMIT_FILE_SIZE"
+				? "Resource files must be 25 MB or smaller"
+				: err.message || "Unable to upload resource file";
+		return res.status(400).json({ error: message });
+	});
+}
 
 const {
 	authenticate,
@@ -102,7 +125,7 @@ router.post(
 	authenticate,
 	requireApproval,
 	authorizeRoles("Mentor"),
-	upload.single("file"),
+	uploadMentorshipResource,
 	mentorshipAdvancedController.shareMentorshipResource,
 );
 

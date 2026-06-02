@@ -17,6 +17,9 @@ const PORT = Number(process.env.PORT) || 5000;
 const HOST = process.env.HOST || "0.0.0.0";
 const STARTUP_RETRIES = Number(process.env.STARTUP_RETRIES) || 5;
 
+// simple sleep helper used when retrying startup
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 // Middleware
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
@@ -93,18 +96,6 @@ app.use("/api/startups/discover", discoverRoutes);
 
 const ratingRoutes = require("./routes/ratingRoutes");
 app.use("/api/ratings", ratingRoutes);
-
-async function startServer() {
-	try {
-		await initDatabase();
-		server.listen(PORT, () => {
-			console.log(`Server running on port ${PORT} (Legacy Monolith)`);
-		});
-	} catch (err) {
-		console.error("Server startup failed:", err.message || err);
-		process.exit(1);
-	}
-}
 
 async function startServer() {
   let lastErr;

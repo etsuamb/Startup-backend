@@ -44,13 +44,12 @@ router.get(
 	mentorComplete.getMentorProfile,
 );
 
-// Temporarily commented out - function not implemented
-// router.get(
-// 	"/profile/documents/:documentId",
-// 	authenticate,
-// 	authorizeRoles("Mentor"),
-// 	mentorComplete.getMentorDocument,
-// );
+router.get(
+	"/profile/documents/:documentId",
+	authenticate,
+	authorizeRoles("Mentor"),
+	mentorComplete.getMentorDocument,
+);
 
 // Temporarily commented out - function not implemented in mentorControllerComplete
 // router.post(
@@ -133,6 +132,13 @@ router.get(
 );
 
 router.get(
+	"/startups/filter-options",
+	authenticate,
+	authorizeRoles("Mentor"),
+	mentorComplete.getFilterOptions,
+);
+
+router.get(
 	"/my-startups",
 	authenticate,
 	authorizeRoles("Mentor"),
@@ -140,13 +146,12 @@ router.get(
 	mentorDashboard.getMyStartups,
 );
 
-// Temporarily commented out - function not implemented
-// router.get(
-// 	"/startups/:startupId/documents/:documentId",
-// 	authenticate,
-// 	authorizeRoles("Mentor"),
-// 	mentorComplete.getStartupDocument,
-// );
+router.get(
+	"/startups/:startupId/documents/:documentId",
+	authenticate,
+	authorizeRoles("Mentor"),
+	mentorComplete.getStartupDocument,
+);
 
 router.get(
 	"/startups/:startupId",

@@ -155,6 +155,10 @@ export default function MentorMessagesPage() {
 	const endRef = useRef(null);
 	const noticeTimerRef = useRef(null);
 
+	useEffect(() => {
+		queueMicrotask(() => setQuery(searchParams.get("search") || ""));
+	}, [searchParams]);
+
 	const showLiveNotice = useCallback((message) => {
 		if (!message) return;
 		if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
@@ -162,11 +166,30 @@ export default function MentorMessagesPage() {
 		noticeTimerRef.current = setTimeout(() => setLiveNotice(""), 3500);
 	}, []);
 
+  const showBrowserNotification = useCallback((title, body) => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+    if (Notification.permission !== "granted") return;
+    const notification = new Notification(title, {
+      body: body || "",
+      silent: true,
+    });
+    notification.onclick = () => window.focus?.();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, []);
+
 	const appendUniqueMessage = useCallback((message) => {
-		if (!message) return;
-		const id = message.mentor_chat_message_id || message.chat_message_id;
+		const id = message?.mentor_chat_message_id || message?.chat_message_id;
+		if (!id) return;
 		setMessages((current) =>
-			id &&
 			current.some(
 				(item) =>
 					String(item.mentor_chat_message_id || item.chat_message_id) ===
@@ -502,74 +525,6 @@ export default function MentorMessagesPage() {
 				</div>
 			) : null}
 			<div className="flex min-w-0 flex-1 flex-col">
-				<header className="flex h-[74px] shrink-0 items-center gap-6 border-b border-gray-100 bg-white px-8">
-					<h1 className="text-lg font-black">Messages</h1>
-					<div className="relative w-full max-w-[360px]">
-						<span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-gray-400">
-							<svg
-								className="h-4 w-4"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-							>
-								<path
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									strokeWidth="2"
-									d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-								/>
-							</svg>
-						</span>
-						<input
-							value={query}
-							onChange={(event) => setQuery(event.target.value)}
-							placeholder="Search conversations..."
-							className="h-11 w-full rounded-full border-0 bg-gray-100 pl-11 pr-4 text-sm outline-none ring-1 ring-transparent focus:bg-white focus:ring-[#0a4d3c]/20"
-						/>
-					</div>
-					<div className="ml-auto flex items-center gap-5 text-gray-400">
-						<svg
-							className="h-5 w-5"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-						>
-							<path
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth="1.7"
-								d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0a3 3 0 11-6 0"
-							/>
-						</svg>
-						<svg
-							className="h-5 w-5"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-						>
-							<path
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth="1.7"
-								d="M10.3 4.3l.7-1.8h2l.7 1.8a8 8 0 012.2.9l1.8-.8 1.4 1.4-.8 1.8c.4.7.7 1.4.9 2.2l1.8.7v2l-1.8.7a8 8 0 01-.9 2.2l.8 1.8-1.4 1.4-1.8-.8a8 8 0 01-2.2.9l-.7 1.8h-2l-.7-1.8a8 8 0 01-2.2-.9l-1.8.8-1.4-1.4.8-1.8a8 8 0 01-.9-2.2l-1.8-.7v-2l1.8-.7c.2-.8.5-1.5.9-2.2l-.8-1.8 1.4-1.4 1.8.8a8 8 0 012.2-.9z"
-							/>
-							<path
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth="1.7"
-								d="M12 15a3 3 0 100-6 3 3 0 000 6z"
-							/>
-						</svg>
-						<div className="h-6 w-px bg-gray-200" />
-						<div className="text-right">
-							<p className="text-xs font-black text-gray-950">Mentor Portal</p>
-							<p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
-								Lead mentor
-							</p>
-						</div>
-					</div>
-				</header>
-
 				<div className="flex min-h-0 flex-1">
 					<aside className={`${selected ? "hidden md:flex" : "flex"} w-full md:w-[380px] shrink-0 flex-col border-r border-gray-100 bg-white`}>
 						<div className="border-b border-gray-100 px-5 py-6">

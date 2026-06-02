@@ -145,8 +145,8 @@ export default function MentorSidebar() {
             </svg>
           </div>
           <div className="flex flex-col">
-            <span className="font-bold text-white text-[15px] tracking-tight leading-tight">StartupConnect</span>
-            <span className="text-[9px] font-bold text-[#10b981] uppercase tracking-widest leading-tight">Mentor Dashboard</span>
+            <span className="font-bold text-white text-sm tracking-tight leading-tight">StartupConnect</span>
+            <span className="text-xs font-semibold text-[#10b981] uppercase tracking-widest leading-tight">Mentor Dashboard</span>
           </div>
         </Link>}
         <SidebarCollapseButton collapsed={collapsed} onToggle={toggleCollapsed} />
@@ -156,7 +156,7 @@ export default function MentorSidebar() {
       <div className={`flex flex-col gap-4 ${collapsed ? "px-2" : "px-3"} py-3 relative z-10 flex-1`}>
         {NAV_SECTIONS.map((section) => (
           <div key={section.label}>
-            <p className={`${collapsed && !mobileOpen ? "sr-only" : ""} text-[9px] font-bold text-[#3d6b5f] uppercase tracking-widest px-3 mb-1.5`}>
+            <p className={`${collapsed && !mobileOpen ? "sr-only" : ""} text-xs font-semibold text-[#3d6b5f] uppercase tracking-widest px-3 mb-1.5`}>
               {section.label}
             </p>
             <div className="flex flex-col gap-0.5">

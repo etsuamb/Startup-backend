@@ -73,6 +73,15 @@ function ensureMentorOrStartupRole(role) {
 	return role === "Mentor" || role === "Startup";
 }
 
+function isHttpUrl(value) {
+	try {
+		const parsed = new URL(String(value || "").trim());
+		return parsed.protocol === "http:" || parsed.protocol === "https:";
+	} catch {
+		return false;
+	}
+}
+
 exports.listMentorshipSessions = async (req, res) => {
 	try {
 		const { user_id: userId, role } = req.user;
@@ -493,16 +502,25 @@ exports.shareMentorshipResource = async (req, res) => {
 				.status(400)
 				.json({ error: "'resource_type' must be file, link, or note" });
 		}
+		if (resource_type === "file" && !req.file) {
+			return res.status(400).json({ error: "Upload a file for a document resource" });
+		}
+		if (resource_type === "link" && !String(external_url || "").trim()) {
+			return res.status(400).json({ error: "Provide a URL for a link resource" });
+		}
+		if (resource_type === "link" && !isHttpUrl(external_url)) {
+			return res.status(400).json({ error: "Provide a valid http or https URL" });
+		}
 
 		const requestCheck = await pool.query(
-			`SELECT mr.startup_id, mr.mentor_id
+			`SELECT mr.startup_id, mr.mentor_id, mr.status
        FROM mentorship_requests mr
-       WHERE mr.mentorship_request_id = $1 AND mr.mentor_id = $2`,
+       WHERE mr.mentorship_request_id = $1 AND mr.mentor_id = $2 AND mr.status = 'accepted'`,
 			[requestId, mentorId],
 		);
 
 		if (!requestCheck.rowCount) {
-			return res.status(404).json({ error: "Mentorship request not found" });
+			return res.status(404).json({ error: "Accepted mentorship request not found" });
 		}
 
 		if (
@@ -566,7 +584,7 @@ exports.shareMentorshipResource = async (req, res) => {
 				req.file ? req.file.path : null,
 				req.file ? req.file.mimetype : null,
 				req.file ? req.file.size : null,
-				external_url || null,
+				resource_type === "link" ? external_url.trim() : null,
 			],
 		);
 

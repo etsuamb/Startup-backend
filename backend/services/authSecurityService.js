@@ -181,6 +181,9 @@ function buildEmailHtml(title, bodyHtml, ctaHref, ctaLabel) {
   const button = ctaHref
     ? `<p style="margin:24px 0"><a href="${ctaHref}" style="display:inline-block;padding:12px 24px;background:#0f3d32;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold">${ctaLabel}</a></p>`
     : "";
+  const fallbackLink = ctaHref
+    ? `<p style="font-size:14px;color:#6b7280;margin-top:12px;word-break:break-word">If the button does not appear, copy and paste this URL into your browser:<br/><a href="${ctaHref}" style="color:#0f5c4a;word-break:break-word">${ctaHref}</a></p>`
+    : "";
   return `
     <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px">
       <div style="background:#0f3d32;color:#fff;padding:20px;border-radius:12px 12px 0 0">
@@ -189,6 +192,7 @@ function buildEmailHtml(title, bodyHtml, ctaHref, ctaLabel) {
       <div style="border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 12px 12px">
         ${bodyHtml}
         ${button}
+        ${fallbackLink}
         <p style="color:#9ca3af;font-size:12px;margin-top:24px">StartupConnect Ethiopia</p>
       </div>
     </div>`;
@@ -314,7 +318,7 @@ async function sendPasswordResetEmail(user) {
   const link = `${FRONTEND_URL}/reset-password?token=${encodeURIComponent(raw)}`;
   const html = buildEmailHtml(
     "Reset your password",
-    `<p>Hello ${user.first_name || "there"},</p><p>We received a request to reset your password. This link expires in ${RESET_PASSWORD_HOURS} hour(s).</p>`,
+    `<p>Hello ${user.first_name || "there"},</p><p>We received a request to reset your password. This link expires in ${RESET_PASSWORD_HOURS} hour(s).</p><p>If you did not request this password reset, you can safely ignore this email.</p>`,
     link,
     "Reset password",
   );
