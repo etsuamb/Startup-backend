@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import AccountAccessBanner from "@/components/auth/AccountAccessBanner";
 import ProfilePictureEditor from "@/components/auth/ProfilePictureEditor";
 import AccountSecurityPanel from "@/components/auth/AccountSecurityPanel";
+import AccountDeletionPanel from "@/components/auth/AccountDeletionPanel";
 import { IndustrySelectWithOther } from "@/components/register/IndustryFields";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -305,7 +306,6 @@ const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sun
 
 // ─── Main Settings Page ───────────────────────────────────────────────────────
 export default function MentorSettingsPage() {
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState("profile");
   const [loading, setLoading]     = useState(true);
   const [saving, setSaving]       = useState(false);
@@ -366,7 +366,6 @@ export default function MentorSettingsPage() {
   const [showNew,         setShowNew]         = useState(false);
 
   // ── Danger state ──
-  const [deleteConfirm, setDeleteConfirm] = useState("");
 
   const showToast = useCallback((message, type = "success") => {
     setToast({ message, type });
