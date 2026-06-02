@@ -520,6 +520,9 @@ exports.deleteUser = async (req, res) => {
 	const admin = req.user;
 	try {
 		if (hard === 'true') {
+			if (Number(admin.user_id) === Number(userId)) {
+				return res.status(400).json({ message: 'You cannot permanently delete your own administrator account' });
+			}
 			// hard delete (dangerous) - cascade will remove related rows
 			const r = await pool.query('DELETE FROM users WHERE user_id = $1 RETURNING user_id, email', [userId]);
 			if (!r.rowCount) return res.status(404).json({ message: 'User not found' });

@@ -247,7 +247,7 @@ function Toast({ message, type, onClose }) {
   const isSuccess = type === "success";
   if (type === "error") {
     return (
-      <p role="alert" className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+      <p role="alert" className="fixed left-1/2 top-4 z-[60] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 text-center text-sm font-semibold text-red-700">
         {message}
       </p>
     );
@@ -499,6 +499,7 @@ export default function StartupSettingsPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load startup settings when this page opens.
     loadProfile();
     loadNotificationSettings();
   }, [loadProfile, loadNotificationSettings]);
