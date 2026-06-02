@@ -87,14 +87,20 @@ export default function AdminAllUsersPanel() {
 		}
 	}
 
-	async function runAction(fn) {
+	async function runAction(fn, { clearSelection = false } = {}) {
 		if (!selectedId) return;
 		setActionLoading(true);
 		setError("");
 		try {
 			await fn();
 			await load();
-			await openDetail(selectedId);
+			if (clearSelection) {
+				setSelectedId(null);
+				setDetail(null);
+				setAuditLogs([]);
+			} else {
+				await openDetail(selectedId);
+			}
 		} catch (ex) {
 			setError(ex.message || "Action failed");
 		} finally {
@@ -116,6 +122,28 @@ export default function AdminAllUsersPanel() {
 					onConfirm={() => {
 						setActionModal(null);
 						runAction(() => deleteUser(selectedId, { hard: false }));
+					}}
+				/>
+			) : null}
+			{actionModal?.type === "delete" ? (
+				<AdminActionModal
+					open
+					title="Permanently delete user?"
+					message="This permanently removes the user and related account data. This action cannot be undone. Type DELETE to continue."
+					confirmLabel="Delete permanently"
+					variant="prompt"
+					inputLabel="Confirmation"
+					placeholder="DELETE"
+					isDangerous
+					isLoading={actionLoading}
+					onCancel={() => setActionModal(null)}
+					onConfirm={(value) => {
+						if (String(value || "").trim() !== "DELETE") {
+							setError("Type DELETE exactly to permanently delete this user.");
+							return;
+						}
+						setActionModal(null);
+						runAction(() => deleteUser(selectedId, { hard: true }), { clearSelection: true });
 					}}
 				/>
 			) : null}
@@ -238,6 +266,14 @@ export default function AdminAllUsersPanel() {
 									className="px-3 py-2 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 disabled:opacity-50"
 								>
 									Deactivate
+								</button>
+								<button
+									type="button"
+									disabled={actionLoading}
+									onClick={() => setActionModal({ type: "delete" })}
+									className="px-3 py-2 rounded-xl border border-red-200 bg-white text-red-700 text-xs font-bold hover:bg-red-50 disabled:opacity-50"
+								>
+									Delete user
 								</button>
 							</div>
 
