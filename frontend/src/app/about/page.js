@@ -6,31 +6,31 @@ const TEAM_MEMBERS = [
     name: "Blien Moges",
     role: "Full Stack Developer",
     initials: "BM",
-    image: "/team/blien-moges.jpg",
+    image: "/team/blien-moges.jpg.jpg",
   },
   {
     name: "Eyerusalem Rufael",
     role: "UI/UX Designer and Team Organizer",
     initials: "ER",
-    image: "/team/eyerusalem-rufael.jpg",
+    image: "/team/eyerusalem-rufael.jpg.jpg",
   },
   {
     name: "Eyerusalem Kidane",
     role: "Frontend Developer",
     initials: "EK",
-    image: "/team/eyerusalem-kidane.jpg",
+    image: "/team/eyerusalem-kidane.jpg.jpg",
   },
   {
     name: "Rahel Belay",
     role: "Backend Developer",
     initials: "RB",
-    image: "/team/rahel-belay.jpg",
+    image: "/team/rahel-belay.jpg.jpg",
   },
   {
     name: "Etsub Grima",
     role: "Full Stack Developer",
     initials: "EG",
-    image: "/team/etsub-grima.jpg",
+    image: "/team/etsub-grima.jpg.jpg",
   },
 ];
 
