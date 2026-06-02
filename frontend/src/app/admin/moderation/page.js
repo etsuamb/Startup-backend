@@ -12,6 +12,7 @@ import {
 	warnChatUser,
 } from "@/lib/adminApi";
 import AdminTabs from "@/components/admin/AdminTabs";
+import AdminActionModal from "@/components/admin/AdminActionModal";
 
 export default function AdminModerationPage() {
 	const [focusedLogId, setFocusedLogId] = useState("");
@@ -23,6 +24,8 @@ export default function AdminModerationPage() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [msg, setMsg] = useState("");
+	const [actionModal, setActionModal] = useState(null);
+	const [actionLoading, setActionLoading] = useState(false);
 
 	useEffect(() => {
 		queueMicrotask(() => {
@@ -55,40 +58,85 @@ export default function AdminModerationPage() {
 		queueMicrotask(load);
 	}, [load]);
 
-	async function handleSuspend(userId) {
-		const hours = Number(window.prompt("Suspend chat for how many hours?", "72") || 72);
-		const notes = window.prompt("Notes (optional):") || "";
-		try {
-			await suspendUserChat(userId, { hours, notes });
-			setMsg("User chat suspended");
-			load();
-		} catch (ex) {
-			setError(ex.message);
-		}
-	}
-
 	async function handleUnsuspend(userId) {
+		setActionLoading(true);
+		setError("");
 		try {
 			await unsuspendUserChat(userId);
 			setMsg("Chat suspension lifted");
 			load();
 		} catch (ex) {
 			setError(ex.message);
+		} finally {
+			setActionLoading(false);
 		}
 	}
 
-	async function handleWarn(userId) {
-		const message = window.prompt("Warning message to send:") || "Please follow chat guidelines.";
+	async function submitSuspend(userId, formValues) {
+		const hours = Number(formValues.hours || 72);
+		const notes = formValues.notes || "";
+		setActionLoading(true);
+		setError("");
 		try {
-			await warnChatUser(userId, message);
-			setMsg("Warning sent");
+			await suspendUserChat(userId, { hours, notes });
+			setMsg("User chat suspended");
+			setActionModal(null);
+			load();
 		} catch (ex) {
 			setError(ex.message);
+		} finally {
+			setActionLoading(false);
+		}
+	}
+
+	async function submitWarn(userId, message) {
+		setActionLoading(true);
+		setError("");
+		try {
+			await warnChatUser(userId, message || "Please follow chat guidelines.");
+			setMsg("Warning sent");
+			setActionModal(null);
+		} catch (ex) {
+			setError(ex.message);
+		} finally {
+			setActionLoading(false);
 		}
 	}
 
 	return (
 		<div className="max-w-7xl mx-auto pb-12">
+			{actionModal?.type === "suspend" ? (
+				<AdminActionModal
+					open
+					title="Suspend chat"
+					message="Set how long this user cannot use chat."
+					confirmLabel="Suspend chat"
+					isDangerous
+					isLoading={actionLoading}
+					fields={[
+						{ key: "hours", label: "Duration (hours)", type: "number", defaultValue: "72" },
+						{ key: "notes", label: "Notes (optional)", type: "textarea", placeholder: "Optional notes…" },
+					]}
+					onCancel={() => setActionModal(null)}
+					onConfirm={(formValues) => submitSuspend(actionModal.userId, formValues)}
+				/>
+			) : null}
+			{actionModal?.type === "warn" ? (
+				<AdminActionModal
+					open
+					variant="prompt"
+					title="Send warning"
+					message="This message will be sent to the user."
+					inputLabel="Warning message"
+					defaultValue="Please follow chat guidelines."
+					inputType="textarea"
+					confirmLabel="Send warning"
+					isLoading={actionLoading}
+					onCancel={() => setActionModal(null)}
+					onConfirm={(message) => submitWarn(actionModal.userId, message)}
+				/>
+			) : null}
+
 			<section className="mb-8 rounded-2xl bg-[#0a4d3c] text-white p-8 border border-[#07382b]/20">
 				<h1 className="text-3xl font-bold mb-2">Content moderation</h1>
 				<p className="text-white/80 text-sm">
@@ -214,14 +262,14 @@ export default function AdminModerationPage() {
 										<div className="flex flex-wrap gap-1">
 											<button
 												type="button"
-												onClick={() => handleWarn(v.user_id)}
+												onClick={() => setActionModal({ type: "warn", userId: v.user_id })}
 												className="px-2 py-1 rounded-lg bg-amber-100 text-amber-800 text-[10px] font-bold"
 											>
 												Warn
 											</button>
 											<button
 												type="button"
-												onClick={() => handleSuspend(v.user_id)}
+												onClick={() => setActionModal({ type: "suspend", userId: v.user_id })}
 												className="px-2 py-1 rounded-lg bg-red-600 text-white text-[10px] font-bold"
 											>
 												Suspend

@@ -14,43 +14,13 @@ import {
 	formatFileSize,
 	normalizePendingUserResponse,
 } from "@/lib/pendingUserDetail";
+import AdminActionModal from "@/components/admin/AdminActionModal";
 
 const ROLE_STYLES = {
 	Startup: "bg-orange-100 text-orange-700 border-orange-200",
 	Investor: "bg-blue-100 text-blue-700 border-blue-200",
 	Mentor: "bg-rose-100 text-rose-700 border-rose-200",
 };
-
-function ConfirmDialog({ title, message, onConfirm, onCancel, isLoading, confirmText, cancelText, isDangerous }) {
-	return (
-		<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-			<div className="bg-white rounded-[28px] shadow-2xl max-w-md w-full p-8 border border-slate-200">
-				<h2 className="text-2xl font-bold text-slate-900 mb-3">{title}</h2>
-				<p className="text-slate-600 mb-8 leading-relaxed">{message}</p>
-				<div className="flex gap-3">
-					<button
-						type="button"
-						onClick={onCancel}
-						disabled={isLoading}
-						className="flex-1 px-4 py-3 rounded-2xl border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 disabled:opacity-50 transition"
-					>
-						{cancelText}
-					</button>
-					<button
-						type="button"
-						onClick={onConfirm}
-						disabled={isLoading}
-						className={`flex-1 px-4 py-3 rounded-2xl text-white font-semibold transition disabled:opacity-50 ${
-							isDangerous ? "bg-red-600 hover:bg-red-700" : "bg-[#0a4d3c] hover:bg-[#07382b]"
-						}`}
-					>
-						{isLoading ? "Processing…" : confirmText}
-					</button>
-				</div>
-			</div>
-		</div>
-	);
-}
 
 function DetailSection({ title, children }) {
 	return (
@@ -222,30 +192,31 @@ export default function PendingUserDetailPage({ userId }) {
 
 	return (
 		<div className="max-w-6xl mx-auto pb-28">
-			{confirmAction === "approve" && (
-				<ConfirmDialog
+			{confirmAction === "approve" ? (
+				<AdminActionModal
+					open
 					title="Approve user?"
 					message={`Approve ${fullName}? They will gain access to the platform.`}
 					onConfirm={handleApprove}
 					onCancel={() => setConfirmAction(null)}
 					isLoading={processing}
-					confirmText="Yes, approve"
-					cancelText="Cancel"
-					isDangerous={false}
+					confirmLabel="Yes, approve"
+					cancelLabel="Cancel"
 				/>
-			)}
-			{confirmAction === "reject" && (
-				<ConfirmDialog
+			) : null}
+			{confirmAction === "reject" ? (
+				<AdminActionModal
+					open
 					title="Reject user?"
 					message={`Reject ${fullName}?${rejectReason ? ` Reason: ${rejectReason}` : " No reason provided."}`}
 					onConfirm={handleReject}
 					onCancel={() => setConfirmAction(null)}
 					isLoading={processing}
-					confirmText="Yes, reject"
-					cancelText="Go back"
+					confirmLabel="Yes, reject"
+					cancelLabel="Go back"
 					isDangerous
 				/>
-			)}
+			) : null}
 
 			{/* Top bar */}
 			<div className="flex flex-wrap items-center justify-between gap-4 mb-6">

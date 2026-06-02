@@ -8,11 +8,10 @@ import {
 	fetchUserAuditLogs,
 	restoreUser,
 	searchUsers,
-	suspendUser,
 	unsuspendUser,
-	verifyUserEmail,
 } from "@/lib/adminApi";
 import { formatFieldValue, profileFieldMap } from "@/lib/adminDisplay";
+import AdminActionModal from "@/components/admin/AdminActionModal";
 
 function statusBadge(user) {
 	if (!user.is_active) {
@@ -51,6 +50,7 @@ export default function AdminAllUsersPanel() {
 	const [detail, setDetail] = useState(null);
 	const [auditLogs, setAuditLogs] = useState([]);
 	const [actionLoading, setActionLoading] = useState(false);
+	const [actionModal, setActionModal] = useState(null);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -104,6 +104,21 @@ export default function AdminAllUsersPanel() {
 
 	return (
 		<div className="space-y-6">
+			{actionModal?.type === "deactivate" ? (
+				<AdminActionModal
+					open
+					title="Deactivate account?"
+					message="This user will be deactivated and lose access until restored."
+					confirmLabel="Deactivate"
+					isDangerous
+					isLoading={actionLoading}
+					onCancel={() => setActionModal(null)}
+					onConfirm={() => {
+						setActionModal(null);
+						runAction(() => deleteUser(selectedId, { hard: false }));
+					}}
+				/>
+			) : null}
 			<div className="flex flex-col md:flex-row gap-4">
 				<input
 					type="search"
@@ -196,19 +211,7 @@ export default function AdminAllUsersPanel() {
 								>
 									Full page view
 								</Link>
-								{detail.user.is_active ? (
-									<button
-										type="button"
-										disabled={actionLoading}
-										onClick={() => {
-											const reason = window.prompt("Suspend reason (optional):") || "";
-											runAction(() => suspendUser(selectedId, reason));
-										}}
-										className="px-3 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 disabled:opacity-50"
-									>
-										Suspend
-									</button>
-								) : (
+								{!detail.user.is_active ? (
 									<>
 										<button
 											type="button"
@@ -227,22 +230,11 @@ export default function AdminAllUsersPanel() {
 											Restore
 										</button>
 									</>
-								)}
+								) : null}
 								<button
 									type="button"
 									disabled={actionLoading}
-									onClick={() => runAction(() => verifyUserEmail(selectedId))}
-									className="px-3 py-2 rounded-xl border border-emerald-200 text-emerald-800 text-xs font-bold hover:bg-emerald-50 disabled:opacity-50"
-								>
-									Verify email
-								</button>
-								<button
-									type="button"
-									disabled={actionLoading}
-									onClick={() => {
-										if (!window.confirm("Deactivate this user account?")) return;
-										runAction(() => deleteUser(selectedId, { hard: false }));
-									}}
+									onClick={() => setActionModal({ type: "deactivate" })}
 									className="px-3 py-2 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 disabled:opacity-50"
 								>
 									Deactivate

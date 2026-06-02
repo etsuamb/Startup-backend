@@ -14,6 +14,7 @@ import {
 	updatePaymentDisputeStatus,
 } from "@/lib/adminApi";
 import AdminTabs from "@/components/admin/AdminTabs";
+import AdminActionModal from "@/components/admin/AdminActionModal";
 
 const TABS = [
 	{ id: "all", label: "All transactions" },
@@ -21,10 +22,35 @@ const TABS = [
 ];
 
 function PaymentDetailModal({ payment, onClose, onAction }) {
+	const [promptModal, setPromptModal] = useState(null);
+
 	if (!payment) return null;
 	const p = payment;
 	const fraudFlags = Array.isArray(p.fraud_flags) ? p.fraud_flags : [];
+
+	function openNotesModal({ title, inputLabel, onSubmit }) {
+		setPromptModal({ title, inputLabel, onSubmit });
+	}
+
 	return (
+		<>
+			{promptModal ? (
+				<AdminActionModal
+					open
+					variant="prompt"
+					title={promptModal.title}
+					inputLabel={promptModal.inputLabel}
+					inputType="textarea"
+					placeholder="Optional notes…"
+					confirmLabel="Continue"
+					onCancel={() => setPromptModal(null)}
+					onConfirm={(notes) => {
+						const submit = promptModal.onSubmit;
+						setPromptModal(null);
+						onAction(() => submit(notes || ""));
+					}}
+				/>
+			) : null}
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
 			<div className="bg-white rounded-2xl max-w-lg w-full p-6 border shadow-xl max-h-[90vh] overflow-y-auto">
 				<div className="flex justify-between items-start mb-4">
@@ -101,7 +127,13 @@ function PaymentDetailModal({ payment, onClose, onAction }) {
 					{p.status === "completed" ? (
 						<button
 							type="button"
-							onClick={() => onAction(() => refundPayment(p.payment_id, window.prompt("Refund notes", "") || ""))}
+							onClick={() =>
+								openNotesModal({
+									title: "Refund payment",
+									inputLabel: "Refund notes",
+									onSubmit: (notes) => refundPayment(p.payment_id, notes),
+								})
+							}
 							className="px-3 py-2 rounded-xl bg-slate-800 text-white text-xs font-bold"
 						>
 							Refund
@@ -110,7 +142,13 @@ function PaymentDetailModal({ payment, onClose, onAction }) {
 					{p.status === "completed" && ["held", "authorized"].includes(p.escrow_status) ? (
 						<button
 							type="button"
-							onClick={() => onAction(() => releaseEscrowPayment(p.payment_id, window.prompt("Escrow release notes", "") || ""))}
+							onClick={() =>
+								openNotesModal({
+									title: "Release escrow",
+									inputLabel: "Escrow release notes",
+									onSubmit: (notes) => releaseEscrowPayment(p.payment_id, notes),
+								})
+							}
 							className="px-3 py-2 rounded-xl bg-emerald-100 text-emerald-800 text-xs font-bold"
 						>
 							Release escrow
@@ -118,36 +156,62 @@ function PaymentDetailModal({ payment, onClose, onAction }) {
 					) : null}
 					<button
 						type="button"
-						onClick={() => onAction(() => flagPayment(p.payment_id, !p.is_suspicious, window.prompt("Flag notes", "") || ""))}
+						onClick={() =>
+							openNotesModal({
+								title: p.is_suspicious ? "Unflag payment" : "Flag as suspicious",
+								inputLabel: "Flag notes",
+								onSubmit: (notes) => flagPayment(p.payment_id, !p.is_suspicious, notes),
+							})
+						}
 						className="px-3 py-2 rounded-xl bg-amber-100 text-amber-800 text-xs font-bold"
 					>
 						{p.is_suspicious ? "Unflag" : "Flag suspicious"}
 					</button>
 					<button
 						type="button"
-						onClick={() => onAction(() => recordChargeback(p.payment_id, window.prompt("Chargeback notes", "") || ""))}
+						onClick={() =>
+							openNotesModal({
+								title: "Record chargeback",
+								inputLabel: "Chargeback notes",
+								onSubmit: (notes) => recordChargeback(p.payment_id, notes),
+							})
+						}
 						className="px-3 py-2 rounded-xl bg-red-100 text-red-700 text-xs font-bold"
 					>
 						Record chargeback
 					</button>
 					<button
 						type="button"
-						onClick={() => onAction(() => updatePaymentDisputeStatus(p.payment_id, {
-							type: "refund",
-							status: "provider_pending",
-							notes: window.prompt("Provider refund notes", "") || "",
-						}))}
+						onClick={() =>
+							openNotesModal({
+								title: "Provider refund pending",
+								inputLabel: "Provider refund notes",
+								onSubmit: (notes) =>
+									updatePaymentDisputeStatus(p.payment_id, {
+										type: "refund",
+										status: "provider_pending",
+										notes,
+									}),
+							})
+						}
 						className="px-3 py-2 rounded-xl bg-blue-100 text-blue-800 text-xs font-bold"
 					>
 						Provider refund pending
 					</button>
 					<button
 						type="button"
-						onClick={() => onAction(() => updatePaymentDisputeStatus(p.payment_id, {
-							type: "chargeback",
-							status: "under_review",
-							notes: window.prompt("Chargeback review notes", "") || "",
-						}))}
+						onClick={() =>
+							openNotesModal({
+								title: "Chargeback review",
+								inputLabel: "Chargeback review notes",
+								onSubmit: (notes) =>
+									updatePaymentDisputeStatus(p.payment_id, {
+										type: "chargeback",
+										status: "under_review",
+										notes,
+									}),
+							})
+						}
 						className="px-3 py-2 rounded-xl bg-red-50 text-red-800 text-xs font-bold"
 					>
 						Chargeback review
@@ -155,6 +219,7 @@ function PaymentDetailModal({ payment, onClose, onAction }) {
 				</div>
 			</div>
 		</div>
+		</>
 	);
 }
 

@@ -131,16 +131,18 @@ export default function GoogleSignInButton({ onError, role, mode = "login" }) {
 	}
 
 	return (
-		<div ref={buttonWrapRef} className="w-full min-w-[200px] flex justify-center [&>div]:!w-full">
-			<GoogleLogin
-				onSuccess={handleSuccess}
-				onError={() => onError?.("Google sign-in was cancelled or failed")}
-				theme="outline"
-				size="large"
-				text="continue_with"
-				shape="rectangular"
-				width={buttonWidth}
-			/>
+		<div ref={buttonWrapRef} className="w-full min-w-[200px]">
+			<div className="flex justify-center [&>div]:mx-auto">
+				<GoogleLogin
+					onSuccess={handleSuccess}
+					onError={() => onError?.("Google sign-in was cancelled or failed")}
+					theme="outline"
+					size="large"
+					text="continue_with"
+					shape="rectangular"
+					width={buttonWidth}
+				/>
+			</div>
 		</div>
 	);
 }
