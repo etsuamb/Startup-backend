@@ -515,10 +515,9 @@ exports.listFeaturedStartups = async (req, res) => {
     const offset = (pageNum - 1) * limitNum;
 
     const visibilityWhere = `
-			u.is_approved = true
+			u.role = 'Startup'
+			AND u.is_approved = true
 			AND u.is_active = true
-			AND COALESCE(s.is_listed, false) = true
-			AND COALESCE(s.admin_status, 'Pending') IN ('Active', 'Funded')
 		`;
 
     const countResult = await pool.query(
@@ -528,7 +527,7 @@ exports.listFeaturedStartups = async (req, res) => {
 
     const result = await pool.query(
       `SELECT s.startup_id, s.startup_name, s.industry, s.description, s.business_stage, s.team_size,
-			 s.location, s.website, s.funding_needed, s.created_at
+			 s.location, s.website, s.funding_needed, s.created_at, s.startup_tagline
 			 FROM startups s
 			 JOIN users u ON s.user_id = u.user_id
 			 WHERE ${visibilityWhere}

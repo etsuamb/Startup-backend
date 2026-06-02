@@ -153,7 +153,7 @@ export default function StartupDiscoverPage() {
 					{loading ? (
 						<p className="mt-6 rounded-xl bg-white p-10 text-center text-sm text-gray-500">Loading profiles...</p>
 					) : visibleProfiles.length ? (
-						<div className="mt-6 grid gap-6 md:grid-cols-2">
+						<div className={activeTab === "investors" ? "mt-6 flex flex-col gap-4" : "mt-6 grid gap-6 md:grid-cols-2"}>
 							{visibleProfiles.map((profile) => (
 								<DiscoverCard
 									key={activeTab === "investors" ? profile.investor_id : profile.mentor_id}

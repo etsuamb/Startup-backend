@@ -64,8 +64,8 @@ export default function BackNavigationButton() {
 	}
 
 	const positionClass = isPortalRoute(pathname)
-		? "left-4 top-20 lg:left-[17rem] lg:top-24"
-		: "left-4 top-20";
+		? "bottom-5 right-5 lg:bottom-6 lg:right-6"
+		: "bottom-5 right-5 sm:bottom-6 sm:right-6";
 
 	return (
 		<button

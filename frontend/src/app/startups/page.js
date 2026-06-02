@@ -3,6 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import ActorAvatar from "@/components/auth/ActorAvatar";
+import { INDUSTRY_OPTIONS } from "@/components/register/IndustryFields";
 
 export default function BrowseStartups() {
   const [query, setQuery] = useState("");
@@ -15,27 +17,7 @@ export default function BrowseStartups() {
   const [error, setError] = useState("");
   const limit = 12;
 
-  const industryOptions = [
-    "Agriculture",
-    "Agro-processing",
-    "Construction",
-    "Education",
-    "Energy",
-    "Environment and Water",
-    "Finance and Insurance",
-    "Food and Beverage",
-    "Health and Wellness",
-    "ICT / Technology",
-    "Logistics and Transportation",
-    "Manufacturing",
-    "Media and Entertainment",
-    "Mining and Extractives",
-    "Professional Services",
-    "Real Estate",
-    "Retail and Consumer Goods",
-    "Tourism and Hospitality",
-    "Textiles and Apparel",
-  ];
+  const industryOptions = INDUSTRY_OPTIONS;
 
   const stageOptions = ["Idea Stage", "Pre-Seed", "Seed", "Early Growth"];
 
@@ -58,6 +40,7 @@ export default function BrowseStartups() {
 
       const res = await fetch(
         `/api-backend/startups/search?${params.toString()}`,
+        { cache: "no-store" },
       );
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
@@ -91,9 +74,11 @@ export default function BrowseStartups() {
               href="/"
               className="flex items-center gap-2 group cursor-pointer"
             >
-              <img
+              <Image
                 src="/logo.png"
                 alt="StartupConnect Logo"
+                width={40}
+                height={40}
                 className="w-10 h-10 object-contain"
               />
               <div className="flex flex-col -gap-1">
@@ -273,35 +258,39 @@ export default function BrowseStartups() {
           </form>
         </section>
 
-        {/* Startups Grid */}
+        {/* Live startup directory */}
         <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto mb-16">
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="flex flex-col gap-4">
             {loading && (
-              <div className="col-span-3 text-center">Loading...</div>
+              <div className="text-center">Loading...</div>
             )}
             {!loading && startups.length === 0 && (
-              <div className="col-span-3 text-center text-gray-500">
+              <div className="text-center text-gray-500">
                 No startups found. Try adjusting your filters.
               </div>
             )}
             {startups.map((s) => (
               <div
                 key={s.startup_id}
-                className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col hover:shadow-md transition"
+                className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col gap-5 hover:shadow-md transition sm:flex-row sm:items-center"
               >
-                <div className="h-48 bg-gray-200 w-full relative">
-                  <div className="absolute inset-0 flex items-center justify-center text-gray-400 bg-gray-200">
-                    Image
-                  </div>
+                <div className="h-20 w-20 shrink-0 rounded-xl bg-[#0f3d32] p-2">
+                  <ActorAvatar
+                    role="startup"
+                    profileId={s.startup_id}
+                    initials={String(s.startup_name || "ST").slice(0, 2).toUpperCase()}
+                    alt={s.startup_name || "Startup"}
+                    className="h-full w-full rounded-lg text-sm font-black"
+                  />
                 </div>
-                <div className="p-6 flex flex-col flex-grow items-center text-center">
-                  <h3 className="text-xl font-bold mb-2 self-start text-left w-full">
+                <div className="min-w-0 flex-grow">
+                  <h3 className="text-lg font-bold text-gray-900">
                     {s.startup_name}
                   </h3>
-                  <p className="text-sm text-gray-600 mb-4 flex-grow self-start text-left w-full">
-                    {s.description}
+                  <p className="mt-1 line-clamp-2 text-sm text-gray-600">
+                    {s.description || s.startup_tagline || "Startup profile details are available after registration."}
                   </p>
-                  <div className="flex gap-2 w-full mb-4">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     {s.industry && (
                       <span className="px-2 py-1 bg-green-50 text-primary text-xs font-semibold rounded-md border border-green-100">
                         {s.industry}
@@ -313,7 +302,7 @@ export default function BrowseStartups() {
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center w-full text-xs text-gray-500 mb-6">
+                  <div className="mt-3 flex items-center text-xs text-gray-500">
                     <svg
                       className="w-4 h-4 mr-1 pb-0.5"
                       fill="none"
@@ -336,13 +325,13 @@ export default function BrowseStartups() {
                     </svg>
                     {s.location || "—"}
                   </div>
-                  <Link
-                    href="/register"
-                    className="px-6 py-2 border border-gray-200 text-primary font-medium rounded hover:bg-green-50 transition w-full max-w-[200px] text-center"
-                  >
-                    View Details
-                  </Link>
                 </div>
+                <Link
+                  href="/register"
+                  className="inline-flex w-full shrink-0 justify-center rounded-lg border border-gray-200 px-5 py-2.5 text-sm font-bold text-primary transition hover:bg-green-50 sm:w-auto"
+                >
+                  View Details
+                </Link>
               </div>
             ))}
           </div>
