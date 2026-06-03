@@ -107,6 +107,26 @@ export function rejectUser(userId, reason) {
 	return apiPutJson(`/admin/users/reject/${userId}`, { reason });
 }
 
+export function runPendingUserAutomation() {
+	return apiFetch("/admin/users/automation", { method: "POST" });
+}
+
+export function runExistingUserAutomation(options = {}) {
+	return apiFetch("/admin/users/review-existing", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(options),
+	});
+}
+
+export function runUserAutomation(userId, options = {}) {
+	return apiFetch(`/admin/users/${userId}/automation`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(options),
+	});
+}
+
 export function searchUsers({ q, role, limit = 50, offset = 0 } = {}) {
 	const params = new URLSearchParams();
 	if (q) params.set("q", q);

@@ -353,7 +353,19 @@ function StartupProfileContent() {
 													fileAvailable: doc.file_available,
 												});
 												return (
-												<div key={doc.document_id} className="flex items-center justify-between gap-4 p-4 rounded-xl border border-gray-100 hover:bg-gray-50 transition">
+												<button
+													key={doc.document_id}
+													type="button"
+													disabled={!canView}
+													onClick={() => openUploadedFileForView({
+														documentId: doc.document_id,
+														filePath: doc.file_path,
+														fileName: doc.file_name,
+														fileType: doc.file_type,
+													})}
+													className={`flex w-full items-center justify-between gap-4 p-4 rounded-xl border border-gray-100 text-left transition ${canView ? "hover:bg-gray-50" : "cursor-not-allowed opacity-70"}`}
+													title={canView ? "Open document" : "Document preview unavailable"}
+												>
 													<div className="min-w-0">
 														<p className="text-sm font-bold text-gray-900 truncate">{doc.file_name}</p>
 														<p className="text-[10px] text-gray-500 font-medium">
@@ -361,24 +373,15 @@ function StartupProfileContent() {
 														</p>
 													</div>
 													{canView ? (
-														<button
-															type="button"
-															onClick={() => openUploadedFileForView({
-																documentId: doc.document_id,
-																filePath: doc.file_path,
-																fileName: doc.file_name,
-																fileType: doc.file_type,
-															})}
-															className="shrink-0 rounded-lg bg-[#0a4d3c] px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-white transition hover:bg-[#07382b]"
-														>
+														<span className="shrink-0 rounded-lg bg-[#0a4d3c] px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-white">
 															View file
-														</button>
+														</span>
 													) : (
 														<span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-gray-400">
 															Protected
 														</span>
 													)}
-												</div>
+												</button>
 											);
 											}) : (
 												<p className="text-sm text-gray-500">No investor documents are available yet.</p>

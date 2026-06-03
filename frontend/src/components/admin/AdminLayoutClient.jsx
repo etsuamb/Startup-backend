@@ -15,10 +15,11 @@ import { resolveNotificationHref } from "@/lib/notificationNavigation";
 import { getCurrentAccount } from "@/lib/authApi";
 import { getUserName } from "@/lib/authStorage";
 import { useAdminLocale } from "@/components/admin/AdminLocaleProvider";
+import RoleLanguageToggle from "@/components/locale/RoleLanguageToggle";
 
 export default function AdminLayoutClient({ children }) {
 	const router = useRouter();
-	const { dateLocale, t } = useAdminLocale();
+	const { dateLocale, locale, setLocale, t } = useAdminLocale();
 	const [notifications, setNotifications] = useState([]);
 	const [unreadCount, setUnreadCount] = useState(0);
 	const [isOpen, setIsOpen] = useState(false);
@@ -130,6 +131,8 @@ export default function AdminLayoutClient({ children }) {
 
 						{/* Right Actions */}
 						<div className="flex items-center gap-4">
+							<RoleLanguageToggle locale={locale} setLocale={setLocale} compact />
+
 							{/* Notification Bell Dropdown */}
 							<div className="relative" ref={dropdownRef}>
 								<button

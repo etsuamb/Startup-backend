@@ -8,6 +8,8 @@ import NotificationBell from "@/components/NotificationBell";
 import ProfilePictureAvatar from "@/components/auth/ProfilePictureAvatar";
 import SidebarCollapseButton, { SidebarMobileToggle } from "@/components/SidebarCollapseButton";
 import { useSidebarCollapse } from "@/hooks/useSidebarCollapse";
+import RoleLanguageToggle from "@/components/locale/RoleLanguageToggle";
+import { useInvestorLocale } from "@/components/investor/InvestorLocaleProvider";
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -17,6 +19,7 @@ export default function Sidebar() {
   const [profileRole, setProfileRole] = useState("Investor");
   const [profileError, setProfileError] = useState("");
   const { collapsed, mobileOpen, toggleCollapsed, toggleMobile, closeMobile } = useSidebarCollapse(pathname);
+  const { locale, setLocale } = useInvestorLocale();
 
   useEffect(() => {
     let ignore = false;
@@ -142,6 +145,8 @@ export default function Sidebar() {
         <div />
 
         <div className="relative flex items-center gap-3 shrink-0">
+          <RoleLanguageToggle locale={locale} setLocale={setLocale} compact />
+
           <NotificationBell />
 
           <button

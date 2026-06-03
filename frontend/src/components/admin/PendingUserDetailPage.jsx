@@ -54,12 +54,58 @@ function DetailGrid({ items }) {
 	);
 }
 
+function AutomationReview({ user }) {
+	if (!user?.automation_status && !user?.ai_review) return null;
+	const ai = user.ai_review || {};
+	const concerns = Array.isArray(ai.concerns) ? ai.concerns : [];
+	const positives = Array.isArray(ai.positive_signals) ? ai.positive_signals : [];
+	return (
+		<DetailSection title="AI recommendation">
+			<div className="grid grid-cols-2 gap-3 mb-4">
+				<div className="rounded-xl bg-slate-50 p-3 border border-slate-100">
+					<p className="text-[10px] uppercase text-slate-400 font-bold">Decision</p>
+					<p className="text-sm font-bold text-slate-800">{user.automation_status || "Not reviewed"}</p>
+				</div>
+				<div className="rounded-xl bg-slate-50 p-3 border border-slate-100">
+					<p className="text-[10px] uppercase text-slate-400 font-bold">Score</p>
+					<p className="text-sm font-bold text-slate-800">{user.automation_score ?? "N/A"}</p>
+				</div>
+				<div className="rounded-xl bg-slate-50 p-3 border border-slate-100">
+					<p className="text-[10px] uppercase text-slate-400 font-bold">AI recommendation</p>
+					<p className="text-sm font-bold text-slate-800">{user.ai_recommendation || ai.recommendation || "N/A"}</p>
+				</div>
+				<div className="rounded-xl bg-slate-50 p-3 border border-slate-100">
+					<p className="text-[10px] uppercase text-slate-400 font-bold">AI risk</p>
+					<p className="text-sm font-bold text-slate-800">{user.ai_risk_level || ai.risk_level || "N/A"}</p>
+				</div>
+			</div>
+			{ai.summary ? <p className="text-sm text-slate-700 mb-3 leading-relaxed">{ai.summary}</p> : null}
+			{positives.length ? (
+				<p className="text-sm text-emerald-700 mb-2">
+					<span className="font-bold">Positive signals:</span> {positives.join("; ")}
+				</p>
+			) : null}
+			{concerns.length ? (
+				<p className="text-sm text-red-700">
+					<span className="font-bold">Concerns:</span> {concerns.join("; ")}
+				</p>
+			) : null}
+		</DetailSection>
+	);
+}
+
 function DocumentCard({ doc, onView, loadingId }) {
 	const typeLabel = doc.document_type || doc.description || "Document";
 	const isLoading = loadingId === doc.document_id;
 
 	return (
-		<div className="flex items-center gap-4 p-4 rounded-2xl border border-slate-200 bg-slate-50/50 hover:border-emerald-200 hover:bg-emerald-50/30 transition">
+		<button
+			type="button"
+			onClick={() => onView(doc)}
+			disabled={isLoading}
+			className="flex w-full items-center gap-4 p-4 rounded-2xl border border-slate-200 bg-slate-50/50 text-left hover:border-emerald-200 hover:bg-emerald-50/30 disabled:opacity-70 transition"
+			title={isLoading ? "Opening..." : "Open document"}
+		>
 			<div className="w-12 h-12 rounded-xl bg-[#0a4d3c]/10 border border-[#0a4d3c]/20 flex items-center justify-center text-[10px] font-black text-[#0a4d3c] shrink-0">
 				DOC
 			</div>
@@ -72,15 +118,10 @@ function DocumentCard({ doc, onView, loadingId }) {
 					{doc.created_at ? new Date(doc.created_at).toLocaleDateString() : ""}
 				</p>
 			</div>
-			<button
-				type="button"
-				onClick={() => onView(doc)}
-				disabled={isLoading}
-				className="shrink-0 px-4 py-2 rounded-xl bg-[#0a4d3c] text-white text-xs font-bold hover:bg-[#07382b] disabled:opacity-60 transition"
-			>
+			<span className="shrink-0 px-4 py-2 rounded-xl bg-[#0a4d3c] text-white text-xs font-bold">
 				{isLoading ? "Opening…" : "View file"}
-			</button>
-		</div>
+			</span>
+		</button>
 	);
 }
 
@@ -279,6 +320,8 @@ export default function PendingUserDetailPage({ userId }) {
 			<div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
 				{/* Profile columns */}
 				<div className="xl:col-span-2 space-y-6">
+					<AutomationReview user={user} />
+
 					{sections.map((section) => (
 						<DetailSection key={section.id} title={section.title}>
 							<DetailGrid items={section.items} />

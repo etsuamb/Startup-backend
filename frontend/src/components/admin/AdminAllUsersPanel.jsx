@@ -6,6 +6,9 @@ import {
 	deleteUser,
 	fetchUser,
 	fetchUserAuditLogs,
+	restoreUser,
+	runExistingUserAutomation,
+	runUserAutomation,
 	searchUsers,
 	updateUserStatus,
 } from "@/lib/adminApi";
@@ -23,10 +26,19 @@ function statusBadge(user) {
 	if (status === "approved") {
 		return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">Approved</span>;
 	}
-	if (status === "rejected") {
-		return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">Rejected</span>;
+	if (user.automation_status === "ai_recommends_approval" || user.automation_status === "auto_approved") {
+		return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700">AI says approve{user.automation_score != null ? ` ${user.automation_score}` : ""}</span>;
 	}
-	return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">Pending approval</span>;
+	if (user.automation_status === "ai_recommends_rejection" || user.automation_status === "auto_rejected") {
+		return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700">AI says reject{user.automation_score != null ? ` ${user.automation_score}` : ""}</span>;
+	}
+	if (user.automation_status === "rule_recommends_approval") {
+		return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700">Rule says approve{user.automation_score != null ? ` ${user.automation_score}` : ""}</span>;
+	}
+	if (user.automation_status === "rule_recommends_rejection") {
+		return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700">Rule says reject{user.automation_score != null ? ` ${user.automation_score}` : ""}</span>;
+	}
+	return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">Pending</span>;
 }
 
 function ProfileDetails({ profile, role }) {
@@ -46,6 +58,52 @@ function ProfileDetails({ profile, role }) {
 	);
 }
 
+function AutomationReview({ user }) {
+	if (!user?.automation_status && !user?.ai_review) return null;
+	const ai = user.ai_review || {};
+	const concerns = Array.isArray(ai.concerns) ? ai.concerns : [];
+	const positives = Array.isArray(ai.positive_signals) ? ai.positive_signals : [];
+	return (
+		<div className="rounded-xl border border-slate-100 p-3 bg-slate-50/60">
+			<p className="text-xs font-bold text-slate-500 uppercase mb-2">Automation review</p>
+			<div className="grid grid-cols-2 gap-2 mb-3">
+				<div className="rounded-lg bg-white p-2 border border-slate-100">
+					<p className="text-[10px] uppercase text-slate-400 font-semibold">Decision</p>
+					<p className="text-xs font-bold text-slate-800">{user.automation_status || "Not run"}</p>
+				</div>
+				<div className="rounded-lg bg-white p-2 border border-slate-100">
+					<p className="text-[10px] uppercase text-slate-400 font-semibold">Score</p>
+					<p className="text-xs font-bold text-slate-800">{user.automation_score ?? "N/A"}</p>
+				</div>
+				<div className="rounded-lg bg-white p-2 border border-slate-100">
+					<p className="text-[10px] uppercase text-slate-400 font-semibold">AI recommendation</p>
+					<p className="text-xs font-bold text-slate-800">{user.ai_recommendation || ai.recommendation || "N/A"}</p>
+				</div>
+				<div className="rounded-lg bg-white p-2 border border-slate-100">
+					<p className="text-[10px] uppercase text-slate-400 font-semibold">AI risk</p>
+					<p className="text-xs font-bold text-slate-800">{user.ai_risk_level || ai.risk_level || "N/A"}</p>
+				</div>
+			</div>
+			{ai.summary ? <p className="text-xs text-slate-700 mb-2">{ai.summary}</p> : null}
+			{concerns.length ? (
+				<p className="text-xs text-red-700 mb-1">
+					<span className="font-bold">Concerns:</span> {concerns.join("; ")}
+				</p>
+			) : null}
+			{positives.length ? (
+				<p className="text-xs text-emerald-700">
+					<span className="font-bold">Positive signals:</span> {positives.join("; ")}
+				</p>
+			) : null}
+			{user.rejection_reason ? (
+				<p className="text-xs text-red-700 mt-2">
+					<span className="font-bold">Rejection reason:</span> {user.rejection_reason}
+				</p>
+			) : null}
+		</div>
+	);
+}
+
 export default function AdminAllUsersPanel() {
 	const [users, setUsers] = useState([]);
 	const [q, setQ] = useState("");
@@ -56,6 +114,7 @@ export default function AdminAllUsersPanel() {
 	const [detail, setDetail] = useState(null);
 	const [auditLogs, setAuditLogs] = useState([]);
 	const [actionLoading, setActionLoading] = useState(false);
+	const [reviewLoading, setReviewLoading] = useState(false);
 	const [actionModal, setActionModal] = useState(null);
 
 	const load = useCallback(async () => {
@@ -114,13 +173,38 @@ export default function AdminAllUsersPanel() {
 		}
 	}
 
-	function changeStatus(status) {
-		if (!selectedId || status === accountStatus(detail?.user || {})) return;
-		if (status === "rejected") {
-			setActionModal({ type: "reject" });
-			return;
+	async function reviewSelectedUser() {
+		if (!selectedId) return;
+		setReviewLoading(true);
+		setError("");
+		try {
+			await runUserAutomation(selectedId, { reviewOnly: true });
+			await load();
+			await openDetail(selectedId);
+		} catch (ex) {
+			setError(ex.message || "AI review failed");
+		} finally {
+			setReviewLoading(false);
 		}
-		runAction(() => updateUserStatus(selectedId, status));
+	}
+
+	async function reviewExistingUsers() {
+		setReviewLoading(true);
+		setError("");
+		try {
+			await runExistingUserAutomation({
+				includeApproved: true,
+				onlyWithoutReview: false,
+				role: ["Startup", "Investor", "Mentor"].includes(role) ? role : undefined,
+				limit: 100,
+			});
+			await load();
+			if (selectedId) await openDetail(selectedId);
+		} catch (ex) {
+			setError(ex.message || "Failed to review existing users");
+		} finally {
+			setReviewLoading(false);
+		}
 	}
 
 	return (
@@ -185,6 +269,14 @@ export default function AdminAllUsersPanel() {
 					<option value="Mentor">Mentor</option>
 					<option value="Admin">Admin</option>
 				</select>
+				<button
+					type="button"
+					disabled={reviewLoading}
+					onClick={reviewExistingUsers}
+					className="px-4 py-3 rounded-2xl bg-[#0a4d3c] text-white text-sm font-bold hover:bg-[#083f31] disabled:opacity-50"
+				>
+					{reviewLoading ? "Reviewing..." : "AI review existing users"}
+				</button>
 			</div>
 
 			{error ? (
@@ -251,6 +343,8 @@ export default function AdminAllUsersPanel() {
 								<ProfileDetails profile={detail.profile} role={detail.user.role} />
 							</div>
 
+							<AutomationReview user={detail.user} />
+
 							<div className="flex flex-wrap gap-2">
 								{detail.user.role !== "Admin" ? (
 									<label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600">
@@ -273,6 +367,34 @@ export default function AdminAllUsersPanel() {
 								>
 									Full page view
 								</Link>
+								<button
+									type="button"
+									disabled={reviewLoading}
+									onClick={reviewSelectedUser}
+									className="px-3 py-2 rounded-xl bg-[#0a4d3c] text-white text-xs font-bold hover:bg-[#083f31] disabled:opacity-50"
+								>
+									{reviewLoading ? "Reviewing..." : "Run AI review"}
+								</button>
+								{!detail.user.is_active ? (
+									<>
+										<button
+											type="button"
+											disabled={actionLoading}
+											onClick={() => runAction(() => unsuspendUser(selectedId))}
+											className="px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 disabled:opacity-50"
+										>
+											Unsuspend
+										</button>
+										<button
+											type="button"
+											disabled={actionLoading}
+											onClick={() => runAction(() => restoreUser(selectedId))}
+											className="px-3 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 disabled:opacity-50"
+										>
+											Restore
+										</button>
+									</>
+								) : null}
 								<button
 									type="button"
 									disabled={actionLoading}

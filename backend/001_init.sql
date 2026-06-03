@@ -13,6 +13,13 @@ CREATE TABLE IF NOT EXISTS users (
     rejection_reason TEXT,
     rejected_at TIMESTAMPTZ,
     rejected_by INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
+    automation_status VARCHAR(30),
+    automation_score INTEGER,
+    automation_reasons JSONB,
+    ai_review JSONB,
+    ai_recommendation VARCHAR(30),
+    ai_risk_level VARCHAR(30),
+    automation_decided_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ
 );
@@ -607,6 +614,13 @@ CREATE INDEX IF NOT EXISTS idx_mentor_video_session_user ON mentor_chat_video_se
 ALTER TABLE users ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS rejected_by INTEGER REFERENCES users(user_id) ON DELETE SET NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS automation_status VARCHAR(30);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS automation_score INTEGER;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS automation_reasons JSONB;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_review JSONB;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_recommendation VARCHAR(30);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_risk_level VARCHAR(30);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS automation_decided_at TIMESTAMPTZ;
 
 ALTER TABLE startups ADD COLUMN IF NOT EXISTS admin_status VARCHAR(20) DEFAULT 'Pending';
 ALTER TABLE startups ADD COLUMN IF NOT EXISTS is_listed BOOLEAN DEFAULT FALSE;

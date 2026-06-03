@@ -1,0 +1,106 @@
+services:
+  - type: web
+    name: startup-connect-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: STARTUP_RETRIES
+        value: 10
+      - key: DB_SSL
+        value: true
+      - key: DB_HOST
+        fromDatabase:
+          name: startup-connect-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: startup-connect-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: startup-connect-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: startup-connect-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: startup-connect-db
+          property: password
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GROQ_API_KEY
+        sync: false
+      - key: AI_MENTOR_PROVIDER
+        value: groq
+      - key: AI_REVIEW_PROVIDER
+        value: groq
+      - key: GROQ_MODEL
+        value: llama-3.1-8b-instant
+      - key: GROQ_REVIEW_MODEL
+        value: llama-3.1-8b-instant
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: BREVO_HTTP_API_KEY
+        sync: false
+      - key: BREVO_FROM_EMAIL
+        sync: false
+      - key: BREVO_FROM_NAME
+        value: StartupConnect
+      - key: CHAPA_PUBLIC_KEY
+        sync: false
+      - key: CHAPA_SECRET_KEY
+        sync: false
+      - key: CHAPA_RETURN_URL
+        sync: false
+      - key: CHAPA_CALLBACK_URL
+        sync: false
+
+  - type: web
+    name: startup-connect-frontend
+    runtime: node
+    rootDir: frontend
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BACKEND_HOSTPORT
+        fromService:
+          name: startup-connect-backend
+          type: web
+          property: hostport
+      - key: NEXT_PUBLIC_SOCKET_URL
+        sync: false
+      - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID
+        sync: false
+      - key: NEXT_PUBLIC_CHAT_E2E_SECRET
+        sync: false
+      - key: NEXT_PUBLIC_STUN_URL
+        value: stun:stun.l.google.com:19302
+      - key: NEXT_PUBLIC_TURN_URL
+        sync: false
+      - key: NEXT_PUBLIC_TURN_USERNAME
+        sync: false
+      - key: NEXT_PUBLIC_TURN_CREDENTIAL
+        sync: false
+
+databases:
+  - name: startup-connect-db
+    plan: free
+    databaseName: connect_startup
+    user: startup_connect

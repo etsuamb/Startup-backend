@@ -9,7 +9,8 @@ import AccountAccessGuard from "@/components/auth/AccountAccessGuard";
 import { clearSession } from "@/lib/authStorage";
 import { fetchMentorDashboard } from "@/lib/mentorApi";
 import ProfilePictureAvatar from "@/components/auth/ProfilePictureAvatar";
-import { MentorLocaleProvider } from "@/components/mentor/MentorLocaleProvider";
+import { MentorLocaleProvider, useMentorLocale } from "@/components/mentor/MentorLocaleProvider";
+import RoleLanguageToggle from "@/components/locale/RoleLanguageToggle";
 
 function Icon({ path, className = "h-4 w-4" }) {
   return (
@@ -55,6 +56,7 @@ function pagePlaceholder(pathname) {
 function MentorTopbar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { locale, setLocale } = useMentorLocale();
   const [profile, setProfile] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -137,6 +139,7 @@ function MentorTopbar() {
         )}
 
         <div className="ml-4 flex items-center gap-3">
+          <RoleLanguageToggle locale={locale} setLocale={setLocale} compact />
           <NotificationBell />
           <Link
             href="/mentor/settings"
