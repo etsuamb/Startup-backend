@@ -6,15 +6,48 @@ function cleanEnv(value) {
 	return String(value || "").trim().replace(/^"(.+)"$/, "$1").replace(/^'(.+)'$/, "$1");
 }
 
+function buildProviderList() {
+	const groqKey = cleanEnv(process.env.GROQ_API_KEY);
+	const openAiKey = cleanEnv(process.env.OPENAI_API_KEY);
+	const requestedProvider = cleanEnv(process.env.AI_MENTOR_PROVIDER).toLowerCase();
+
+	const providers = {
+		openai: {
+			name: "OpenAI",
+			url: "https://api.openai.com/v1/chat/completions",
+			key: openAiKey,
+			model: process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini",
+		},
+		groq: {
+			name: "Groq",
+			url: "https://api.groq.com/openai/v1/chat/completions",
+			key: groqKey,
+			model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
+		},
+	};
+
+	if (requestedProvider) {
+		if (!providers[requestedProvider]) {
+			throw new Error("AI_MENTOR_PROVIDER must be either 'openai' or 'groq'.");
+		}
+
+		return providers[requestedProvider].key ? [providers[requestedProvider]] : [];
+	}
+
+	return [providers.openai, providers.groq].filter((provider) => provider.key);
+}
+
+function isAuthFailure(response, data) {
+	const message = String(data?.error?.message || "").toLowerCase();
+	return response.status === 401 || response.status === 403 || message.includes("invalid api key");
+}
+
 async function generateMentorResponse({
 	profileContext,
 	startupProfile,
 	chatHistory,
 	userMessage,
 }) {
-	const groqKey = cleanEnv(process.env.GROQ_API_KEY);
-	const openAiKey = cleanEnv(process.env.OPENAI_API_KEY);
-
 	const systemPrompt = `
 You are the AI app assistant for StartupConnect Ethiopia.
 
@@ -76,42 +109,39 @@ ${profileContext || startupProfile || "No profile context was provided."}
 		{ role: "user", content: userMessage },
 	];
 
-	const provider = groqKey
-		? {
-			url: "https://api.groq.com/openai/v1/chat/completions",
-			key: groqKey,
-			model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
-		}
-		: {
-			url: "https://api.openai.com/v1/chat/completions",
-			key: openAiKey,
-			model: process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini",
-		};
-
-	if (!provider.key) {
+	const providers = buildProviderList();
+	if (providers.length === 0) {
 		throw new Error("AI provider key is not configured. Add GROQ_API_KEY or OPENAI_API_KEY to backend/.env, then restart the backend.");
 	}
 
-	const response = await fetch(provider.url, {
-		method: "POST",
-		headers: {
-			Authorization: `Bearer ${provider.key}`,
-			"Content-Type": "application/json",
-		},
-		body: JSON.stringify({
-			model: provider.model,
-			messages,
-			temperature: 0.7,
-			max_tokens: 800,
-		}),
-	});
+	let lastError;
+	for (const [index, provider] of providers.entries()) {
+		const response = await fetch(provider.url, {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${provider.key}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				model: provider.model,
+				messages,
+				temperature: 0.7,
+				max_tokens: 800,
+			}),
+		});
 
-	const data = await response.json().catch(() => ({}));
-	if (!response.ok) {
-		throw new Error(data?.error?.message || "AI provider request failed");
+		const data = await response.json().catch(() => ({}));
+		if (response.ok) {
+			return data?.choices?.[0]?.message?.content || "I could not generate a response right now.";
+		}
+
+		lastError = data?.error?.message || `${provider.name} request failed`;
+		if (!isAuthFailure(response, data) || index === providers.length - 1) {
+			throw new Error(lastError);
+		}
 	}
 
-	return data?.choices?.[0]?.message?.content || "I could not generate a response right now.";
+	throw new Error(lastError || "AI provider request failed");
 }
 
 module.exports = { generateMentorResponse };

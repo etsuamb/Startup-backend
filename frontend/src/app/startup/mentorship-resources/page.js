@@ -121,7 +121,15 @@ function ResourceDetail({ resource }) {
         ) : null}
 
         {resource.file_name ? (
-          <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 flex items-center justify-between gap-4">
+          <button
+            type="button"
+            onClick={openFile}
+            disabled={!fileUrl}
+            className={`rounded-xl border border-gray-100 bg-gray-50 p-4 flex w-full items-center justify-between gap-4 text-left transition ${
+              fileUrl ? "hover:border-[#0a4d3c]/20 hover:bg-[#f0faf7]" : "cursor-not-allowed opacity-70"
+            }`}
+            title={fileUrl ? "Open attached file" : "Preview unavailable"}
+          >
             <div className="min-w-0">
               <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Attached file</p>
               <p className="font-bold text-gray-900 truncate">{resource.file_name}</p>
@@ -130,17 +138,13 @@ function ResourceDetail({ resource }) {
               </p>
             </div>
             {fileUrl ? (
-              <button
-                type="button"
-                onClick={openFile}
-                className="shrink-0 rounded-xl bg-[#061e16] px-4 py-2.5 text-xs font-black text-white hover:bg-[#0f3d32] transition"
-              >
+              <span className="shrink-0 rounded-xl bg-[#061e16] px-4 py-2.5 text-xs font-black text-white">
                 View file
-              </button>
+              </span>
             ) : (
               <span className="text-xs text-gray-400">Preview unavailable</span>
             )}
-          </div>
+          </button>
         ) : null}
 
         {!resource.resource_description && !resource.external_url && !resource.file_name ? (

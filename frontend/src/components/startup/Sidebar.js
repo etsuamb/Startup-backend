@@ -3,10 +3,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import SidebarCollapseButton, { SidebarMobileToggle } from "@/components/SidebarCollapseButton";
 import { useSidebarCollapse } from "@/hooks/useSidebarCollapse";
+import RoleLanguageToggle from "@/components/locale/RoleLanguageToggle";
+import { useStartupLocale } from "@/components/startup/StartupLocaleProvider";
 
 export default function Sidebar() {
   const pathname = usePathname();
   const { collapsed, mobileOpen, toggleCollapsed, toggleMobile, closeMobile } = useSidebarCollapse(pathname);
+  const { locale, setLocale } = useStartupLocale();
 
   const primaryLinks = [
     {
@@ -101,7 +104,12 @@ export default function Sidebar() {
             <span className="text-[9px] font-bold text-[#10b981] uppercase tracking-widest leading-tight">Entrepreneur Portal</span>
           </div>
         </Link>}
-        <SidebarCollapseButton collapsed={collapsed} onToggle={toggleCollapsed} />
+        <div className="flex items-center gap-2">
+          {(!collapsed || mobileOpen) && (
+            <RoleLanguageToggle locale={locale} setLocale={setLocale} dark compact />
+          )}
+          <SidebarCollapseButton collapsed={collapsed} onToggle={toggleCollapsed} />
+        </div>
       </div>
 
       {/* Primary Nav */}

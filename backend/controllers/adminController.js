@@ -2,6 +2,11 @@ const pool = require("../config/db");
 const path = require("path");
 const fs = require("fs");
 const mail = require("../utils/mail");
+const {
+	decideStartupRegistration,
+	decideInvestorRegistration,
+	decideMentorRegistration,
+} = require("../services/registrationDecisionService");
 
 async function ensureUserApprovalSchema() {
 	await pool.query(
@@ -68,6 +73,7 @@ async function syncStartupListingForUser(client, userId, { approved, rejected })
 		}
 		return;
 	}
+
 	if (rejected) {
 		await client.query(
 			`UPDATE startups
@@ -86,11 +92,256 @@ async function syncStartupListingForUser(client, userId, { approved, rejected })
 	}
 }
 
+const ROLE_AUTOMATION_CONFIG = {
+	Startup: {
+		table: "startups",
+		idColumn: "startup_id",
+		fkColumn: "startup_id",
+		decide: (client, user, profile, uploadedDocuments, options) =>
+			decideStartupRegistration(client, { user, startup: profile, uploadedDocuments, ...options }),
+	},
+	Investor: {
+		table: "investors",
+		idColumn: "investor_id",
+		fkColumn: "investor_id",
+		decide: (client, user, profile, uploadedDocuments, options) =>
+			decideInvestorRegistration(client, { user, investor: profile, uploadedDocuments, ...options }),
+	},
+	Mentor: {
+		table: "mentors",
+		idColumn: "mentor_id",
+		fkColumn: "mentor_id",
+		decide: (client, user, profile, uploadedDocuments, options) =>
+			decideMentorRegistration(client, { user, mentor: profile, uploadedDocuments, ...options }),
+	},
+};
+
+async function loadProfileForAutomation(client, user) {
+	const config = ROLE_AUTOMATION_CONFIG[user.role];
+	if (!config) return null;
+	const profileRes = await client.query(
+		`SELECT * FROM ${config.table} WHERE user_id = $1`,
+		[user.user_id],
+	);
+	return profileRes.rows[0] || null;
+}
+
+async function loadDocumentsForAutomation(client, role, profile) {
+	if (!profile) return [];
+	const config = ROLE_AUTOMATION_CONFIG[role];
+	if (!config) return [];
+
+	const docs = [];
+	const baseDocs = await client.query(
+		`SELECT document_id, COALESCE(description, 'Document') AS document_type,
+		        file_name, file_type, file_size_bytes, file_data
+		 FROM documents WHERE ${config.fkColumn} = $1 ORDER BY created_at ASC`,
+		[profile[config.idColumn]],
+	);
+	docs.push(
+		...baseDocs.rows.map((doc) => ({
+			document_id: doc.document_id,
+			document_type: doc.document_type,
+			file_name: doc.file_name,
+			file_type: doc.file_type,
+			file_size_bytes: doc.file_size_bytes,
+			file_data_base64: doc.file_data ? Buffer.from(doc.file_data).toString("base64") : null,
+		})),
+	);
+
+	if (role === "Mentor") {
+		const mentorDocs = await client.query(
+			`SELECT mentor_document_id AS document_id,
+			        COALESCE(document_type, description, 'Document') AS document_type,
+			        file_name, file_type, file_size_bytes, file_data
+		 FROM mentor_documents WHERE mentor_id = $1 ORDER BY created_at ASC`,
+			[profile[config.idColumn]],
+		);
+		docs.push(
+			...mentorDocs.rows.map((doc) => ({
+				document_id: doc.document_id,
+				document_type: doc.document_type,
+				file_name: doc.file_name,
+				file_type: doc.file_type,
+				file_size_bytes: doc.file_size_bytes,
+				file_data_base64: doc.file_data ? Buffer.from(doc.file_data).toString("base64") : null,
+			})),
+		);
+	}
+
+	return docs;
+}
+
+async function runAutomationForUserInternal(client, user, options = {}) {
+	const config = ROLE_AUTOMATION_CONFIG[user.role];
+	if (!config) {
+		return {
+			user_id: user.user_id,
+			email: user.email,
+			role: user.role,
+			status: "skipped_unknown_role",
+		};
+	}
+
+	const profile = await loadProfileForAutomation(client, user);
+	if (!profile) {
+		return {
+			user_id: user.user_id,
+			email: user.email,
+			role: user.role,
+			status: "skipped_missing_profile",
+		};
+	}
+
+	const uploadedDocuments = await loadDocumentsForAutomation(client, user.role, profile);
+	const decision = await config.decide(client, user, profile, uploadedDocuments, options);
+	return {
+		user_id: user.user_id,
+		email: user.email,
+		role: user.role,
+		status: decision.status,
+		score: decision.score,
+		review_only: Boolean(options.reviewOnly),
+		is_approved: decision.user?.is_approved,
+		is_active: decision.user?.is_active,
+		ai_status: decision.ai_review?.status,
+		ai_provider: decision.ai_review?.provider,
+		ai_risk: decision.ai_review?.risk_level,
+	};
+}
+
+exports.applyAutomationToPendingUsers = async (req, res) => {
+	const client = await pool.connect();
+	try {
+		await client.query("BEGIN");
+		const usersRes = await client.query(
+			`SELECT user_id, email, role, first_name, last_name, phone_number, email_verified
+			 FROM users
+			 WHERE role IN ('Startup', 'Investor', 'Mentor')
+			   AND is_approved = false
+			 ORDER BY created_at DESC`,
+		);
+
+		const results = [];
+		for (const user of usersRes.rows) {
+			const result = await runAutomationForUserInternal(client, user);
+			results.push(result);
+		}
+		await client.query("COMMIT");
+		return res.json({ processed: results.length, results });
+	} catch (err) {
+		try {
+			await client.query("ROLLBACK");
+		} catch {
+			/* ignore */
+		}
+		return res.status(500).json({ error: err.message });
+	} finally {
+		client.release();
+	}
+};
+
+exports.reviewExistingUsersWithAutomation = async (req, res) => {
+	const {
+		includeApproved = true,
+		onlyWithoutReview = false,
+		role,
+		limit = 100,
+	} = req.body || {};
+	const parsedLimit = Math.max(1, Math.min(Number(limit) || 100, 500));
+	const client = await pool.connect();
+	try {
+		await client.query("BEGIN");
+
+		const params = [];
+		const where = ["role IN ('Startup', 'Investor', 'Mentor')"];
+		if (!includeApproved) {
+			where.push("is_approved = false");
+		}
+		if (onlyWithoutReview) {
+			where.push("automation_status IS NULL");
+		}
+		if (role && ROLE_AUTOMATION_CONFIG[role]) {
+			params.push(role);
+			where.push(`role = $${params.length}`);
+		}
+		params.push(parsedLimit);
+
+		const usersRes = await client.query(
+			`SELECT user_id, email, role, first_name, last_name, phone_number,
+			        email_verified, is_approved, is_active
+			 FROM users
+			 WHERE ${where.join(" AND ")}
+			 ORDER BY created_at DESC
+			 LIMIT $${params.length}`,
+			params,
+		);
+
+		const results = [];
+		for (const user of usersRes.rows) {
+			const result = await runAutomationForUserInternal(client, user, { reviewOnly: true });
+			results.push(result);
+		}
+
+		await client.query("COMMIT");
+		return res.json({
+			processed: results.length,
+			reviewOnly: true,
+			includeApproved: Boolean(includeApproved),
+			onlyWithoutReview: Boolean(onlyWithoutReview),
+			results,
+		});
+	} catch (err) {
+		try {
+			await client.query("ROLLBACK");
+		} catch {
+			/* ignore */
+		}
+		return res.status(500).json({ error: err.message });
+	} finally {
+		client.release();
+	}
+};
+
+exports.runAutomationForUser = async (req, res) => {
+	const { userId } = req.params;
+	const { reviewOnly = false } = req.body || {};
+	const client = await pool.connect();
+	try {
+		await client.query("BEGIN");
+		const userRes = await client.query(
+			`SELECT user_id, email, role, first_name, last_name, phone_number, email_verified
+			 FROM users WHERE user_id = $1`,
+			[userId],
+		);
+		if (userRes.rows.length === 0) {
+			await client.query("ROLLBACK");
+			return res.status(404).json({ message: "User not found" });
+		}
+		const result = await runAutomationForUserInternal(client, userRes.rows[0], {
+			reviewOnly: Boolean(reviewOnly),
+		});
+		await client.query("COMMIT");
+		return res.json(result);
+	} catch (err) {
+		try {
+			await client.query("ROLLBACK");
+		} catch {
+			/* ignore */
+		}
+		return res.status(500).json({ error: err.message });
+	} finally {
+		client.release();
+	}
+};
+
 // GET /api/admin/users/pending
 exports.listPendingUsers = async (_req, res) => {
 	try {
 		const usersRes = await pool.query(
-			`SELECT user_id, first_name, last_name, email, role, phone_number, email_verified, provider_type, created_at
+			`SELECT user_id, first_name, last_name, email, role, phone_number,
+			        email_verified, provider_type, automation_status, automation_score,
+			        ai_recommendation, ai_risk_level, created_at
        FROM users WHERE is_approved = false ORDER BY created_at DESC`,
 		);
 
@@ -106,7 +357,10 @@ exports.getPendingUser = async (req, res) => {
 	const { userId } = req.params;
 	try {
 		const userRes = await pool.query(
-			`SELECT user_id, first_name, last_name, email, role, phone_number, is_approved, email_verified, provider_type, created_at
+			`SELECT user_id, first_name, last_name, email, role, phone_number,
+			        is_approved, email_verified, provider_type, automation_status,
+			        automation_score, automation_reasons, ai_review, ai_recommendation,
+			        ai_risk_level, rejection_reason, created_at
        FROM users WHERE user_id = $1`,
 			[userId],
 		);
@@ -279,7 +533,9 @@ exports.rejectUser = async (req, res) => {
 exports.searchUsers = async (req, res) => {
 	const { q, role, limit = 50, offset = 0 } = req.query;
 	try {
-		let base = `SELECT user_id, first_name, last_name, email, role, is_active, is_approved, created_at FROM users`;
+		let base = `SELECT user_id, first_name, last_name, email, role, is_active, is_approved,
+		                   automation_status, automation_score, ai_recommendation, ai_risk_level,
+		                   created_at FROM users`;
 		const where = [];
 		const params = [];
 		if (q) {
@@ -488,7 +744,9 @@ exports.getUser = async (req, res) => {
 	const { userId } = req.params;
 	try {
 		const userRes = await pool.query(
-			`SELECT user_id, first_name, last_name, email, role, phone_number, is_active, is_approved, created_at
+			`SELECT user_id, first_name, last_name, email, role, phone_number, is_active, is_approved,
+			        automation_status, automation_score, automation_reasons, ai_review,
+			        ai_recommendation, ai_risk_level, rejection_reason, created_at
 			 FROM users WHERE user_id = $1`,
 			[userId],
 		);

@@ -120,6 +120,27 @@ router.get(
 	adminController.getPendingUser,
 );
 
+router.post(
+	"/users/automation",
+	authenticate,
+	authorizeRoles("Admin"),
+	adminController.applyAutomationToPendingUsers,
+);
+
+router.post(
+	"/users/review-existing",
+	authenticate,
+	authorizeRoles("Admin"),
+	adminController.reviewExistingUsersWithAutomation,
+);
+
+router.post(
+	"/users/:userId/automation",
+	authenticate,
+	authorizeRoles("Admin"),
+	adminController.runAutomationForUser,
+);
+
 router.put(
 	"/users/reject/:userId",
 	authenticate,

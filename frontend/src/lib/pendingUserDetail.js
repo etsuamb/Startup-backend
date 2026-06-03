@@ -91,6 +91,10 @@ export function buildProfileSections(user, profile) {
 			{ label: "Email", value: fmt(user.email) },
 			{ label: "Phone", value: fmt(user.phone_number) },
 			{ label: "Role", value: fmt(user.role) },
+			{ label: "AI decision", value: fmt(user.automation_status) },
+			{ label: "Automation score", value: user.automation_score != null ? String(user.automation_score) : null },
+			{ label: "AI recommendation", value: fmt(user.ai_recommendation) },
+			{ label: "AI risk level", value: fmt(user.ai_risk_level) },
 			{ label: "Registered", value: fmtDate(user.created_at) },
 		],
 	});
