@@ -44,7 +44,7 @@ export function openUploadedFileForView({ documentId, filePath, fileName, fileTy
       name: fileName || "Document",
       type: fileType || "",
     });
-    window.open(`/startup/view-file?${params.toString()}`, "_blank", "noopener,noreferrer");
+    window.open(`/view-file?${params.toString()}`, "_blank", "noopener,noreferrer");
     return true;
   }
 
@@ -60,7 +60,7 @@ export function openUploadedFileForView({ documentId, filePath, fileName, fileTy
     name: fileName || "Document",
     type: fileType || "",
   });
-  window.open(`/startup/view-file?${params.toString()}`, "_blank", "noopener,noreferrer");
+  window.open(`/view-file?${params.toString()}`, "_blank", "noopener,noreferrer");
   return true;
 }
 

@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { fileDisplayKind, fetchDocumentBlob } from "@/lib/viewUploadedFile";
+import { getToken } from "@/lib/authStorage";
 
 function FileViewerContent() {
   const router = useRouter();
@@ -16,6 +17,17 @@ function FileViewerContent() {
   const [resolvedType, setResolvedType] = useState(fileType);
   const [loading, setLoading] = useState(Boolean(documentId));
   const [error, setError] = useState("");
+  const [isStartup, setIsStartup] = useState(false);
+
+  useEffect(() => {
+    try {
+      const token = getToken();
+      if (token) {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        setIsStartup(payload.role === "Startup");
+      }
+    } catch (e) {}
+  }, []);
 
   const safeUrl = useMemo(() => {
     if (!rawUrl.startsWith("/uploads/")) return null;
@@ -75,17 +87,19 @@ function FileViewerContent() {
               This older upload is no longer available. Upload a replacement document to continue.
             </p>
           ) : null}
-          <button
-            type="button"
-            onClick={() => router.push("/startup/project/documents")}
-            className="mt-5 rounded-lg bg-[#0f3d32] px-4 py-2 text-sm font-bold text-white hover:bg-[#0a2921]"
-          >
-            Replace file
-          </button>
+          {isStartup && (
+            <button
+              type="button"
+              onClick={() => router.push("/startup/project/documents")}
+              className="mt-5 rounded-lg bg-[#0f3d32] px-4 py-2 text-sm font-bold text-white hover:bg-[#0a2921]"
+            >
+              Replace file
+            </button>
+          )}
           <button
             type="button"
             onClick={() => router.back()}
-            className="ml-4 mt-4 text-sm font-bold text-[#0f3d32] hover:underline"
+            className={`${isStartup ? "ml-4" : ""} mt-4 text-sm font-bold text-[#0f3d32] hover:underline`}
           >
             Go back
           </button>

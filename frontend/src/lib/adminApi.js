@@ -141,6 +141,10 @@ export function fetchUser(userId) {
 	return apiFetch(`/admin/users/${userId}`);
 }
 
+export function updateUserStatus(userId, status, reason = "") {
+	return apiPutJson(`/admin/users/${userId}/status`, { status, reason });
+}
+
 export function suspendUser(userId, reason = "") {
 	return apiFetch(`/admin/users/${userId}/suspend`, {
 		method: "POST",
@@ -649,4 +653,3 @@ export function fetchFraudSummary() {
 export function runPaymentFraudScan() {
 	return apiFetch("/admin/monitoring/fraud-scan", { method: "POST" });
 }
-

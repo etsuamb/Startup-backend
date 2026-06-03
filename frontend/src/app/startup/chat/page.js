@@ -236,6 +236,7 @@ export default function StartupInvestorChatPage() {
 	if (isMentorChat) {
 		return (
 			<StartupChatView
+				key="mentor"
 				chatKind="mentor"
 				profileDiscoverBase="/startup/discover/mentor"
 				loadConversations={getMentorChatConversations}
@@ -255,6 +256,7 @@ export default function StartupInvestorChatPage() {
 
 	return (
 		<StartupChatView
+			key="investor"
 			chatKind="investor"
 			profileDiscoverBase="/startup/discover/investor"
 			loadConversations={getInvestorChatConversations}

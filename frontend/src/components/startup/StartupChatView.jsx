@@ -378,6 +378,11 @@ export default function StartupChatView({
 				setError(null);
 				await fetchMessages(selected.id);
 				markReadSocket();
+				setConversations((prev) =>
+					prev.map((c) =>
+						c.id === selected.id ? { ...c, unread: 0 } : c
+					)
+				);
 			} catch (err) {
 				setError(
 					isChatAccessError(err)
@@ -680,13 +685,25 @@ export default function StartupChatView({
 								)}
 							</div>
 							<div className="flex gap-2 flex-wrap">
-								<Link href="/startup/chat" className="px-3 py-1.5 rounded-lg bg-[#f3f4f6] text-xs font-bold text-gray-600 hover:bg-gray-200">
+								<Link
+									href="/startup/chat"
+									onClick={() => setListFilter("all")}
+									className="px-3 py-1.5 rounded-lg bg-[#f3f4f6] text-xs font-bold text-gray-600 hover:bg-gray-200"
+								>
 									All Chats
 								</Link>
-								<Link href="/startup/chat?kind=investor" className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${chatKind === "investor" ? "bg-[#0f3d32] text-white" : "bg-[#f3f4f6] text-gray-600 hover:bg-gray-200"}`}>
+								<Link
+									href="/startup/chat?kind=investor"
+									onClick={() => setListFilter("all")}
+									className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${chatKind === "investor" && listFilter !== "unread" ? "bg-[#0f3d32] text-white" : "bg-[#f3f4f6] text-gray-600 hover:bg-gray-200"}`}
+								>
 									Investors
 								</Link>
-								<Link href="/startup/chat?kind=mentor" className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${chatKind === "mentor" ? "bg-[#0f3d32] text-white" : "bg-[#f3f4f6] text-gray-600 hover:bg-gray-200"}`}>
+								<Link
+									href="/startup/chat?kind=mentor"
+									onClick={() => setListFilter("all")}
+									className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${chatKind === "mentor" && listFilter !== "unread" ? "bg-[#0f3d32] text-white" : "bg-[#f3f4f6] text-gray-600 hover:bg-gray-200"}`}
+								>
 									Mentors
 								</Link>
 								<button

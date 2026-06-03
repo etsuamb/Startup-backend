@@ -9,6 +9,7 @@ import ViewableFileTrigger from "@/components/startup/ViewableFileTrigger";
 import AccountAccessBanner from "@/components/auth/AccountAccessBanner";
 import ProfilePictureEditor from "@/components/auth/ProfilePictureEditor";
 import AccountSecurityPanel from "@/components/auth/AccountSecurityPanel";
+import AccountDeletionPanel from "@/components/auth/AccountDeletionPanel";
 import { IndustrySelectWithOther } from "@/components/register/IndustryFields";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -247,7 +248,7 @@ function Toast({ message, type, onClose }) {
   const isSuccess = type === "success";
   if (type === "error") {
     return (
-      <p role="alert" className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+      <p role="alert" className="fixed left-1/2 top-4 z-[60] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 text-center text-sm font-semibold text-red-700">
         {message}
       </p>
     );
@@ -375,7 +376,6 @@ export default function StartupSettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   // Danger zone
-  const [deleteConfirm, setDeleteConfirm] = useState("");
 
   const registrationDocuments = useMemo(() => {
     return STARTUP_DOCUMENT_TYPES.map((type) => ({
@@ -499,6 +499,7 @@ export default function StartupSettingsPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load startup settings when this page opens.
     loadProfile();
     loadNotificationSettings();
   }, [loadProfile, loadNotificationSettings]);
@@ -1154,58 +1155,7 @@ export default function StartupSettingsPage() {
   // ─── Danger Zone Tab ────────────────────────────────────────────────────────
   function renderDangerTab() {
     return (
-      <div className="space-y-6">
-        <SectionCard className="border-red-100">
-          <SectionHeader
-            title="Deactivate Account"
-            description="Temporarily disable your startup's visibility on the platform. You can reactivate at any time."
-          />
-          <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 mb-4">
-            <p className="text-xs text-amber-800">
-              <strong>What happens:</strong> Your profile, projects, and offers will be hidden from investors and mentors. Active mentorship sessions will be paused. No data will be deleted.
-            </p>
-          </div>
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-5 py-2.5 text-sm font-bold text-amber-800 hover:bg-amber-100 transition"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-            </svg>
-            Deactivate Account
-          </button>
-        </SectionCard>
-
-        <SectionCard className="border-red-200 bg-red-50/30">
-          <SectionHeader
-            title="Delete Account"
-            description="Permanently delete your startup account and all associated data. This action cannot be undone."
-          />
-          <div className="rounded-xl bg-red-50 border border-red-200 p-4 mb-5">
-            <p className="text-xs text-red-800">
-              <strong>⚠ Warning:</strong> All your data including profile, projects, documents, offers, chat history, and mentorship records will be permanently deleted. This action is irreversible.
-            </p>
-          </div>
-          <div className="max-w-sm space-y-3">
-            <FormField label={`Type "${startupName || "DELETE"}" to confirm`}>
-              <input
-                value={deleteConfirm}
-                onChange={(e) => setDeleteConfirm(e.target.value)}
-                className={`${inputClass} border-red-200 focus:border-red-500 focus:ring-red-500/10`}
-                placeholder={startupName || "DELETE"}
-              />
-            </FormField>
-            <button
-              type="button"
-              disabled={deleteConfirm !== (startupName || "DELETE")}
-              className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-red-700 transition disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              <IconTrash />
-              Permanently Delete Account
-            </button>
-          </div>
-        </SectionCard>
-      </div>
+      <AccountDeletionPanel actorLabel="startup" />
     );
   }
 

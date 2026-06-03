@@ -5,6 +5,7 @@ import Sidebar from "@/components/investor/Sidebar";
 import AccountAccessBanner from "@/components/auth/AccountAccessBanner";
 import AccountSecurityPanel from "@/components/auth/AccountSecurityPanel";
 import ProfilePictureEditor from "@/components/auth/ProfilePictureEditor";
+import AccountDeletionPanel from "@/components/auth/AccountDeletionPanel";
 import { IndustrySelectWithOther } from "@/components/register/IndustryFields";
 import { getCurrentAccount, updateCurrentAccount } from "@/lib/authApi";
 import {
@@ -350,10 +351,7 @@ export default function InvestorSettingsPage() {
       </SectionCard>
     );
     return (
-      <SectionCard className="border-red-200 bg-red-50/30">
-        <SectionHeader title="Danger Zone" description="Sensitive investor-account actions belong here." />
-        <p className="text-sm text-gray-600">Contact support to pause or permanently remove your investor account and associated portfolio records.</p>
-      </SectionCard>
+      <AccountDeletionPanel actorLabel="investor" />
     );
   }
 

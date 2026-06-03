@@ -10,16 +10,20 @@ import {
 	runExistingUserAutomation,
 	runUserAutomation,
 	searchUsers,
-	unsuspendUser,
+	updateUserStatus,
 } from "@/lib/adminApi";
 import { formatFieldValue, profileFieldMap } from "@/lib/adminDisplay";
 import AdminActionModal from "@/components/admin/AdminActionModal";
 
+function accountStatus(user) {
+	if (user.rejected_at || !user.is_active) return "rejected";
+	if (user.is_approved) return "approved";
+	return "pending";
+}
+
 function statusBadge(user) {
-	if (!user.is_active) {
-		return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">Suspended</span>;
-	}
-	if (user.is_approved) {
+	const status = accountStatus(user);
+	if (status === "approved") {
 		return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">Approved</span>;
 	}
 	if (user.automation_status === "ai_recommends_approval" || user.automation_status === "auto_approved") {
@@ -148,14 +152,20 @@ export default function AdminAllUsersPanel() {
 		}
 	}
 
-	async function runAction(fn) {
+	async function runAction(fn, { clearSelection = false } = {}) {
 		if (!selectedId) return;
 		setActionLoading(true);
 		setError("");
 		try {
 			await fn();
 			await load();
-			await openDetail(selectedId);
+			if (clearSelection) {
+				setSelectedId(null);
+				setDetail(null);
+				setAuditLogs([]);
+			} else {
+				await openDetail(selectedId);
+			}
 		} catch (ex) {
 			setError(ex.message || "Action failed");
 		} finally {
@@ -199,18 +209,44 @@ export default function AdminAllUsersPanel() {
 
 	return (
 		<div className="space-y-6">
-			{actionModal?.type === "deactivate" ? (
+			{actionModal?.type === "reject" ? (
 				<AdminActionModal
 					open
-					title="Deactivate account?"
-					message="This user will be deactivated and lose access until restored."
-					confirmLabel="Deactivate"
+					title="Reject account?"
+					message="The user will lose access and their profile will be removed from public directories."
+					confirmLabel="Reject account"
+					variant="prompt"
+					inputLabel="Reason"
+					inputType="textarea"
+					placeholder="Explain why this account is being rejected"
 					isDangerous
 					isLoading={actionLoading}
 					onCancel={() => setActionModal(null)}
-					onConfirm={() => {
+					onConfirm={(reason) => {
 						setActionModal(null);
-						runAction(() => deleteUser(selectedId, { hard: false }));
+						runAction(() => updateUserStatus(selectedId, "rejected", reason));
+					}}
+				/>
+			) : null}
+			{actionModal?.type === "delete" ? (
+				<AdminActionModal
+					open
+					title="Permanently delete user?"
+					message="This permanently removes the user and related account data. This action cannot be undone. Type DELETE to continue."
+					confirmLabel="Delete permanently"
+					variant="prompt"
+					inputLabel="Confirmation"
+					placeholder="DELETE"
+					isDangerous
+					isLoading={actionLoading}
+					onCancel={() => setActionModal(null)}
+					onConfirm={(value) => {
+						if (String(value || "").trim() !== "DELETE") {
+							setError("Type DELETE exactly to permanently delete this user.");
+							return;
+						}
+						setActionModal(null);
+						runAction(() => deleteUser(selectedId, { hard: true }), { clearSelection: true });
 					}}
 				/>
 			) : null}
@@ -310,6 +346,21 @@ export default function AdminAllUsersPanel() {
 							<AutomationReview user={detail.user} />
 
 							<div className="flex flex-wrap gap-2">
+								{detail.user.role !== "Admin" ? (
+									<label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600">
+										Status
+										<select
+											value={accountStatus(detail.user)}
+											onChange={(event) => changeStatus(event.target.value)}
+											disabled={actionLoading}
+											className="bg-transparent text-xs font-bold text-slate-800 outline-none disabled:opacity-50"
+										>
+											<option value="pending">Pending approval</option>
+											<option value="approved">Approved</option>
+											<option value="rejected">Rejected</option>
+										</select>
+									</label>
+								) : null}
 								<Link
 									href={`/admin/users/${detail.user.user_id}`}
 									className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50"
@@ -347,10 +398,10 @@ export default function AdminAllUsersPanel() {
 								<button
 									type="button"
 									disabled={actionLoading}
-									onClick={() => setActionModal({ type: "deactivate" })}
-									className="px-3 py-2 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 disabled:opacity-50"
+									onClick={() => setActionModal({ type: "delete" })}
+									className="px-3 py-2 rounded-xl border border-red-200 bg-white text-red-700 text-xs font-bold hover:bg-red-50 disabled:opacity-50"
 								>
-									Deactivate
+									Delete user
 								</button>
 							</div>
 

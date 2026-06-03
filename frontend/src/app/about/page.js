@@ -1,5 +1,38 @@
-import Image from "next/image";
 import Link from "next/link";
+import TeamMemberPhoto from "@/components/public/TeamMemberPhoto";
+
+const TEAM_MEMBERS = [
+  {
+    name: "Blien Moges",
+    role: "Full Stack Developer",
+    initials: "BM",
+    image: "/team/blien-moges.jpg.jpg",
+  },
+  {
+    name: "Eyerusalem Rufael",
+    role: "UI/UX Designer and Team Organizer",
+    initials: "ER",
+    image: "/team/eyerusalem-rufael.jpg.jpg",
+  },
+  {
+    name: "Eyerusalem Kidane",
+    role: "Frontend Developer",
+    initials: "EK",
+    image: "/team/eyerusalem-kidane.jpg.jpg",
+  },
+  {
+    name: "Rahel Belay",
+    role: "Backend Developer",
+    initials: "RB",
+    image: "/team/rahel-belay.jpg.jpg",
+  },
+  {
+    name: "Etsub Grima",
+    role: "Full Stack Developer",
+    initials: "EG",
+    image: "/team/etsub-grima.jpg.jpg",
+  },
+];
 
 export default function About() {
   return (
@@ -74,7 +107,7 @@ export default function About() {
         {/* Hero Section */}
         <section className="pt-24 pb-20 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto text-center">
           <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-gray-900 mb-6 leading-tight">
-            Empowering Ethiopia's Startup <br className="hidden md:block" />{" "}
+            Empowering Ethiopia&apos;s Startup <br className="hidden md:block" />{" "}
             Ecosystem
           </h1>
           <p className="text-lg text-gray-600 mb-10 mx-auto leading-relaxed">
@@ -345,7 +378,7 @@ export default function About() {
               </div>
               <h3 className="text-xl font-bold mb-3">Local Focus</h3>
               <p className="text-gray-600 text-sm leading-relaxed">
-                Built specifically for Ethiopia's startup ecosystem.
+                Built specifically for Ethiopia&apos;s startup ecosystem.
               </p>
             </div>
             <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 flex flex-col text-left">
@@ -374,50 +407,28 @@ export default function About() {
         </section>
 
         {/* Our Team */}
-        <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto border-t border-gray-100">
-          <h2 className="text-3xl font-bold text-center text-gray-900 mb-16">
-            Our Team
-          </h2>
-          <div className="grid md:grid-cols-4 gap-8 text-center">
-            {/* Team Member 1 */}
-            <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center hover:shadow-md transition">
-              <div className="w-24 h-24 rounded-full bg-gray-200 mb-4 overflow-hidden relative">
-                <div className="absolute inset-0 flex items-center justify-center text-gray-400 bg-gray-200 text-xs">
-                  Image
-                </div>
-              </div>
-              <h3 className="text-lg font-bold">Abebe Kebede</h3>
-              <p className="text-sm text-gray-500">CEO & Founder</p>
+        <section className="border-t border-gray-100 bg-[#f6faf8] px-4 py-20 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-6xl">
+            <div className="mx-auto mb-12 max-w-2xl text-center">
+              <p className="text-xs font-bold uppercase tracking-widest text-[#167b66]">The people behind the platform</p>
+              <h2 className="mt-3 text-3xl font-bold text-gray-900">Our Team</h2>
+              <p className="mt-4 text-sm leading-6 text-gray-600">
+                A focused team bringing product design, frontend, backend, and full-stack development together.
+              </p>
             </div>
-            {/* Team Member 2 */}
-            <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center hover:shadow-md transition">
-              <div className="w-24 h-24 rounded-full bg-gray-200 mb-4 overflow-hidden relative">
-                <div className="absolute inset-0 flex items-center justify-center text-gray-400 bg-gray-200 text-xs">
-                  Image
-                </div>
-              </div>
-              <h3 className="text-lg font-bold">Tigist Haile</h3>
-              <p className="text-sm text-gray-500">CTO</p>
-            </div>
-            {/* Team Member 3 */}
-            <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center hover:shadow-md transition">
-              <div className="w-24 h-24 rounded-full bg-gray-200 mb-4 overflow-hidden relative">
-                <div className="absolute inset-0 flex items-center justify-center text-gray-400 bg-gray-200 text-xs">
-                  Image
-                </div>
-              </div>
-              <h3 className="text-lg font-bold">Dawit Mekonnen</h3>
-              <p className="text-sm text-gray-500">Product Manager</p>
-            </div>
-            {/* Team Member 4 */}
-            <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center hover:shadow-md transition">
-              <div className="w-24 h-24 rounded-full bg-gray-200 mb-4 overflow-hidden relative">
-                <div className="absolute inset-0 flex items-center justify-center text-gray-400 bg-gray-200 text-xs">
-                  Image
-                </div>
-              </div>
-              <h3 className="text-lg font-bold">Hiwot Tadesse</h3>
-              <p className="text-sm text-gray-500">Marketing Lead</p>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {TEAM_MEMBERS.map((member) => (
+                <article
+                  key={member.name}
+                  className="flex flex-col items-center rounded-lg border border-[#dbe9e4] bg-white px-5 pt-7 text-center shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-md"
+                >
+                  <TeamMemberPhoto src={member.image} name={member.name} initials={member.initials} />
+                  <div className="min-h-28 w-full px-1 py-5">
+                    <h3 className="text-lg font-bold text-gray-900">{member.name}</h3>
+                    <p className="mt-1 text-sm font-medium leading-5 text-[#167b66]">{member.role}</p>
+                  </div>
+                </article>
+              ))}
             </div>
           </div>
         </section>
@@ -426,7 +437,7 @@ export default function About() {
         <section className="py-20 bg-[#167b66] text-center px-4">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-3xl font-bold text-white mb-6">
-              Join the platform and be part of Ethiopia's innovation future.
+              Join the platform and be part of Ethiopia&apos;s innovation future.
             </h2>
             <Link
               href="/register"
